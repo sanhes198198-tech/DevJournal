@@ -30,7 +30,7 @@ from ..items.routed_arrow import RoutedArrowItem
 
 def add_card(
     canvas,
-    title="Новая карточка",
+    title="",
     text="",
     x=None,
     y=None,

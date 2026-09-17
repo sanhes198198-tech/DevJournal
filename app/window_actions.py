@@ -179,7 +179,7 @@ def add_card(window, card_type="text"):
     )
 
     card = window.canvas.add_card(
-        title=title,
+        title="",
         card_type=card_type,
     )
 

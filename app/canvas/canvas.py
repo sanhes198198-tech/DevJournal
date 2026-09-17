@@ -551,7 +551,7 @@ class Canvas(QGraphicsView):
 
     def add_card(
         self,
-        title="Новая карточка",
+        title="",
         text="",
         x=None,
         y=None,
