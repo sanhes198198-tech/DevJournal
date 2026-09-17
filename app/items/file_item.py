@@ -64,12 +64,12 @@ class FileItem(QGraphicsItem):
         )
 
         self.name_item.setDefaultTextColor(
-            QColor("#202124")
+            QColor("#444444")
         )
 
         self.name_item.setFont(
             QFont(
-                "Segoe UI",
+                "Roboto",
                 9,
             )
         )
@@ -358,7 +358,7 @@ class FileItem(QGraphicsItem):
 
         painter.setFont(
             QFont(
-                "Segoe UI",
+                "Roboto",
                 7,
                 QFont.Weight.Bold,
             )

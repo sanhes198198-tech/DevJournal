@@ -12,7 +12,7 @@ from PySide6.QtGui import QFont
 # Настройки по умолчанию (можно менять здесь)
 # ---------------------------------------------------------
 
-FONT_FAMILY = "Segoe UI"
+FONT_FAMILY = "Roboto"
 
 FONT_SIZE_BODY = 12
 FONT_SIZE_TITLE = 14
@@ -35,7 +35,10 @@ def title_font():
     Шрифт для заголовка (жирный, чуть больше).
     """
     font = QFont(FONT_FAMILY, FONT_SIZE_TITLE)
-    font.setBold(True)
+    try:
+        font.setWeight(QFont.Weight.DemiBold)
+    except Exception:
+        font.setBold(False)
     return font
 
 
@@ -44,7 +47,10 @@ def comment_title_font():
     Шрифт для имени автора в комментарии.
     """
     font = QFont(FONT_FAMILY, FONT_SIZE_BODY)
-    font.setBold(True)
+    try:
+        font.setWeight(QFont.Weight.DemiBold)
+    except Exception:
+        font.setBold(False)
     return font
 
 

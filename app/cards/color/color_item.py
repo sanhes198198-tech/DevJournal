@@ -565,7 +565,7 @@ class ColorItem(QGraphicsRectItem):
         )
 
         code_font = QFont(
-            "Segoe UI",
+            "Roboto",
             11,
         )
 

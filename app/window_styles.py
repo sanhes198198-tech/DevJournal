@@ -7,7 +7,7 @@ QSS = """
         }
 
         QWidget {
-            font-family: "Segoe UI";
+            font-family: "Roboto";
             color: #202124;
         }
 

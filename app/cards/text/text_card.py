@@ -1,4 +1,4 @@
-﻿from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QBrush, QPen, QPainter
 
 from ..base.card import Card
@@ -40,7 +40,7 @@ class TextCard(Card):
 
         if self.body_item is not None:
 
-            self.body_item.setDefaultTextColor(QColor("#333333"))
+            self.body_item.setDefaultTextColor(QColor("#444444"))
 
             self.body_item.document().contentsChanged.connect(
                 self.update_height

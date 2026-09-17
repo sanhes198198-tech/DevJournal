@@ -73,6 +73,41 @@ def _get_text_data(text_item):
     }
 
 
+def clean_html_colors(html):
+    """
+    Убирает color:, font-weight:, font-family: из HTML.
+    Нужно, чтобы defaultTextColor и typography работали.
+    """
+
+    if not html:
+        return html
+
+    import re
+
+    # color: #xxxxxx; или color:#xxxxxx;
+    html = re.sub(
+        r"\s*color\s*:\s*#[0-9a-fA-F]+\s*;?",
+        "",
+        html,
+    )
+
+    # font-weight: 700; и т.п.
+    html = re.sub(
+        r"\s*font-weight\s*:\s*\d+\s*;?",
+        "",
+        html,
+    )
+
+    # font-family: 'Xxx'; и т.п.
+    html = re.sub(
+        r"\s*font-family\s*:\s*'[^']*'\s*;?",
+        "",
+        html,
+    )
+
+    return html
+
+
 def _restore_text_item(text_item, text, html):
     """Восстанавливает содержимое EditableText."""
 
@@ -80,7 +115,8 @@ def _restore_text_item(text_item, text, html):
         return
 
     if html:
-        text_item.setHtml(html)
+        cleaned = clean_html_colors(html)
+        text_item.setHtml(cleaned)
     else:
         text_item.setPlainText(text or "")
 
