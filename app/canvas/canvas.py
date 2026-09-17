@@ -700,7 +700,6 @@ class Canvas(QGraphicsView):
         new_v = list(vertical or [])
         new_h = list(horizontal or [])
 
-        print(f"[CANVAS-SET] set_snap_guides v={new_v} h={new_h}")
 
         if self._snap_v_lines == new_v and self._snap_h_lines == new_h:
             return
@@ -730,9 +729,6 @@ class Canvas(QGraphicsView):
         """
 
         super().drawForeground(painter, rect)
-
-        if self._snap_v_lines or self._snap_h_lines:
-            print(f"[CANVAS-DRAW] drawForeground v={self._snap_v_lines} h={self._snap_h_lines}")
 
         if not self._snap_v_lines and not self._snap_h_lines:
             return

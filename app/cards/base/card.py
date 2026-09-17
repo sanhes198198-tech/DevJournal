@@ -497,17 +497,14 @@ class Card(QGraphicsRectItem):
         try:
             view = scene.views()[0] if scene.views() else None
 
-            print(f"[CARD-SET] view={view is not None}")
-
+    
             if view is not None:
                 v_lines = [best_x_guide] if best_x_guide is not None else []
                 h_lines = [best_y_guide] if best_y_guide is not None else []
 
-                print(f"[CARD-SET] calling set_snap_guides v={v_lines} h={h_lines}")
 
                 setter = getattr(view, "set_snap_guides", None)
 
-                print(f"[CARD-SET] setter={setter}")
 
                 if callable(setter):
                     setter(vertical=v_lines, horizontal=h_lines)
