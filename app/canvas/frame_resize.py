@@ -1,5 +1,5 @@
 """
-Resize-Р»РѕРіРёРєР° РґР»СЏ FrameItem.
+Resize-логика для FrameItem.
 """
 
 from PySide6.QtCore import QPointF, QRectF
@@ -230,16 +230,16 @@ def finish_resize(frame):
 
 def _member_scene_rect(member):
     """
-    РЈРЅРёРІРµСЂСЃР°Р»СЊРЅРѕ РїРѕР»СѓС‡Р°РµС‚ bbox РѕР±СЉРµРєС‚Р° РІ РєРѕРѕСЂРґРёРЅР°С‚Р°С… СЃС†РµРЅС‹.
+    Универсально получает bbox объекта в координатах сцены.
 
-    РџСЂРѕР±СѓРµС‚ РЅРµСЃРєРѕР»СЊРєРѕ СЃРїРѕСЃРѕР±РѕРІ, С‡С‚РѕР±С‹ СЂР°Р±РѕС‚Р°С‚СЊ
-    СЃ Р»СЋР±С‹Рј С‚РёРїРѕРј РєР°СЂС‚РѕС‡РєРё.
+    Пробует несколько способов, чтобы работать
+    с любым типом карточки.
     """
 
     if member is None:
         return None
 
-    # РЎРїРѕСЃРѕР± 1: sceneBoundingRect
+    # Способ 1: sceneBoundingRect
     try:
         rect = member.sceneBoundingRect()
 
@@ -248,7 +248,7 @@ def _member_scene_rect(member):
     except Exception:
         pass
 
-    # РЎРїРѕСЃРѕР± 2: boundingRect + mapToScene
+    # Способ 2: boundingRect + mapToScene
     try:
         local_rect = member.boundingRect()
 
@@ -259,7 +259,7 @@ def _member_scene_rect(member):
     except Exception:
         pass
 
-    # РЎРїРѕСЃРѕР± 3: rect + mapToScene
+    # Способ 3: rect + mapToScene
     try:
         local_rect = member.rect()
 
@@ -270,7 +270,7 @@ def _member_scene_rect(member):
     except Exception:
         pass
 
-    # РЎРїРѕСЃРѕР± 4: pos + item_width/item_height
+    # Способ 4: pos + item_width/item_height
     try:
         x = member.pos().x()
         y = member.pos().y()
@@ -292,9 +292,9 @@ def _member_scene_rect(member):
 
 def autosize_to_members(frame):
     """
-    РџРѕРґРіРѕРЅСЏРµС‚ СЂР°Р·РјРµСЂ Рё РїРѕР·РёС†РёСЋ СЂР°РјРєРё РїРѕРґ РµС‘ СЃРѕРґРµСЂР¶РёРјРѕРµ.
+    Подгоняет размер и позицию рамки под её содержимое.
 
-    Р Р°Р±РѕС‚Р°РµС‚ СЃ Р»СЋР±С‹РјРё С‚РёРїР°РјРё РєР°СЂС‚РѕС‡РµРє.
+    Работает с любыми типами карточек.
     """
 
     if frame is None:

@@ -1054,24 +1054,37 @@ class RoutedArrowItem(ArrowItem):
     def _remove_bend_handle(self):
         handle = self._bend_handle
 
-        if handle is None:
-            return
-
         self._bend_handle = None
 
+        # Удаляем handle через self._bend_handle (если есть)
+        if handle is not None:
+            try:
+                scene = handle.scene()
+
+                if scene is not None:
+                    scene.removeItem(handle)
+            except RuntimeError:
+                pass
+            except Exception:
+                pass
+
+        # Гарантированно ищем все ArrowBendHandle на сцене,
+        # которые ссылаются на эту стрелку, и удаляем их.
         try:
-            scene = handle.scene()
+            scene = self.scene()
 
             if scene is not None:
-                scene.removeItem(
-                    handle
-                )
-
-            del handle
-
+                for item in list(scene.items()):
+                    try:
+                        if isinstance(item, ArrowBendHandle):
+                            if getattr(item, "arrow", None) is self:
+                                scene.removeItem(item)
+                    except RuntimeError:
+                        pass
+                    except Exception:
+                        pass
         except RuntimeError:
             pass
-
         except Exception:
             pass
 

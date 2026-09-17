@@ -351,7 +351,7 @@ class FileItem(QGraphicsItem):
             4,
         )
 
-        # Р СћР ВµР С”РЎРѓРЎвЂљ Р Р†Р Р…РЎС“РЎвЂљРЎР‚Р С‘ Р В·Р Р…Р В°РЎвЂЎР С”Р В°
+        # РўРµРєСЃС‚ РІРЅСѓС‚СЂРё Р·РЅР°С‡РєР°
         painter.setPen(
             QColor("#FFFFFF")
         )
@@ -508,11 +508,11 @@ class FileItem(QGraphicsItem):
         menu = QMenu()
 
         open_action = menu.addAction(
-            "Р С›РЎвЂљР С”РЎР‚РЎвЂ№РЎвЂљРЎРЉ"
+            "РћС‚РєСЂС‹С‚СЊ"
         )
 
         delete_action = menu.addAction(
-            "Р Р€Р Т‘Р В°Р В»Р С‘РЎвЂљРЎРЉ"
+            "РЈРґР°Р»РёС‚СЊ"
         )
 
         action = menu.exec(

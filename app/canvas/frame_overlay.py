@@ -26,8 +26,8 @@ from PySide6.QtWidgets import QGraphicsItem
 
 OVERLAY_Z = 600.0
 
-HANDLE_SIZE = 10.0       # СЂР°Р·РјРµСЂ РєРІР°РґСЂР°С‚РЅРѕР№ СЂСѓС‡РєРё (РІРёР·СѓР°Р»СЊРЅРѕ)
-HANDLE_HIT_MARGIN = 6.0  # СЂР°СЃС€РёСЂРµРЅРёРµ Р·РѕРЅС‹ Р·Р°С…РІР°С‚Р° РІРѕРєСЂСѓРі СЂСѓС‡РєРё
+HANDLE_SIZE = 10.0       # размер квадратной ручки (визуально)
+HANDLE_HIT_MARGIN = 6.0  # расширение зоны захвата вокруг ручки
 
 BORDER_WIDTH_NORMAL = 1.5
 BORDER_WIDTH_SELECTED = 2.0
@@ -45,7 +45,7 @@ HANDLE_BORDER = QColor("#4F7CFF")
 
 def _handle_positions(rect):
     """
-    Р’РѕР·РІСЂР°С‰Р°РµС‚ СЃРїРёСЃРѕРє (name, QPointF) РґР»СЏ 8 СЂСѓС‡РµРє.
+    Возвращает список (name, QPointF) для 8 ручек.
     """
 
     left = rect.left()
@@ -70,7 +70,7 @@ def _handle_positions(rect):
 
 def _cursor_for_handle(name):
     """
-    Р’РѕР·РІСЂР°С‰Р°РµС‚ Qt.CursorShape РїРѕ РёРјРµРЅРё СЂСѓС‡РєРё.
+    Возвращает Qt.CursorShape по имени ручки.
     """
 
     mapping = {
@@ -128,13 +128,13 @@ class FrameOverlay(QGraphicsItem):
 
     def boundingRect(self):
         """
-        РџРѕР»РЅС‹Р№ bounding rect СЂР°РјРєРё РІ Р»РѕРєР°Р»СЊРЅС‹С… РєРѕРѕСЂРґРёРЅР°С‚Р°С… overlay.
+        Полный bounding rect рамки в локальных координатах overlay.
 
-        Overlay РїРѕР·РёС†РёРѕРЅРёСЂСѓРµС‚СЃСЏ РІ scene coords 1:1 СЃ СЂР°РјРєРѕР№:
-        РµРіРѕ pos() = frame.pos(), РЅРѕ РјС‹ РќР• РёСЃРїРѕР»СЊР·СѓРµРј mapToScene
-        РґР»СЏ СЂСѓС‡РµРє - СЂР°Р±РѕС‚Р°РµРј РІ scene-РєРѕРѕСЂРґРёРЅР°С‚Р°С… РЅР°РїСЂСЏРјСѓСЋ.
+        Overlay позиционируется в scene coords 1:1 с рамкой:
+        его pos() = frame.pos(), но мы НЕ используем mapToScene
+        для ручек - работаем в scene-координатах напрямую.
 
-        РџРѕСЌС‚РѕРјСѓ boundingRect = frame.rect() + Р·Р°РїР°СЃ РЅР° СЂСѓС‡РєРё.
+        Поэтому boundingRect = frame.rect() + запас на ручки.
         """
 
         if self.frame is None:
@@ -222,10 +222,10 @@ class FrameOverlay(QGraphicsItem):
 
     def shape(self):
         """
-        Р’РѕР·РІСЂР°С‰Р°РµС‚ С„РѕСЂРјСѓ, РїРѕ РєРѕС‚РѕСЂРѕР№ overlay РїСЂРёРЅРёРјР°РµС‚ РјС‹С€СЊ.
+        Возвращает форму, по которой overlay принимает мышь.
 
-        РўРѕР»СЊРєРѕ Р·РѕРЅС‹ СЂСѓС‡РµРє + С‚РѕРЅРєР°СЏ РіСЂР°РЅРёС†Р° РІ СЂРµР¶РёРјРµ РІС‹РґРµР»РµРЅРёСЏ.
-        Р’ РѕСЃС‚Р°Р»СЊРЅС‹С… РјРµСЃС‚Р°С… С„РѕСЂРјР° РїСѓСЃС‚Р°СЏ - РєР»РёРє РїСЂРѕС…РѕРґРёС‚ РІРЅРёР·.
+        Только зоны ручек + тонкая граница в режиме выделения.
+        В остальных местах форма пустая - клик проходит вниз.
         """
 
         path = QPainterPath()
@@ -244,7 +244,7 @@ class FrameOverlay(QGraphicsItem):
             selected = False
 
         if not selected:
-            # РџРѕРєР° РЅРµ РІС‹РґРµР»РµРЅРѕ - РЅРµ РїРµСЂРµС…РІР°С‚С‹РІР°РµРј РјС‹С€СЊ РІРѕРѕР±С‰Рµ.
+            # Пока не выделено - не перехватываем мышь вообще.
             return path
 
         # --- Handle zones ---
@@ -263,8 +263,8 @@ class FrameOverlay(QGraphicsItem):
             path.addRect(zone)
 
         # --- Thin border zone for drag ---
-        # (С‡С‚РѕР±С‹ РјРѕР¶РЅРѕ Р±С‹Р»Рѕ С‚СЏРЅСѓС‚СЊ СЂР°РјРєСѓ Р·Р° РіСЂР°РЅРёС†Сѓ, РґР°Р¶Рµ РµСЃР»Рё
-        #  РѕРЅР° РїРѕРґ РєР°СЂС‚РѕС‡РєРѕР№)
+        # (чтобы можно было тянуть рамку за границу, даже если
+        #  она под карточкой)
 
         border_thickness = 6.0
 
@@ -316,7 +316,7 @@ class FrameOverlay(QGraphicsItem):
 
     def hoverMoveEvent(self, event):
         """
-        РњРµРЅСЏРµС‚ РєСѓСЂСЃРѕСЂ, РµСЃР»Рё РјС‹С€СЊ РЅР°Рґ СЂСѓС‡РєРѕР№.
+        Меняет курсор, если мышь над ручкой.
         """
 
         if self.frame is None:
@@ -359,7 +359,7 @@ class FrameOverlay(QGraphicsItem):
 
     def _handle_at(self, local_pos):
         """
-        Р’РѕР·РІСЂР°С‰Р°РµС‚ РёРјСЏ СЂСѓС‡РєРё РїРѕРґ local_pos РёР»Рё None.
+        Возвращает имя ручки под local_pos или None.
         """
 
         if self.frame is None:
@@ -388,11 +388,11 @@ class FrameOverlay(QGraphicsItem):
 
     def mousePressEvent(self, event):
         """
-        РџРµСЂРµРґР°С‘Рј РЅР°Р¶Р°С‚РёРµ РІ FrameItem.start_resize.
+        Передаём нажатие в FrameItem.start_resize.
 
-        Overlay Рё frame РёРјРµСЋС‚ РѕРґРёРЅР°РєРѕРІСѓСЋ Р»РѕРєР°Р»СЊРЅСѓСЋ СЃРёСЃС‚РµРјСѓ
-        РєРѕРѕСЂРґРёРЅР°С‚ (pos СЃРѕРІРїР°РґР°РµС‚), РїРѕСЌС‚РѕРјСѓ event.pos()
-        РїРµСЂРµРґР°С‘С‚СЃСЏ 1:1.
+        Overlay и frame имеют одинаковую локальную систему
+        координат (pos совпадает), поэтому event.pos()
+        передаётся 1:1.
         """
 
         if event.button() != Qt.MouseButton.LeftButton:
@@ -406,13 +406,13 @@ class FrameOverlay(QGraphicsItem):
         try:
             from .frame_resize import resize_zone, start_resize
 
-            # Р—Р°СЃС‚Р°РІР»СЏРµРј СЂР°РјРєСѓ РІС‹РґРµР»РёС‚СЊСЃСЏ.
+            # Заставляем рамку выделиться.
             try:
                 self.frame.setSelected(True)
             except Exception:
                 pass
 
-            # РЎС‚Р°СЂС‚СѓРµРј resize РЅР°РїСЂСЏРјСѓСЋ.
+            # Стартуем resize напрямую.
             start_resize(self.frame, event.pos())
             event.accept()
 
@@ -421,7 +421,7 @@ class FrameOverlay(QGraphicsItem):
 
     def mouseMoveEvent(self, event):
         """
-        РџРµСЂРµРґР°С‘Рј РґРІРёР¶РµРЅРёРµ РІ apply_resize.
+        Передаём движение в apply_resize.
         """
 
         if self.frame is None:
@@ -439,7 +439,7 @@ class FrameOverlay(QGraphicsItem):
 
     def mouseReleaseEvent(self, event):
         """
-        Р—Р°РІРµСЂС€Р°РµРј resize.
+        Завершаем resize.
         """
 
         if self.frame is None:
@@ -451,7 +451,7 @@ class FrameOverlay(QGraphicsItem):
 
             finish_resize(self.frame)
 
-            # РћР±РЅРѕРІР»СЏРµРј containment.
+            # Обновляем containment.
             try:
                 from .frame_containment import update_all_memberships
 
@@ -471,8 +471,8 @@ class FrameOverlay(QGraphicsItem):
 
 def create_frame_overlay(frame):
     """
-    РЎРѕР·РґР°С‘С‚ Рё РґРѕР±Р°РІР»СЏРµС‚ overlay РЅР° СЃС†РµРЅСѓ.
-    Р’РѕР·РІСЂР°С‰Р°РµС‚ СЃРѕР·РґР°РЅРЅС‹Р№ overlay РёР»Рё None.
+    Создаёт и добавляет overlay на сцену.
+    Возвращает созданный overlay или None.
     """
 
     if frame is None:
@@ -491,10 +491,10 @@ def create_frame_overlay(frame):
     try:
         overlay = FrameOverlay(frame)
 
-        # Overlay РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РЅР° С‚РѕР№ Р¶Рµ РїРѕР·РёС†РёРё, С‡С‚Рѕ Рё СЂР°РјРєР°.
-        # Р›РѕРєР°Р»СЊРЅР°СЏ СЃРёСЃС‚РµРјР°: overlay.pos() = frame.pos().
-        # Р СѓС‡РєРё Сѓ РЅР°СЃ РІ scene-coords, РЅРѕ overlay "Р¶РёРІС‘С‚" РІ С‚РµС… Р¶Рµ
-        # РєРѕРѕСЂРґРёРЅР°С‚Р°С…, С‡С‚Рѕ Рё frame (СЃРјРµС‰РµРЅРёРµ = frame.pos()).
+        # Overlay должен быть на той же позиции, что и рамка.
+        # Локальная система: overlay.pos() = frame.pos().
+        # Ручки у нас в scene-coords, но overlay "живёт" в тех же
+        # координатах, что и frame (смещение = frame.pos()).
         overlay.setPos(frame.pos())
 
         scene.addItem(overlay)

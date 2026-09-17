@@ -17,11 +17,11 @@ class ArrowItem(QGraphicsLineItem):
     BOUNDING_MARGIN = 20.0
     ARROW_SIZE = 7.0
 
-    # Р РµР°Р»СЊРЅР°СЏ РІРёР·СѓР°Р»СЊРЅР°СЏ Р»РёРЅРёСЏ 2 px,
-    # РЅРѕ Р·РѕРЅР° Р·Р°С…РІР°С‚Р° Р±СѓРґРµС‚ Р·РЅР°С‡РёС‚РµР»СЊРЅРѕ С€РёСЂРµ.
+    # Реальная визуальная линия 2 px,
+    # но зона захвата будет значительно шире.
     HIT_WIDTH = 14.0
 
-    # Р”РѕРїРѕР»РЅРёС‚РµР»СЊРЅР°СЏ Р·РѕРЅР° Р·Р°С…РІР°С‚Р° РєРѕРЅС‡РёРєР°.
+    # Дополнительная зона захвата кончика.
     ENDPOINT_HIT_RADIUS = 18.0
 
     def __init__(
@@ -429,10 +429,10 @@ class ArrowItem(QGraphicsLineItem):
 
     def shape(self):
         """
-        РЈРІРµР»РёС‡РµРЅРЅР°СЏ РЅРµРІРёРґРёРјР°СЏ РѕР±Р»Р°СЃС‚СЊ Р·Р°С…РІР°С‚Р° СЃС‚СЂРµР»РєРё.
+        Увеличенная невидимая область захвата стрелки.
 
-        Р’РёР·СѓР°Р»СЊРЅРѕ СЃС‚СЂРµР»РєР° РѕСЃС‚Р°С‘С‚СЃСЏ 2 px,
-        РЅРѕ РєР»РёРє РїРѕ Р»РёРЅРёРё РґРѕРїСѓСЃРєР°РµС‚СЃСЏ СЃ Р·Р°РјРµС‚РЅС‹Рј Р·Р°РїР°СЃРѕРј.
+        Визуально стрелка остаётся 2 px,
+        но клик по линии допускается с заметным запасом.
         """
 
         path = QPainterPath()
@@ -449,7 +449,7 @@ class ArrowItem(QGraphicsLineItem):
 
             stroke = QPainterPath()
 
-            # РЎРѕР·РґР°С‘Рј РєРѕРЅС‚СѓСЂ РІРѕРєСЂСѓРі Р»РёРЅРёРё.
+            # Создаём контур вокруг линии.
             stroker = QPainterPath()
             stroker.addPath(path)
 
@@ -461,7 +461,7 @@ class ArrowItem(QGraphicsLineItem):
 
             stroke = path_stroker.createStroke(path)
 
-            # РћС‚РґРµР»СЊРЅРѕ СЂР°СЃС€РёСЂСЏРµРј РѕР±Р»Р°СЃС‚СЊ РІРѕР·Р»Рµ РєРѕРЅС‡РёРєР°.
+            # Отдельно расширяем область возле кончика.
             radius = self.ENDPOINT_HIT_RADIUS
 
             endpoint_path = QPainterPath()
@@ -476,7 +476,7 @@ class ArrowItem(QGraphicsLineItem):
             return stroke
 
         except Exception:
-            # Р‘РµР·РѕРїР°СЃРЅС‹Р№ fallback.
+            # Безопасный fallback.
             path.addEllipse(
                 end,
                 self.ENDPOINT_HIT_RADIUS,
@@ -643,7 +643,7 @@ class ArrowItem(QGraphicsLineItem):
         menu = QMenu()
 
         delete_action = menu.addAction(
-            "РЈРґР°Р»РёС‚СЊ СЃС‚СЂРµР»РєСѓ"
+            "Удалить стрелку"
         )
 
         action = menu.exec(

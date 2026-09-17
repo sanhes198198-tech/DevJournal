@@ -46,7 +46,7 @@ def set_grid_mode(window, mode):
 
     update_status(
         window,
-        "РќР°СЃС‚СЂРѕР№РєР° СЃРµС‚РєРё РёР·РјРµРЅРµРЅР°",
+        "Настройка сетки изменена",
     )
 
 
@@ -78,8 +78,8 @@ def new_project(window):
 
     name, ok = QInputDialog.getText(
         window,
-        "РќРѕРІС‹Р№ РїСЂРѕРµРєС‚",
-        "РќР°Р·РІР°РЅРёРµ РїСЂРѕРµРєС‚Р°:",
+        "Новый проект",
+        "Название проекта:",
     )
 
     if not ok:
@@ -106,7 +106,7 @@ def new_project(window):
 
     update_status(
         window,
-        "РЎРѕР·РґР°РЅ РЅРѕРІС‹Р№ РїСЂРѕРµРєС‚",
+        "Создан новый проект",
     )
 
     window.canvas.save_board()
@@ -119,7 +119,7 @@ def open_project(window):
 
     folder = QFileDialog.getExistingDirectory(
         window,
-        "Р’С‹Р±РµСЂРёС‚Рµ РїР°РїРєСѓ РїСЂРѕРµРєС‚Р°",
+        "Выберите папку проекта",
         BOARDS_DIR,
     )
 
@@ -149,7 +149,7 @@ def save_project(window):
 
     update_status(
         window,
-        "РџСЂРѕРµРєС‚ СЃРѕС…СЂР°РЅРµРЅ",
+        "Проект сохранен",
     )
 
 
@@ -159,23 +159,23 @@ def add_card(window, card_type="text"):
 
         QMessageBox.information(
             window,
-            "РџСЂРѕРµРєС‚ РЅРµ РІС‹Р±СЂР°РЅ",
-            "РЎРЅР°С‡Р°Р»Р° СЃРѕР·РґР°Р№С‚Рµ РёР»Рё РѕС‚РєСЂРѕР№С‚Рµ РїСЂРѕРµРєС‚.",
+            "Проект не выбран",
+            "Сначала создайте или откройте проект.",
         )
 
         return
 
     card_titles = {
-        "text": "РќРѕРІР°СЏ РєР°СЂС‚РѕС‡РєР°",
-        "comment": "РљРѕРјРјРµРЅС‚Р°СЂРёР№",
-        "heading": "Р—Р°РіРѕР»РѕРІРѕРє",
-        "image_text": "РўРµРєСЃС‚ + РёР·РѕР±СЂР°Р¶РµРЅРёРµ",
-        "color": "Р¦РІРµС‚",
+        "text": "Новая карточка",
+        "comment": "Комментарий",
+        "heading": "Заголовок",
+        "image_text": "Текст + изображение",
+        "color": "Цвет",
     }
 
     title = card_titles.get(
         card_type,
-        "РќРѕРІР°СЏ РєР°СЂС‚РѕС‡РєР°",
+        "Новая карточка",
     )
 
     card = window.canvas.add_card(
@@ -192,7 +192,7 @@ def add_card(window, card_type="text"):
 
     update_status(
         window,
-        "Р”РѕР±Р°РІР»РµРЅР° РєР°СЂС‚РѕС‡РєР°: " + title,
+        "Добавлена карточка: " + title,
     )
 
     window.canvas.save_board()
@@ -204,14 +204,14 @@ def add_color_card(window):
 
         QMessageBox.information(
             window,
-            "РџСЂРѕРµРєС‚ РЅРµ РІС‹Р±СЂР°РЅ",
-            "РЎРЅР°С‡Р°Р»Р° СЃРѕР·РґР°Р№С‚Рµ РёР»Рё РѕС‚РєСЂРѕР№С‚Рµ РїСЂРѕРµРєС‚.",
+            "Проект не выбран",
+            "Сначала создайте или откройте проект.",
         )
 
         return
 
     card = window.canvas.add_card(
-        title="Р¦РІРµС‚",
+        title="Цвет",
         card_type="color",
     )
 
@@ -224,7 +224,7 @@ def add_color_card(window):
 
     update_status(
         window,
-        "Р”РѕР±Р°РІР»РµРЅР° С†РІРµС‚РѕРІР°СЏ СЏС‡РµР№РєР°",
+        "Добавлена цветовая ячейка",
     )
 
     window.canvas.save_board()
@@ -245,7 +245,7 @@ def change_selected_color(window):
 
         update_status(
             window,
-            "РЎРЅР°С‡Р°Р»Р° РІС‹Р±РµСЂРёС‚Рµ СЌР»РµРјРµРЅС‚",
+            "Сначала выберите элемент",
         )
 
         return
@@ -294,7 +294,7 @@ def change_selected_color(window):
 
         update_status(
             window,
-            "Р¦РІРµС‚ РёР·РјРµРЅРµРЅ",
+            "Цвет изменен",
         )
 
         return
@@ -325,14 +325,14 @@ def change_selected_color(window):
 
         update_status(
             window,
-            "Р¦РІРµС‚ РёР·РјРµРЅРµРЅ",
+            "Цвет изменен",
         )
 
         return
 
     update_status(
         window,
-        "Р”Р»СЏ СЌС‚РѕРіРѕ СЌР»РµРјРµРЅС‚Р° С†РІРµС‚ РЅРµ РїРѕРґРґРµСЂР¶РёРІР°РµС‚СЃСЏ",
+        "Для этого элемента цвет не поддерживается",
     )
 
 
@@ -342,8 +342,8 @@ def add_image_text_card(window):
 
         QMessageBox.information(
             window,
-            "РџСЂРѕРµРєС‚ РЅРµ РІС‹Р±СЂР°РЅ",
-            "РЎРЅР°С‡Р°Р»Р° СЃРѕР·РґР°Р№С‚Рµ РёР»Рё РѕС‚РєСЂРѕР№С‚Рµ РїСЂРѕРµРєС‚.",
+            "Проект не выбран",
+            "Сначала создайте или откройте проект.",
         )
 
         return
@@ -357,8 +357,8 @@ def add_video_text_card(window):
 
         QMessageBox.information(
             window,
-            "РџСЂРѕРµРєС‚ РЅРµ РІС‹Р±СЂР°РЅ",
-            "РЎРЅР°С‡Р°Р»Р° СЃРѕР·РґР°Р№С‚Рµ РёР»Рё РѕС‚РєСЂРѕР№С‚Рµ РїСЂРѕРµРєС‚.",
+            "Проект не выбран",
+            "Сначала создайте или откройте проект.",
         )
 
         return
@@ -372,8 +372,8 @@ def add_image(window):
 
         QMessageBox.information(
             window,
-            "РџСЂРѕРµРєС‚ РЅРµ РІС‹Р±СЂР°РЅ",
-            "РЎРЅР°С‡Р°Р»Р° СЃРѕР·РґР°Р№С‚Рµ РёР»Рё РѕС‚РєСЂРѕР№С‚Рµ РїСЂРѕРµРєС‚.",
+            "Проект не выбран",
+            "Сначала создайте или откройте проект.",
         )
 
         return
@@ -387,8 +387,8 @@ def add_file(window):
 
         QMessageBox.information(
             window,
-            "РџСЂРѕРµРєС‚ РЅРµ РІС‹Р±СЂР°РЅ",
-            "РЎРЅР°С‡Р°Р»Р° СЃРѕР·РґР°Р№С‚Рµ РёР»Рё РѕС‚РєСЂРѕР№С‚Рµ РїСЂРѕРµРєС‚.",
+            "Проект не выбран",
+            "Сначала создайте или откройте проект.",
         )
 
         return
@@ -439,7 +439,7 @@ def open_settings(window):
 
         update_status(
             window,
-            "РќР°СЃС‚СЂРѕР№РєРё СЃРѕС…СЂР°РЅРµРЅС‹",
+            "Настройки сохранены",
         )
 
 
@@ -449,8 +449,8 @@ def open_settings(window):
 
 def unlock_all_frames(window):
     """
-    РЎРЅРёРјР°РµС‚ Р±Р»РѕРєРёСЂРѕРІРєСѓ СЃРѕ РІСЃРµС… СЂР°РјРѕРє РЅР° СЃС†РµРЅРµ.
-    Р’РѕР·РІСЂР°С‰Р°РµС‚ РєРѕР»РёС‡РµСЃС‚РІРѕ СЂР°Р·Р±Р»РѕРєРёСЂРѕРІР°РЅРЅС‹С… СЂР°РјРѕРє.
+    Снимает блокировку со всех рамок на сцене.
+    Возвращает количество разблокированных рамок.
     """
 
     if window is None:
@@ -498,7 +498,7 @@ def unlock_all_frames(window):
     try:
         update_status(
             window,
-            f"Р Р°Р·Р±Р»РѕРєРёСЂРѕРІР°РЅРѕ СЂР°РјРѕРє: {count}",
+            f"Разблокировано рамок: {count}",
         )
     except Exception:
         pass
@@ -617,7 +617,7 @@ def key_press_event(window, event):
 
     if modifiers & Qt.KeyboardModifier.ControlModifier:
 
-        # Ctrl+Shift+L вЂ” СЂР°Р·Р±Р»РѕРєРёСЂРѕРІР°С‚СЊ РІСЃРµ СЂР°РјРєРё.
+        # Ctrl+Shift+L — разблокировать все рамки.
         if (
             event.key() == Qt.Key.Key_L
             and modifiers & Qt.KeyboardModifier.ShiftModifier
