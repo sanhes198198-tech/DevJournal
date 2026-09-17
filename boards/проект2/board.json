@@ -1,0 +1,123 @@
+{
+    "version": 12,
+    "project_name": "проект2",
+    "grid_mode": "dots",
+    "view": {
+        "zoom": 0.5,
+        "scroll_x": -562,
+        "scroll_y": -323
+    },
+    "items": [
+        {
+            "type": "card",
+            "card_id": "f28efddc-3225-4eb7-b796-1b85b1dc329f",
+            "x": -592.0555555555555,
+            "y": 294.031746031746,
+            "width": 360.0,
+            "height": 390.0,
+            "color": "#ffffffff",
+            "card_type": "image_text",
+            "image_path": "images\\654e3d0e-6855-45ab-a511-6041ca0dc159.jpg",
+            "title": "Заголовок",
+            "title_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI'; font-size:14pt; font-weight:700; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Заголовок</p></body></html>",
+            "text": "",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>"
+        },
+        {
+            "type": "card",
+            "card_id": "8075481f-c393-445a-b798-705c91a808e5",
+            "x": -614.0555555555555,
+            "y": -193.96825396825398,
+            "width": 280.0,
+            "height": 220.0,
+            "title": "",
+            "text": "",
+            "color": "#ffffffff",
+            "card_type": "color"
+        },
+        {
+            "type": "card",
+            "card_id": "a55317a7-fcd9-455c-a690-4546dde069f1",
+            "x": 209.94444444444446,
+            "y": -433.968253968254,
+            "width": 320.0,
+            "height": 150.0,
+            "color": "#ffffffff",
+            "card_type": "heading",
+            "title": "Заголовок",
+            "title_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI'; font-size:14pt; font-weight:700; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Заголовок</p></body></html>",
+            "text": "",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>"
+        },
+        {
+            "type": "card",
+            "card_id": "aa723a83-1abd-4044-bccc-0b8af3e17d67",
+            "x": 385.94444444444446,
+            "y": 366.031746031746,
+            "width": 280.0,
+            "height": 73.0,
+            "color": "#ffffffff",
+            "card_type": "comment",
+            "title": "Автор",
+            "title_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI'; font-size:12pt; font-weight:700; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Автор</p></body></html>",
+            "text": "",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>"
+        },
+        {
+            "type": "card",
+            "card_id": "e68edb65-8eab-470e-8003-0d3a9951145b",
+            "x": -766.0555555555557,
+            "y": 34.031746031746025,
+            "width": 280.0,
+            "height": 140.0,
+            "color": "#ffffffff",
+            "card_type": "text",
+            "title": "",
+            "title_html": "",
+            "text": "",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>"
+        },
+        {
+            "type": "video_text",
+            "card_id": "9207427a-7334-4dac-88dd-27f203eb6190",
+            "x": 564.0,
+            "y": -108.0,
+            "width": 360.0,
+            "height": 280,
+            "title": "Заголовок",
+            "title_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI'; font-size:9pt; font-weight:400; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Заголовок</p></body></html>",
+            "text": "",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI'; font-size:9pt; font-weight:400; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>",
+            "video_path": "videos\\c9f75b56-d1c9-496f-8db6-9658dadf3f8d.mp4",
+            "color": "#ffffffff"
+        },
+        {
+            "type": "file",
+            "card_id": "b58bda6e-4447-4922-9aa9-c914be9e0b09",
+            "x": 1064.0,
+            "y": 259.5,
+            "path": "files\\1ada4e44-241f-46a0-9dba-5165331b6e0f.docx",
+            "name": "Решение_о_ликвидации_ООО_АЛЬТПРОТЕИН_новое.docx"
+        }
+    ],
+    "arrows": [],
+    "frames": [
+        {
+            "type": "frame",
+            "frame_id": "d2b37354-2314-4876-91e1-a54380b05817",
+            "title": "Рамка",
+            "frame_color": "#B0B0B0",
+            "x": -792.0555555555557,
+            "y": -459.968253968254,
+            "width": 1484.0,
+            "height": 1170.0,
+            "members": [
+                "aa723a83-1abd-4044-bccc-0b8af3e17d67",
+                "a55317a7-fcd9-455c-a690-4546dde069f1",
+                "8075481f-c393-445a-b798-705c91a808e5",
+                "f28efddc-3225-4eb7-b796-1b85b1dc329f",
+                "e68edb65-8eab-470e-8003-0d3a9951145b"
+            ]
+        }
+    ]
+}

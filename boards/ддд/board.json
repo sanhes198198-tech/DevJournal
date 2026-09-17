@@ -1,0 +1,163 @@
+{
+    "version": 12,
+    "project_name": "ддд",
+    "grid_mode": "grid",
+    "view": {
+        "zoom": 0.45,
+        "scroll_x": -282,
+        "scroll_y": -471
+    },
+    "items": [
+        {
+            "type": "card",
+            "card_id": "bb321bed-ccde-4cdd-8a42-e1375182cdc0",
+            "x": 8.67929292929307,
+            "y": -57.10606060606034,
+            "width": 320.0,
+            "height": 150.0,
+            "color": "#ffaacc96",
+            "card_type": "heading",
+            "title": "Заголовок",
+            "title_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI'; font-size:14pt; font-weight:700; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Заголовок</p></body></html>",
+            "text": "",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>"
+        },
+        {
+            "type": "video_text",
+            "card_id": "6d9bb639-8ffb-4817-ba86-2054fd115d23",
+            "x": 651.5874125874127,
+            "y": -466.41258741258724,
+            "width": 260.0,
+            "height": 280.0,
+            "title": "Заголовок",
+            "title_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI'; font-size:9pt; font-weight:400; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Заголовок</p></body></html>",
+            "text": "",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI'; font-size:9pt; font-weight:400; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>",
+            "video_path": "videos\\7ad1b14c-1d85-4c75-875c-d5e2862187ba.mp4",
+            "color": "#fff4beae"
+        },
+        {
+            "type": "card",
+            "card_id": "2ac1aa6f-b3b2-45cb-95aa-1d8bc407fbdd",
+            "x": 4.356643356643531,
+            "y": -259.195804195804,
+            "width": 280.0,
+            "height": 73.0,
+            "color": "#ffffffff",
+            "card_type": "comment",
+            "title": "Автор",
+            "title_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI'; font-size:12pt; font-weight:700; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Автор</p></body></html>",
+            "text": "",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>"
+        },
+        {
+            "type": "card",
+            "card_id": "e396aea9-158d-40ca-878d-316c00368b3a",
+            "x": -15.853146853146711,
+            "y": -425.5104895104893,
+            "width": 280.0,
+            "height": 140.0,
+            "color": "#ffffffff",
+            "card_type": "text",
+            "title": "",
+            "title_html": "",
+            "text": "",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>"
+        },
+        {
+            "type": "card",
+            "card_id": "14c793db-5c47-4b89-961f-3d29ffa8ddba",
+            "x": 591.818181818182,
+            "y": 1.4772727272729185,
+            "width": 280.0,
+            "height": 220.0,
+            "title": "",
+            "text": "",
+            "color": "#ffac4da7",
+            "card_type": "color"
+        },
+        {
+            "type": "card",
+            "card_id": "da70fb09-babf-4efe-8676-6a8a50bf5207",
+            "x": 991.4685314685316,
+            "y": -466.78321678321674,
+            "width": 280.0,
+            "height": 140.0,
+            "color": "#ffffffff",
+            "card_type": "text",
+            "title": "",
+            "title_html": "",
+            "text": "",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>"
+        },
+        {
+            "type": "card",
+            "card_id": "95414353-9afa-493f-aa9c-741c9f13f454",
+            "x": 982.3776223776222,
+            "y": -270.4195804195804,
+            "width": 280.0,
+            "height": 73.0,
+            "color": "#ffffffff",
+            "card_type": "comment",
+            "title": "Автор",
+            "title_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI'; font-size:12pt; font-weight:700; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Автор</p></body></html>",
+            "text": "",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>"
+        },
+        {
+            "type": "card",
+            "card_id": "7c4c2ec9-83df-48f2-9c2c-b8f8e1f34832",
+            "x": 1306.0139860139861,
+            "y": -468.6013986013986,
+            "width": 320.0,
+            "height": 150.0,
+            "color": "#ffffffff",
+            "card_type": "heading",
+            "title": "Заголовок",
+            "title_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI'; font-size:14pt; font-weight:700; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Заголовок</p></body></html>",
+            "text": "",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>"
+        }
+    ],
+    "arrows": [],
+    "frames": [
+        {
+            "type": "frame",
+            "frame_id": "77df52b7-0e75-4e86-8225-22af6f631634",
+            "title": "Рамка",
+            "title_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI'; font-size:10pt; font-weight:400; font-style:normal;\">\n<p align=\"center\" style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:28pt; font-weight:700; font-style:italic; color:#ffffff; background-color:#000000;\">Рамка</span></p></body></html>",
+            "frame_color": "#B0B0B0",
+            "frame_fill": "gray",
+            "locked": true,
+            "x": -41.85314685314671,
+            "y": -490.41258741258724,
+            "width": 977.4405594405594,
+            "height": 736.3898601398602,
+            "members": [
+                "e396aea9-158d-40ca-878d-316c00368b3a",
+                "bb321bed-ccde-4cdd-8a42-e1375182cdc0",
+                "6d9bb639-8ffb-4817-ba86-2054fd115d23",
+                "2ac1aa6f-b3b2-45cb-95aa-1d8bc407fbdd",
+                "14c793db-5c47-4b89-961f-3d29ffa8ddba"
+            ]
+        },
+        {
+            "type": "frame",
+            "frame_id": "e7834cfe-efa1-47ff-9be4-791499739c81",
+            "title": "Рамка",
+            "title_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Segoe UI'; font-size:10pt; font-weight:400; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Рамка</p></body></html>",
+            "frame_color": "#B0B0B0",
+            "frame_fill": "gray",
+            "locked": false,
+            "x": 956.3776223776222,
+            "y": -494.6013986013986,
+            "width": 695.636363636364,
+            "height": 903.1818181818182,
+            "members": [
+                "95414353-9afa-493f-aa9c-741c9f13f454",
+                "da70fb09-babf-4efe-8676-6a8a50bf5207",
+                "7c4c2ec9-83df-48f2-9c2c-b8f8e1f34832"
+            ]
+        }
+    ]
+}

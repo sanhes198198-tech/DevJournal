@@ -1,0 +1,693 @@
+import os
+
+from PySide6.QtCore import (
+    Qt,
+    QTimer,
+    QPointF,
+)
+
+from PySide6.QtGui import (
+    QColor,
+    QPen,
+    QPainter,
+)
+
+from PySide6.QtWidgets import (
+    QGraphicsView,
+    QGraphicsScene,
+    QFrame,
+)
+
+from .board_io import (
+    save_board as _save_board,
+    load_board as _load_board,
+)
+
+from .factories import (
+    add_card as _add_card,
+    add_image_text_card as _add_image_text_card,
+    add_video_text_card as _add_video_text_card,
+    add_image as _add_image,
+    add_file as _add_file,
+    add_arrow as _add_arrow,
+)
+
+from .color import (
+    get_item_color as _get_item_color,
+    change_selected_color as _change_selected_color,
+)
+
+from .delete import (
+    delete_item as _delete_item,
+    delete_selected as _delete_selected,
+)
+
+from ..items.arrow_ui import (
+    create_free_arrow,
+)
+
+
+class Canvas(QGraphicsView):
+
+    MIN_ZOOM = 25
+    MAX_ZOOM = 200
+    ZOOM_STEP = 10
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.main_window = parent
+
+        # =================================================
+        # Scene
+        # =================================================
+
+        self.scene = QGraphicsScene(self)
+
+        self.setScene(self.scene)
+
+        self.scene.setSceneRect(
+            -5000,
+            -5000,
+            10000,
+            10000,
+        )
+
+        # =================================================
+        # Внешний вид
+        # =================================================
+
+        self.setBackgroundBrush(
+            QColor("#FAFAF8")
+        )
+
+        self.setFrameShape(
+            QFrame.Shape.NoFrame
+        )
+
+        self.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+
+        self.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+
+        self.setDragMode(
+            QGraphicsView.DragMode.ScrollHandDrag
+        )
+
+        self.setTransformationAnchor(
+            QGraphicsView.ViewportAnchor.NoAnchor
+        )
+
+        self.setResizeAnchor(
+            QGraphicsView.ViewportAnchor.AnchorViewCenter
+        )
+
+        self.setRenderHints(
+            QPainter.RenderHint.Antialiasing
+            |
+            QPainter.RenderHint.SmoothPixmapTransform
+        )
+
+        self.setViewportUpdateMode(
+            QGraphicsView.ViewportUpdateMode.FullViewportUpdate
+        )
+
+        # =================================================
+        # Zoom / grid
+        # =================================================
+
+        self.zoom_factor = 1.0
+
+        self.grid_mode = "dots"
+
+        # =================================================
+        # Autosave
+        # =================================================
+
+        self.autosave_timer = QTimer(self)
+
+        self.autosave_timer.timeout.connect(
+            self.autosave
+        )
+
+        self.autosave_timer.start(
+            30000
+        )
+
+    # =====================================================
+    # COLOR
+    # =====================================================
+
+    def _get_item_color(self, item):
+        return _get_item_color(item)
+
+    def change_selected_color(self):
+        return _change_selected_color(self)
+
+    # =====================================================
+    # BACKGROUND / GRID
+    # =====================================================
+
+    def drawBackground(
+        self,
+        painter,
+        rect,
+    ):
+
+        painter.fillRect(
+            rect,
+            QColor("#FAFAF8")
+        )
+
+        if self.grid_mode == "none":
+            return
+
+        painter.save()
+
+        painter.setRenderHint(
+            QPainter.RenderHint.Antialiasing
+        )
+
+        grid_size = 24
+
+        left = (
+            int(rect.left())
+            -
+            int(rect.left()) % grid_size
+        )
+
+        top = (
+            int(rect.top())
+            -
+            int(rect.top()) % grid_size
+        )
+
+        # -------------------------------------------------
+        # Dots
+        # -------------------------------------------------
+
+        if self.grid_mode == "dots":
+
+            painter.setPen(
+                Qt.PenStyle.NoPen
+            )
+
+            painter.setBrush(
+                QColor("#D9D9D5")
+            )
+
+            x = left
+
+            while x <= rect.right():
+
+                y = top
+
+                while y <= rect.bottom():
+
+                    painter.drawEllipse(
+                        QPointF(
+                            x,
+                            y,
+                        ),
+                        1.2,
+                        1.2,
+                    )
+
+                    y += grid_size
+
+                x += grid_size
+
+        # -------------------------------------------------
+        # Grid
+        # -------------------------------------------------
+
+        elif self.grid_mode == "grid":
+
+            painter.setPen(
+                QPen(
+                    QColor("#E8E8E4"),
+                    1,
+                )
+            )
+
+            x = left
+
+            while x <= rect.right():
+
+                painter.drawLine(
+                    x,
+                    rect.top(),
+                    x,
+                    rect.bottom(),
+                )
+
+                x += grid_size
+
+            y = top
+
+            while y <= rect.bottom():
+
+                painter.drawLine(
+                    rect.left(),
+                    y,
+                    rect.right(),
+                    y,
+                )
+
+                y += grid_size
+
+        painter.restore()
+
+    # =====================================================
+    # ZOOM
+    # =====================================================
+
+    def set_zoom(
+        self,
+        value,
+    ):
+
+        value = max(
+            self.MIN_ZOOM,
+            min(
+                self.MAX_ZOOM,
+                int(value),
+            ),
+        )
+
+        factor = value / 100.0
+
+        self.resetTransform()
+
+        self.scale(
+            factor,
+            factor,
+        )
+
+        self.zoom_factor = factor
+
+        if self.main_window:
+
+            self.main_window.update_zoom_label(
+                value
+            )
+
+    def set_zoom_at(
+        self,
+        value,
+        viewport_pos,
+    ):
+        """
+        Меняет масштаб относительно указанной точки
+        viewport.
+
+        Точка под курсором остаётся под курсором после
+        изменения масштаба.
+        """
+
+        value = max(
+            self.MIN_ZOOM,
+            min(
+                self.MAX_ZOOM,
+                int(value),
+            ),
+        )
+
+        new_factor = value / 100.0
+
+        if abs(
+            new_factor - self.zoom_factor
+        ) < 0.0001:
+            return
+
+        # Точка сцены, которая сейчас находится под курсором.
+        scene_pos_before = self.mapToScene(
+            viewport_pos
+        )
+
+        # Полностью пересоздаём transform.
+        self.resetTransform()
+
+        self.scale(
+            new_factor,
+            new_factor,
+        )
+
+        self.zoom_factor = new_factor
+
+        # После изменения масштаба определяем,
+        # куда попала та же точка сцены.
+        scene_pos_after = self.mapToScene(
+            viewport_pos
+        )
+
+        delta = (
+            scene_pos_before
+            -
+            scene_pos_after
+        )
+
+        self.translate(
+            delta.x(),
+            delta.y(),
+        )
+
+        if self.main_window:
+
+            self.main_window.update_zoom_label(
+                value
+            )
+
+        self.viewport().update()
+
+    def zoom_in(self):
+
+        current = int(
+            self.zoom_factor * 100
+        )
+
+        center = self.viewport().rect().center()
+
+        self.set_zoom_at(
+            current + self.ZOOM_STEP,
+            center,
+        )
+
+    def zoom_out(self):
+
+        current = int(
+            self.zoom_factor * 100
+        )
+
+        center = self.viewport().rect().center()
+
+        self.set_zoom_at(
+            current - self.ZOOM_STEP,
+            center,
+        )
+
+    def wheelEvent(
+        self,
+        event,
+    ):
+        """
+        Колесо мыши управляет масштабом.
+
+        Масштабирование происходит относительно курсора,
+        поэтому пользователь не теряет текущую точку обзора.
+        """
+
+        delta = event.angleDelta().y()
+
+        if delta == 0:
+            event.accept()
+            return
+
+        current = int(
+            self.zoom_factor * 100
+        )
+
+        if delta > 0:
+
+            new_value = (
+                current
+                +
+                self.ZOOM_STEP
+            )
+
+        else:
+
+            new_value = (
+                current
+                -
+                self.ZOOM_STEP
+            )
+
+        self.set_zoom_at(
+            new_value,
+            event.position().toPoint(),
+        )
+
+        event.accept()
+
+    # =====================================================
+    # VIEW STATE
+    # =====================================================
+
+    def get_view_state(self):
+        """
+        Возвращает текущее состояние камеры Canvas.
+
+        Сохраняются:
+        - масштаб;
+        - горизонтальная позиция;
+        - вертикальная позиция.
+        """
+
+        return {
+            "zoom": float(
+                self.zoom_factor
+            ),
+            "scroll_x": int(
+                self.horizontalScrollBar().value()
+            ),
+            "scroll_y": int(
+                self.verticalScrollBar().value()
+            ),
+        }
+
+    def restore_view_state(
+        self,
+        view_state,
+    ):
+        """
+        Восстанавливает состояние камеры.
+
+        Старые проекты могут не иметь блока view.
+        В таком случае используется текущее состояние Canvas.
+        """
+
+        if not isinstance(
+            view_state,
+            dict,
+        ):
+            return
+
+        zoom = view_state.get(
+            "zoom",
+            1.0,
+        )
+
+        try:
+            zoom = float(zoom)
+        except (
+            TypeError,
+            ValueError,
+        ):
+            zoom = 1.0
+
+        zoom_percent = int(
+            round(
+                zoom * 100
+            )
+        )
+
+        zoom_percent = max(
+            self.MIN_ZOOM,
+            min(
+                self.MAX_ZOOM,
+                zoom_percent,
+            ),
+        )
+
+        scroll_x = view_state.get(
+            "scroll_x",
+            0,
+        )
+
+        scroll_y = view_state.get(
+            "scroll_y",
+            0,
+        )
+
+        try:
+            scroll_x = int(scroll_x)
+        except (
+            TypeError,
+            ValueError,
+        ):
+            scroll_x = 0
+
+        try:
+            scroll_y = int(scroll_y)
+        except (
+            TypeError,
+            ValueError,
+        ):
+            scroll_y = 0
+
+        # Сначала восстанавливаем масштаб.
+        self.set_zoom(
+            zoom_percent
+        )
+
+        # Затем положение.
+        self.horizontalScrollBar().setValue(
+            scroll_x
+        )
+
+        self.verticalScrollBar().setValue(
+            scroll_y
+        )
+
+        self.viewport().update()
+
+    # =====================================================
+    # ADD CARD
+    # =====================================================
+
+    def add_card(
+        self,
+        title="Новая карточка",
+        text="",
+        x=None,
+        y=None,
+        width=280,
+        height=180,
+        color="#FFFFFF",
+        card_type="text",
+        image_path="",
+        card_id=None,
+    ):
+        return _add_card(
+            self,
+            title=title,
+            text=text,
+            x=x,
+            y=y,
+            width=width,
+            height=height,
+            color=color,
+            card_type=card_type,
+            image_path=image_path,
+            card_id=card_id,
+        )
+
+    # =====================================================
+    # ADD IMAGE + TEXT
+    # =====================================================
+
+    def add_image_text_card(self):
+        return _add_image_text_card(self)
+
+    # =====================================================
+    # ADD VIDEO + TEXT
+    # =====================================================
+
+    def add_video_text_card(self):
+        return _add_video_text_card(self)
+
+    # =====================================================
+    # ADD IMAGE
+    # =====================================================
+
+    def add_image(self):
+        return _add_image(self)
+
+    # =====================================================
+    # ADD FILE
+    # =====================================================
+
+    def add_file(self):
+        return _add_file(self)
+
+    # =====================================================
+    # ADD ARROW
+    # =====================================================
+
+    def add_arrow(
+        self,
+        source_item,
+        target_item,
+    ):
+        return _add_arrow(
+            self,
+            source_item,
+            target_item,
+        )
+
+    # =====================================================
+    # ARROW FROM UI (ПКМ)
+    # =====================================================
+
+    def start_arrow_from(self, source_item):
+        """
+        Создаёт стрелку от source_item
+        через отдельный UI-модуль.
+        """
+
+        if source_item is None:
+            return None
+
+        arrow = create_free_arrow(
+            scene=self.scene,
+            source_item=source_item,
+        )
+
+        if arrow is None:
+            return None
+
+        try:
+            arrow.setSelected(True)
+        except Exception:
+            pass
+
+        self.save_board()
+
+        return arrow
+
+    # =====================================================
+    # DELETE
+    # =====================================================
+
+    def delete_item(
+        self,
+        item,
+    ):
+        return _delete_item(self, item)
+
+    def delete_selected(self):
+        return _delete_selected(self)
+
+    # =====================================================
+    # SAVE
+    # =====================================================
+
+    def save_board(self):
+        return _save_board(self)
+
+    # =====================================================
+    # LOAD
+    # =====================================================
+
+    def load_board(
+        self,
+        project_name,
+    ):
+        return _load_board(
+            self,
+            project_name,
+        )
+
+    # =====================================================
+    # AUTOSAVE
+    # =====================================================
+
+    def autosave(self):
+
+        if self.main_window.project_name:
+
+            self.save_board()
