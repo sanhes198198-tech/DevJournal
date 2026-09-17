@@ -15,13 +15,13 @@ from PySide6.QtWidgets import QGraphicsLineItem, QMenu
 class ArrowItem(QGraphicsLineItem):
 
     BOUNDING_MARGIN = 20.0
-    ARROW_SIZE = 10.0
+    ARROW_SIZE = 7.0
 
-    # Реальная визуальная линия 2 px,
-    # но зона захвата будет значительно шире.
+    # Р РµР°Р»СЊРЅР°СЏ РІРёР·СѓР°Р»СЊРЅР°СЏ Р»РёРЅРёСЏ 2 px,
+    # РЅРѕ Р·РѕРЅР° Р·Р°С…РІР°С‚Р° Р±СѓРґРµС‚ Р·РЅР°С‡РёС‚РµР»СЊРЅРѕ С€РёСЂРµ.
     HIT_WIDTH = 14.0
 
-    # Дополнительная зона захвата кончика.
+    # Р”РѕРїРѕР»РЅРёС‚РµР»СЊРЅР°СЏ Р·РѕРЅР° Р·Р°С…РІР°С‚Р° РєРѕРЅС‡РёРєР°.
     ENDPOINT_HIT_RADIUS = 18.0
 
     def __init__(
@@ -70,8 +70,8 @@ class ArrowItem(QGraphicsLineItem):
 
         self.setPen(
             QPen(
-                QColor("#D8D8D8"),
-                2.0,
+                QColor("#7A7A7A"),
+                1.5,
                 Qt.PenStyle.SolidLine,
                 Qt.PenCapStyle.RoundCap,
                 Qt.PenJoinStyle.RoundJoin,
@@ -405,10 +405,10 @@ class ArrowItem(QGraphicsLineItem):
 
     def shape(self):
         """
-        Увеличенная невидимая область захвата стрелки.
+        РЈРІРµР»РёС‡РµРЅРЅР°СЏ РЅРµРІРёРґРёРјР°СЏ РѕР±Р»Р°СЃС‚СЊ Р·Р°С…РІР°С‚Р° СЃС‚СЂРµР»РєРё.
 
-        Визуально стрелка остаётся 2 px,
-        но клик по линии допускается с заметным запасом.
+        Р’РёР·СѓР°Р»СЊРЅРѕ СЃС‚СЂРµР»РєР° РѕСЃС‚Р°С‘С‚СЃСЏ 2 px,
+        РЅРѕ РєР»РёРє РїРѕ Р»РёРЅРёРё РґРѕРїСѓСЃРєР°РµС‚СЃСЏ СЃ Р·Р°РјРµС‚РЅС‹Рј Р·Р°РїР°СЃРѕРј.
         """
 
         path = QPainterPath()
@@ -425,11 +425,11 @@ class ArrowItem(QGraphicsLineItem):
 
             stroke = QPainterPath()
 
-            # Создаём контур вокруг линии.
+            # РЎРѕР·РґР°С‘Рј РєРѕРЅС‚СѓСЂ РІРѕРєСЂСѓРі Р»РёРЅРёРё.
             stroker = QPainterPath()
             stroker.addPath(path)
 
-            # Используем QPainterPathStroker через QtGui.
+            # РСЃРїРѕР»СЊР·СѓРµРј QPainterPathStroker С‡РµСЂРµР· QtGui.
             from PySide6.QtGui import QPainterPathStroker
 
             path_stroker = QPainterPathStroker()
@@ -437,7 +437,7 @@ class ArrowItem(QGraphicsLineItem):
 
             stroke = path_stroker.createStroke(path)
 
-            # Отдельно расширяем область возле кончика.
+            # РћС‚РґРµР»СЊРЅРѕ СЂР°СЃС€РёСЂСЏРµРј РѕР±Р»Р°СЃС‚СЊ РІРѕР·Р»Рµ РєРѕРЅС‡РёРєР°.
             radius = self.ENDPOINT_HIT_RADIUS
 
             endpoint_path = QPainterPath()
@@ -452,7 +452,7 @@ class ArrowItem(QGraphicsLineItem):
             return stroke
 
         except Exception:
-            # Безопасный fallback.
+            # Р‘РµР·РѕРїР°СЃРЅС‹Р№ fallback.
             path.addEllipse(
                 end,
                 self.ENDPOINT_HIT_RADIUS,
@@ -619,7 +619,7 @@ class ArrowItem(QGraphicsLineItem):
         menu = QMenu()
 
         delete_action = menu.addAction(
-            "Удалить стрелку"
+            "РЈРґР°Р»РёС‚СЊ СЃС‚СЂРµР»РєСѓ"
         )
 
         action = menu.exec(
@@ -803,7 +803,7 @@ class ArrowItem(QGraphicsLineItem):
                 painter.setPen(
                     QPen(
                         QColor("#4F7CFF"),
-                        2.5,
+                2.0,
                         Qt.PenStyle.SolidLine,
                         Qt.PenCapStyle.RoundCap,
                         Qt.PenJoinStyle.RoundJoin,
@@ -812,8 +812,8 @@ class ArrowItem(QGraphicsLineItem):
             else:
                 painter.setPen(
                     QPen(
-                        QColor("#D8D8D8"),
-                        2.0,
+                        QColor("#7A7A7A"),
+                1.5,
                         Qt.PenStyle.SolidLine,
                         Qt.PenCapStyle.RoundCap,
                         Qt.PenJoinStyle.RoundJoin,
