@@ -5,18 +5,66 @@ import traceback
 from datetime import datetime
 
 # ============================================================
-# Qt должен видеть UTF-8 до создания QApplication
+# DEBUG PRINT FILTER
+# ============================================================
+# Фильтруем debug-принты: если сообщение начинается с [TAG],
+# где TAG — известный debug-тег, то не выводим в консоль.
+#
+# Для отладки закомментируй строку:
+#     _builtins_module.print = _filtered_print
+#
+# Тогда все print снова будут работать.
+
+import builtins as _builtins_module
+
+_original_print = _builtins_module.print
+
+_DEBUG_TAGS = (
+    "[SER]",
+    "[COLLECT]",
+    "[REST]",
+    "[FIND_FRAME]",
+    "[MEMBERSHIP]",
+    "[FRAME]",
+    "[PERSIST]",
+    "[SAVE]",
+    "[ADD_FRAME]",
+    "[VIDEO]",
+    "[FILE]",
+    "[IMAGE]",
+    "[COLOR]",
+)
+
+
+def _filtered_print(*args, **kwargs):
+    if args:
+        try:
+            first = str(args[0])
+        except Exception:
+            first = ""
+
+        for tag in _DEBUG_TAGS:
+            if first.startswith(tag):
+                return
+
+    _original_print(*args, **kwargs)
+
+
+_builtins_module.print = _filtered_print
+# ============================================================
+# ============================================================
+# Qt РґРѕР»Р¶РµРЅ РІРёРґРµС‚СЊ UTF-8 РґРѕ СЃРѕР·РґР°РЅРёСЏ QApplication
 # ============================================================
 
 os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "1"
 
-# Принудительно задаём UTF-8 для Qt и Python
+# РџСЂРёРЅСѓРґРёС‚РµР»СЊРЅРѕ Р·Р°РґР°С‘Рј UTF-8 РґР»СЏ Qt Рё Python
 os.environ["LANG"] = "ru_RU.UTF-8"
 os.environ["LC_ALL"] = "ru_RU.UTF-8"
 os.environ["PYTHONIOENCODING"] = "utf-8"
 
 # ============================================================
-# UTF-8 для stdout/stderr
+# UTF-8 РґР»СЏ stdout/stderr
 # ============================================================
 
 try:
@@ -27,7 +75,7 @@ except Exception:
 
 
 # ============================================================
-# Диагностические файлы
+# Р”РёР°РіРЅРѕСЃС‚РёС‡РµСЃРєРёРµ С„Р°Р№Р»С‹
 # ============================================================
 
 DEBUG_LOG = os.path.join(
@@ -43,7 +91,7 @@ CRASH_LOG = os.path.join(
 
 def write_debug(message):
     """
-    Записывает диагностическое сообщение в debug-log.
+    Р—Р°РїРёСЃС‹РІР°РµС‚ РґРёР°РіРЅРѕСЃС‚РёС‡РµСЃРєРѕРµ СЃРѕРѕР±С‰РµРЅРёРµ РІ debug-log.
     """
 
     timestamp = datetime.now().strftime(
@@ -71,7 +119,7 @@ def write_debug(message):
 
 def handle_exception(exc_type, exc_value, exc_traceback):
     """
-    Глобальный обработчик необработанных Python-исключений.
+    Р“Р»РѕР±Р°Р»СЊРЅС‹Р№ РѕР±СЂР°Р±РѕС‚С‡РёРє РЅРµРѕР±СЂР°Р±РѕС‚Р°РЅРЅС‹С… Python-РёСЃРєР»СЋС‡РµРЅРёР№.
     """
 
     if issubclass(exc_type, KeyboardInterrupt):
@@ -151,12 +199,12 @@ except Exception as error:
     crash_file = None
 
     write_debug(
-        f"Не удалось включить faulthandler: {error}"
+        f"РќРµ СѓРґР°Р»РѕСЃСЊ РІРєР»СЋС‡РёС‚СЊ faulthandler: {error}"
     )
 
 
 # ============================================================
-# Импорт Qt
+# РРјРїРѕСЂС‚ Qt
 # ============================================================
 
 from PySide6.QtCore import (
@@ -168,7 +216,7 @@ from PySide6.QtWidgets import QApplication
 
 
 # ============================================================
-# Перехват сообщений Qt
+# РџРµСЂРµС…РІР°С‚ СЃРѕРѕР±С‰РµРЅРёР№ Qt
 # ============================================================
 
 def qt_message_handler(
@@ -177,7 +225,7 @@ def qt_message_handler(
     message,
 ):
     """
-    Перехватывает сообщения Qt:
+    РџРµСЂРµС…РІР°С‚С‹РІР°РµС‚ СЃРѕРѕР±С‰РµРЅРёСЏ Qt:
     debug / info / warning / critical / fatal.
     """
 
@@ -257,7 +305,7 @@ qInstallMessageHandler(
 
 
 # ============================================================
-# Импорт проекта
+# РРјРїРѕСЂС‚ РїСЂРѕРµРєС‚Р°
 # ============================================================
 
 from app.config import APP_NAME
@@ -275,7 +323,7 @@ def main():
     )
 
     write_debug(
-        "Запуск DevJournal"
+        "Р—Р°РїСѓСЃРє DevJournal"
     )
 
     write_debug(
@@ -297,7 +345,7 @@ def main():
         )
 
         write_debug(
-            "QApplication создан"
+            "QApplication СЃРѕР·РґР°РЅ"
         )
 
         app.setApplicationName(
@@ -311,23 +359,23 @@ def main():
         window = DevJournal()
 
         write_debug(
-            "DevJournal создан"
+            "DevJournal СЃРѕР·РґР°РЅ"
         )
 
         window.show()
 
         write_debug(
-            "Главное окно показано"
+            "Р“Р»Р°РІРЅРѕРµ РѕРєРЅРѕ РїРѕРєР°Р·Р°РЅРѕ"
         )
 
         write_debug(
-            "Вход в app.exec()"
+            "Р’С…РѕРґ РІ app.exec()"
         )
 
         exit_code = app.exec()
 
         write_debug(
-            f"app.exec() завершён, код: {exit_code}"
+            f"app.exec() Р·Р°РІРµСЂС€С‘РЅ, РєРѕРґ: {exit_code}"
         )
 
         sys.exit(
@@ -337,7 +385,7 @@ def main():
     except Exception:
 
         write_debug(
-            "Исключение внутри main():"
+            "РСЃРєР»СЋС‡РµРЅРёРµ РІРЅСѓС‚СЂРё main():"
         )
 
         write_debug(
