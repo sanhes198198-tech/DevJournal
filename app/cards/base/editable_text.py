@@ -1,3 +1,6 @@
+import os
+import traceback
+
 from PySide6.QtCore import Qt, QRect
 from PySide6.QtGui import QFont, QCursor
 from PySide6.QtWidgets import (
@@ -23,13 +26,15 @@ class EditableText(QGraphicsTextItem):
 
         self.setFont(
             QFont(
-                "Segoe UI",
+                "Roboto",
                 10,
             )
         )
 
+        from PySide6.QtGui import QColor
+
         self.setDefaultTextColor(
-            Qt.GlobalColor.black
+            QColor("#444444")
         )
 
         # Защита от повторного входа в focusOutEvent.
@@ -171,6 +176,44 @@ class EditableText(QGraphicsTextItem):
     # EDITING MODE
     # =========================================================
 
+    def keyPressEvent(self, event):
+        """
+        После каждой нажатой клавиши применяем цвет.
+        Qt при вводе символа подставляет свой дефолт (чёрный),
+        игнорируя defaultTextColor.
+        """
+
+        super().keyPressEvent(event)
+
+        try:
+            self.apply_text_color()
+        except Exception:
+            pass
+
+    def inputMethodEvent(self, event):
+        """
+        То же для IME (китайский, японский и т.п.).
+        """
+
+        super().inputMethodEvent(event)
+
+        try:
+            self.apply_text_color()
+        except Exception:
+            pass
+
+    def insertFromMimeData(self, source):
+        """
+        То же для вставки из буфера (Ctrl+V).
+        """
+
+        super().insertFromMimeData(source)
+
+        try:
+            self.apply_text_color()
+        except Exception:
+            pass
+
     def set_editing_enabled(self, enabled):
 
         if enabled:
@@ -260,6 +303,36 @@ class EditableText(QGraphicsTextItem):
     # FOCUS
     # =========================================================
 
+    def apply_text_color(self, color=None):
+        """
+        Применяет цвет ко всему документу.
+        Используется для принудительной установки цвета
+        после набора текста (Qt сбрасывает defaultTextColor
+        при вводе первого символа).
+        """
+
+        from PySide6.QtGui import QTextCharFormat, QTextCursor, QColor
+
+        # HARDCODE: всегда применяем #444444.
+        # self.defaultTextColor() может вернуть чёрный,
+        # потому что Qt подставляет чёрный при наборе текста.
+        if color is None:
+            color = QColor("#444444")
+
+        try:
+            cursor = self.textCursor()
+            cursor.select(QTextCursor.SelectionType.Document)
+
+            fmt = QTextCharFormat()
+            fmt.setForeground(color)
+
+            cursor.mergeCharFormat(fmt)
+
+            cursor.clearSelection()
+            self.setTextCursor(cursor)
+        except Exception:
+            pass
+
     def focusOutEvent(self, event):
         """
         Завершает редактирование сразу после потери фокуса.
@@ -280,5 +353,12 @@ class EditableText(QGraphicsTextItem):
         ):
             if not self._is_format_toolbar_interaction():
                 self.set_editing_enabled(False)
+
+        # Принудительно применяем цвет ко всему документу —
+        # иначе Qt оставляет чёрный цвет от ввода первого символа.
+        try:
+            self.apply_text_color()
+        except Exception:
+            pass
 
         super().focusOutEvent(event)
