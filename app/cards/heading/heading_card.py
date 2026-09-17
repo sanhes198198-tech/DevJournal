@@ -225,4 +225,4 @@ class HeadingCard(Card):
             )
         )
 
-        painter.drawRect(header_rect)
+        # painter.drawRect(header_rect)  # убрано — без рамки
