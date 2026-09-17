@@ -1,4 +1,4 @@
-﻿"""
+"""
 Фабрики для создания элементов на холсте.
 
 Содержит функции add_card, add_image_text_card, add_video_text_card,
@@ -261,7 +261,7 @@ def add_image_text_card(canvas):
 
     card = add_card(
         canvas,
-        title="Заголовок",
+        title="",
         text="",
         width=360,
         height=420,
@@ -355,7 +355,7 @@ def add_video_text_card(canvas):
     )
 
     item = VideoTextItem(
-        title="Заголовок",
+        title="",
         text="",
         video_path=destination,
         width=360,

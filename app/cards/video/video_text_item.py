@@ -153,7 +153,7 @@ class VideoTextItem(QGraphicsObject):
 
     def __init__(
         self,
-        title="Заголовок",
+        title="",
         text="",
         video_path="",
         width=360,

@@ -1,4 +1,4 @@
-﻿from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QBrush, QPen, QFont
 
 from ..base.card import Card
@@ -16,7 +16,7 @@ class ImageTextCard(Card):
 
     def __init__(
         self,
-        title="Заголовок",
+        title="",
         text="",
         x=0,
         y=0,

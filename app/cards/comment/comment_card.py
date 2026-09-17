@@ -1,4 +1,4 @@
-﻿from PySide6.QtCore import Qt, QRectF
+from PySide6.QtCore import Qt, QRectF
 from PySide6.QtGui import (
     QColor,
     QBrush,
@@ -34,7 +34,7 @@ class CommentCard(Card):
 
     def __init__(
         self,
-        title="Автор",
+        title="",
         text="",
         width=320,
         height=70,
@@ -87,7 +87,7 @@ class CommentCard(Card):
         apply_to_editable(self.title_item, "comment_title")
 
         self.title_item.setDefaultTextColor(
-            QColor("#333333")
+            QColor("#444444")
         )
 
         # ----------------------------------------------------------
@@ -97,7 +97,7 @@ class CommentCard(Card):
         apply_to_editable(self.body_item, "body")
 
         self.body_item.setDefaultTextColor(
-            QColor("#4F4F4C")
+            QColor("#444444")
         )
 
         # ----------------------------------------------------------

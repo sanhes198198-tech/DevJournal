@@ -1,4 +1,4 @@
-﻿from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QBrush, QPen
 
 from ..base.card import Card
@@ -15,7 +15,7 @@ class HeadingCard(Card):
 
     def __init__(
         self,
-        title="Заголовок",
+        title="",
         text="",
         x=0,
         y=0,
@@ -45,14 +45,14 @@ class HeadingCard(Card):
         )
 
         apply_to_editable(self.title_item, "title")
-        self.title_item.setDefaultTextColor(QColor("#30302E"))
+        self.title_item.setDefaultTextColor(QColor("#444444"))
 
         self.body_item = self._make_editable(
             self.body_text,
         )
 
         apply_to_editable(self.body_item, "body")
-        self.body_item.setDefaultTextColor(QColor("#4F4F4C"))
+        self.body_item.setDefaultTextColor(QColor("#444444"))
 
         self.update_layout()
 
