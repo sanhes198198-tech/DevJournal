@@ -8,6 +8,7 @@ def create_arrow(
     source_item,
     target_item=None,
     free_end=None,
+    source_point_index=None,
 ):
     """
     Создаёт стрелку через новый UI-модуль.
@@ -45,6 +46,7 @@ def create_arrow(
             source_item=source_item,
             target_item=target_item,
             free_end=free_end,
+            source_point_index=source_point_index,
         )
     except TypeError:
         try:
@@ -74,6 +76,7 @@ def create_arrow(
 def create_free_arrow(
     scene,
     source_item,
+    source_point_index=None,
 ):
     """
     Создаёт стрелку со свободным концом.
@@ -84,6 +87,7 @@ def create_free_arrow(
         source_item=source_item,
         target_item=None,
         free_end=None,
+        source_point_index=source_point_index,
     )
 
 

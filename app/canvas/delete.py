@@ -135,6 +135,16 @@ def _safe_remove_arrow(canvas, arrow):
 
     if scene is not None:
 
+        # Вызываем cleanup() до удаления со сцены —
+        # чтобы RoutedArrowItem удалил свою ручку изгиба.
+        try:
+            cleanup = getattr(arrow, "cleanup", None)
+
+            if callable(cleanup):
+                cleanup()
+        except Exception:
+            pass
+
         try:
             scene.removeItem(arrow)
         except (RuntimeError, ReferenceError):

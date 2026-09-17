@@ -245,6 +245,7 @@ class RoutedArrowItem(ArrowItem):
         source_item,
         target_item=None,
         free_end=None,
+        source_point_index=None,
     ):
         self._route_points = []
 
@@ -263,6 +264,12 @@ class RoutedArrowItem(ArrowItem):
             target_item=target_item,
             free_end=free_end,
         )
+
+        # Запоминаем индекс точки подключения источника.
+        try:
+            self.source_point_index = source_point_index
+        except Exception:
+            pass
 
         try:
             self.setZValue(
@@ -345,6 +352,9 @@ class RoutedArrowItem(ArrowItem):
     # ============================================================
 
     def _schedule_bend_handle(self):
+        if self._being_deleted:
+            return
+
         if self._bend_handle_pending:
             return
 
@@ -372,7 +382,6 @@ class RoutedArrowItem(ArrowItem):
             scene = self.scene()
 
             if scene is None:
-                self._schedule_bend_handle()
                 return
 
             handle = ArrowBendHandle(

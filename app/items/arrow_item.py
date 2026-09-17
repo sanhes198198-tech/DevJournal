@@ -42,6 +42,9 @@ class ArrowItem(QGraphicsLineItem):
         )
 
         self.card_id = None
+
+        # Индекс точки подключения источника (0-3) или None.
+        self.source_point_index = None
         self._being_deleted = False
 
         self._cached_start = QPointF(0.0, 0.0)
@@ -243,7 +246,28 @@ class ArrowItem(QGraphicsLineItem):
             )
 
             if callable(method):
-                local_point = method()
+
+                # Пробуем передать индекс точки подключения
+                # (для источника). Если метод не принимает
+                # аргумент — вызываем без него.
+
+                point_index = None
+
+                try:
+                    if item is self.source_item:
+                        point_index = getattr(
+                            self,
+                            "source_point_index",
+                            None,
+                        )
+                except Exception:
+                    point_index = None
+
+                try:
+                    local_point = method(point_index)
+                except TypeError:
+                    local_point = method()
+
                 return item.mapToScene(local_point)
 
         except Exception as exc:
@@ -655,6 +679,17 @@ class ArrowItem(QGraphicsLineItem):
 
                 if views:
                     view = views[0]
+
+            # Вызываем cleanup() до отвязки — чтобы подклассы
+            # (RoutedArrowItem) удалили свои вспомогательные элементы
+            # (например, ручку изгиба).
+            try:
+                cleanup = getattr(self, "cleanup", None)
+
+                if callable(cleanup):
+                    cleanup()
+            except Exception:
+                pass
 
             self._unregister_from_items()
 

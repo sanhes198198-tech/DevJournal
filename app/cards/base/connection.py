@@ -52,18 +52,39 @@ def connection_points(card):
     ]
 
 
-def connection_point(card):
+def connection_point(card, index=None):
     """
-    Старое API — возвращает одну точку (правый центр).
-    Используется в arrow_item.py и routed_arrow.py.
+    Возвращает точку подключения.
+
+    - index=None → старая точка (правый центр) для совместимости.
+    - index=0 → top
+    - index=1 → right
+    - index=2 → bottom
+    - index=3 → left
     """
 
-    rect = card.rect()
+    if index is None:
+        rect = card.rect()
 
-    return QPointF(
-        rect.right(),
-        (rect.top() + rect.bottom()) / 2.0,
-    )
+        return QPointF(
+            rect.right(),
+            (rect.top() + rect.bottom()) / 2.0,
+        )
+
+    points = connection_points(card)
+
+    if not points:
+        rect = card.rect()
+
+        return QPointF(
+            rect.right(),
+            (rect.top() + rect.bottom()) / 2.0,
+        )
+
+    if 0 <= index < len(points):
+        return points[index]
+
+    return points[1]
 
 
 def has_connection_point(card):

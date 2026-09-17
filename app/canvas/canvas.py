@@ -632,9 +632,24 @@ class Canvas(QGraphicsView):
         if source_item is None:
             return None
 
+        from PySide6.QtGui import QCursor
+        from ..cards.base.connection import nearest_point_index
+
+        point_index = None
+
+        try:
+            cursor_pos = QCursor.pos()
+            view_pos = self.mapFromGlobal(cursor_pos)
+            scene_pos = self.mapToScene(view_pos)
+            source_local = source_item.mapFromScene(scene_pos)
+            point_index = nearest_point_index(source_item, source_local)
+        except Exception:
+            point_index = None
+
         arrow = create_free_arrow(
             scene=self.scene,
             source_item=source_item,
+            source_point_index=point_index,
         )
 
         if arrow is None:
@@ -665,6 +680,29 @@ class Canvas(QGraphicsView):
     # =====================================================
     # SAVE
     # =====================================================
+
+    def dump_scene_items(self):
+        """
+        Debug: печатает все items на сцене.
+        """
+
+        print("=== SCENE DUMP ===")
+        print(f"Total items: {len(self.scene.items())}")
+
+        for item in self.scene.items():
+            try:
+                name = type(item).__name__
+                pos = item.pos()
+                print(
+                    f"  {name} id={id(item)} "
+                    f"pos=({pos.x():.1f}, {pos.y():.1f}) "
+                    f"visible={item.isVisible()} "
+                    f"z={item.zValue()}"
+                )
+            except Exception as exc:
+                print(f"  ERROR: {exc!r}")
+
+        print("=== END DUMP ===")
 
     def save_board(self):
         return _save_board(self)
