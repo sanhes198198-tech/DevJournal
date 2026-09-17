@@ -747,12 +747,22 @@ class ArrowItem(QGraphicsLineItem):
         if self._being_deleted:
             return
 
-        self._being_deleted = True
-
         self._debug(
             "DELETE START "
             f"arrow={id(self)}"
         )
+
+        # Вызываем cleanup() ДО установки _being_deleted.
+        # Иначе cleanup сразу выйдет из-за проверки.
+        try:
+            cleanup = getattr(self, "cleanup", None)
+
+            if callable(cleanup):
+                cleanup()
+        except Exception:
+            pass
+
+        self._being_deleted = True
 
         try:
             view = None
@@ -763,17 +773,6 @@ class ArrowItem(QGraphicsLineItem):
 
                 if views:
                     view = views[0]
-
-            # Вызываем cleanup() до отвязки — чтобы подклассы
-            # (RoutedArrowItem) удалили свои вспомогательные элементы
-            # (например, ручку изгиба).
-            try:
-                cleanup = getattr(self, "cleanup", None)
-
-                if callable(cleanup):
-                    cleanup()
-            except Exception:
-                pass
 
             self._unregister_from_items()
 
@@ -838,6 +837,9 @@ class ArrowItem(QGraphicsLineItem):
     # ============================================================
 
     def cleanup(self):
+        pass
+
+    def _cleanup_impl(self):
         if self._being_deleted:
             return
 

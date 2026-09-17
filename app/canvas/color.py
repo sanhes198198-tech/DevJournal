@@ -18,6 +18,10 @@ from PySide6.QtWidgets import (
 
 # Фиксированная палитра цветов карточек.
 CARD_COLORS = [
+    "#FFFFFF",  # White
+    "#F2F2F2",  # Light Gray
+    "#000000",  # Black
+
     "#AACC96",  # Tea Green
     "#25533F",  # Forest
     "#F4BEAE",  # Peach Frost
