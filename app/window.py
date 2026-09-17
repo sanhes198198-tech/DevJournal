@@ -518,7 +518,7 @@ class DevJournal(QMainWindow):
         )
 
         card = self.canvas.add_card(
-            title=title,
+            title="",
             card_type=card_type,
         )
 
