@@ -84,6 +84,7 @@ class Card(QGraphicsRectItem):
         self.card_id = None
 
         self.connection_hovered = False
+        self.hover_point_index = None
 
         self.resizing = False
         self.resize_start_pos = None
@@ -727,6 +728,7 @@ class Card(QGraphicsRectItem):
     ):
 
         self.connection_hovered = False
+        self.hover_point_index = None
 
         self.update()
 
