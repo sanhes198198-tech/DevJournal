@@ -234,6 +234,76 @@ class ArrowItem(QGraphicsLineItem):
     # CONNECTION POINTS
     # ============================================================
 
+    def _get_other_end_scene_point(self, item):
+        """
+        Возвращает координаты противоположного конца стрелки
+        в координатах сцены.
+
+        Если item == source_item, "другой конец" — target_item
+        или free_end.
+        Если item == target_item, "другой конец" — source_item.
+        """
+
+        try:
+            if item is self.source_item:
+                target = self.target_item
+
+                if self._is_card_alive(target):
+                    return self._connection_point(target)
+
+                return QPointF(self.free_end)
+
+            if item is self.target_item:
+                source = self.source_item
+
+                if self._is_card_alive(source):
+                    return self._connection_point(source)
+        except Exception:
+            pass
+
+        return None
+
+    def _nearest_point_index(self, item, other_scene_point):
+        """
+        Возвращает индекс ближайшей точки подключения item
+        к other_scene_point (в координатах сцены).
+        """
+
+        try:
+            from ..cards.base.connection import connection_points
+        except Exception:
+            return None
+
+        if other_scene_point is None:
+            return None
+
+        try:
+            points = connection_points(item)
+        except Exception:
+            return None
+
+        if not points:
+            return None
+
+        try:
+            local_other = item.mapFromScene(other_scene_point)
+        except Exception:
+            return None
+
+        best_index = 0
+        best_distance = None
+
+        for i, p in enumerate(points):
+            dx = p.x() - local_other.x()
+            dy = p.y() - local_other.y()
+            dist = dx * dx + dy * dy
+
+            if best_distance is None or dist < best_distance:
+                best_distance = dist
+                best_index = i
+
+        return best_index
+
     def _connection_point(self, item):
         if not self._is_card_alive(item):
             return QPointF(0.0, 0.0)
@@ -247,21 +317,35 @@ class ArrowItem(QGraphicsLineItem):
 
             if callable(method):
 
-                # Пробуем передать индекс точки подключения
-                # (для источника). Если метод не принимает
-                # аргумент — вызываем без него.
-
                 point_index = None
 
+                # Для ИСТОЧНИКА — динамически выбираем ближайшую
+                # точку к противоположному концу стрелки.
+                # Для цели и всего остального — старая логика.
                 try:
                     if item is self.source_item:
-                        point_index = getattr(
-                            self,
-                            "source_point_index",
-                            None,
-                        )
+                        other = self._get_other_end_scene_point(item)
+
+                        if other is not None:
+                            point_index = self._nearest_point_index(
+                                item,
+                                other,
+                            )
                 except Exception:
                     point_index = None
+
+                # Fallback — на случай, если динамика не сработала:
+                # берём сохранённый source_point_index.
+                if point_index is None:
+                    try:
+                        if item is self.source_item:
+                            point_index = getattr(
+                                self,
+                                "source_point_index",
+                                None,
+                            )
+                    except Exception:
+                        point_index = None
 
                 try:
                     local_point = method(point_index)
