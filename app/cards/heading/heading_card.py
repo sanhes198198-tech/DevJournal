@@ -8,10 +8,10 @@ from ..base.typography import apply_to_editable
 class HeadingCard(Card):
 
     HEADING_SIDE_MARGIN = 10
-    HEADING_TEXT_MARGIN = 12
-    HEADING_GAP = 8
-    HEADING_HEADER_MIN_HEIGHT = 44
-    HEADING_BODY_MIN_HEIGHT = 46
+    HEADING_TEXT_MARGIN = 4
+    HEADING_GAP = 0
+    HEADING_HEADER_MIN_HEIGHT = 28
+    HEADING_BODY_MIN_HEIGHT = 28
 
     def __init__(
         self,
