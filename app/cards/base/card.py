@@ -107,6 +107,8 @@ class Card(QGraphicsRectItem):
             QGraphicsItem.GraphicsItemFlag.ItemIsMovable
             |
             QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
+            |
+            QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges
         )
 
         self.setAcceptHoverEvents(True)
@@ -378,10 +380,161 @@ class Card(QGraphicsRectItem):
         value,
     ):
 
+        # Snap-логика: когда карточка движется — ищем
+        # близкие края/центры других карточек и прилипаем.
+        try:
+            from PySide6.QtWidgets import QGraphicsItem
+
+            if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
+                self._apply_snap()
+        except Exception:
+            pass
+
         return super().itemChange(
             change,
             value,
         )
+
+    # =========================================================
+    # SNAP GUIDES
+    # =========================================================
+
+    SNAP_THRESHOLD = 5.0
+
+    def _apply_snap(self):
+        """
+        Проверяет ближайшие края и центры других карточек
+        и корректирует позицию для выравнивания.
+        """
+
+        scene = self.scene()
+
+        if scene is None:
+            print(f"[SNAP] no scene")
+            return
+
+        # Если мы внутри рамки и рамка двигает нас — не снапим
+        if getattr(self, "_inside_frame_move", False):
+            return
+
+        my_rect = self.sceneBoundingRect()
+
+        my_xs = [
+            my_rect.left(),
+            my_rect.center().x(),
+            my_rect.right(),
+        ]
+        my_ys = [
+            my_rect.top(),
+            my_rect.center().y(),
+            my_rect.bottom(),
+        ]
+
+        best_dx = None
+        best_dy = None
+        best_x_guide = None
+        best_y_guide = None
+
+        # Собираем snap-линии от всех других карточек
+        for other in scene.items():
+            if other is self:
+                continue
+
+            # Игнорируем стрелки, рамки, overlay
+            if not hasattr(other, "card_id"):
+                continue
+
+            if other.scene() is None:
+                continue
+
+            other_rect = other.sceneBoundingRect()
+
+            other_xs = [
+                other_rect.left(),
+                other_rect.center().x(),
+                other_rect.right(),
+            ]
+            other_ys = [
+                other_rect.top(),
+                other_rect.center().y(),
+                other_rect.bottom(),
+            ]
+
+            # Ищем минимальный dx по X
+            for mx in my_xs:
+                for ox in other_xs:
+                    dx = ox - mx
+
+                    if abs(dx) <= self.SNAP_THRESHOLD:
+                        if best_dx is None or abs(dx) < abs(best_dx):
+                            best_dx = dx
+                            best_x_guide = ox
+
+            # Ищем минимальный dy по Y
+            for my in my_ys:
+                for oy in other_ys:
+                    dy = oy - my
+
+                    if abs(dy) <= self.SNAP_THRESHOLD:
+                        if best_dy is None or abs(dy) < abs(best_dy):
+                            best_dy = dy
+                            best_y_guide = oy
+
+        # Применяем snap
+        moved = False
+
+        if best_dx is not None and abs(best_dx) > 0.01:
+            pos = self.pos()
+            self.setPos(pos.x() + best_dx, pos.y())
+            moved = True
+
+        if best_dy is not None and abs(best_dy) > 0.01:
+            pos = self.pos()
+            self.setPos(pos.x(), pos.y() + best_dy)
+            moved = True
+
+        # Показываем линии-направляющие через Canvas
+        try:
+            view = scene.views()[0] if scene.views() else None
+
+            print(f"[CARD-SET] view={view is not None}")
+
+            if view is not None:
+                v_lines = [best_x_guide] if best_x_guide is not None else []
+                h_lines = [best_y_guide] if best_y_guide is not None else []
+
+                print(f"[CARD-SET] calling set_snap_guides v={v_lines} h={h_lines}")
+
+                setter = getattr(view, "set_snap_guides", None)
+
+                print(f"[CARD-SET] setter={setter}")
+
+                if callable(setter):
+                    setter(vertical=v_lines, horizontal=h_lines)
+
+        except Exception as exc:
+            print(f"[SNAP-GUIDE] ERROR: {exc!r}")
+
+    def clear_snap_guides(self):
+        """
+        Убирает линии-направляющие.
+        Вызывается когда карточка отпущена.
+        """
+
+        scene = self.scene()
+
+        if scene is None:
+            return
+
+        try:
+            from ...canvas.snap_overlay import SnapOverlay
+
+            for it in scene.items():
+                if isinstance(it, SnapOverlay):
+                    it.clear_guides()
+                    break
+        except Exception:
+            pass
 
     def set_card_size(
         self,
@@ -817,6 +970,22 @@ class Card(QGraphicsRectItem):
         self,
         event,
     ):
+
+        # Убираем линии-направляющие после отпускания
+        try:
+            scene = self.scene()
+
+            if scene is not None:
+                views = scene.views()
+
+                if views:
+                    view = views[0]
+                    clearer = getattr(view, "clear_snap_guides", None)
+
+                    if callable(clearer):
+                        clearer()
+        except Exception:
+            pass
 
         if self.resizing:
 

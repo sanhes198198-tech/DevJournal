@@ -74,6 +74,13 @@ class Canvas(QGraphicsView):
         )
 
         # =================================================
+        # Snap-направляющие (рисуются через drawForeground)
+        # =================================================
+
+        self._snap_v_lines = []
+        self._snap_h_lines = []
+
+        # =================================================
         # Внешний вид
         # =================================================
 
@@ -680,6 +687,83 @@ class Canvas(QGraphicsView):
     # =====================================================
     # SAVE
     # =====================================================
+
+    # =====================================================
+    # SNAP GUIDES
+    # =====================================================
+
+    def set_snap_guides(self, vertical=None, horizontal=None):
+        """
+        Устанавливает линии-направляющие для выравнивания.
+        """
+
+        new_v = list(vertical or [])
+        new_h = list(horizontal or [])
+
+        print(f"[CANVAS-SET] set_snap_guides v={new_v} h={new_h}")
+
+        if self._snap_v_lines == new_v and self._snap_h_lines == new_h:
+            return
+
+        self._snap_v_lines = new_v
+        self._snap_h_lines = new_h
+
+        self.viewport().update()
+
+    def clear_snap_guides(self):
+        """
+        Убирает все направляющие.
+        """
+
+        if not self._snap_v_lines and not self._snap_h_lines:
+            return
+
+        self._snap_v_lines = []
+        self._snap_h_lines = []
+
+        self.viewport().update()
+
+    def drawForeground(self, painter, rect):
+        """
+        Рисует линии-направляющие ПОВЕРХ всей сцены.
+        Вызывается Qt автоматически после отрисовки сцены.
+        """
+
+        super().drawForeground(painter, rect)
+
+        if self._snap_v_lines or self._snap_h_lines:
+            print(f"[CANVAS-DRAW] drawForeground v={self._snap_v_lines} h={self._snap_h_lines}")
+
+        if not self._snap_v_lines and not self._snap_h_lines:
+            return
+
+        from PySide6.QtGui import QColor, QPen, QPainter
+        from PySide6.QtCore import QLineF, Qt
+
+        painter.save()
+
+        pen = QPen(QColor("#9A9A9A"), 1.0)
+        pen.setCosmetic(True)
+        pen.setStyle(Qt.PenStyle.DashLine)
+
+        painter.setPen(pen)
+        painter.setRenderHint(
+            QPainter.RenderHint.Antialiasing,
+            False,
+        )
+
+        top = rect.top()
+        bottom = rect.bottom()
+        left = rect.left()
+        right = rect.right()
+
+        for x in self._snap_v_lines:
+            painter.drawLine(QLineF(x, top, x, bottom))
+
+        for y in self._snap_h_lines:
+            painter.drawLine(QLineF(left, y, right, y))
+
+        painter.restore()
 
     def dump_scene_items(self):
         """
