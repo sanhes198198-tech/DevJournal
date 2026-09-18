@@ -414,6 +414,55 @@ class DialogueScene(QGraphicsScene):
         self._push(cmd)
 
     # =========================================================
+    # ПОИСК УЗЛОВ (Ctrl+F)
+    # =========================================================
+
+    @staticmethod
+    def _node_matches_query(node, query_lower):
+        """Проверяет, содержит ли узел query (регистр не важен)."""
+        t = node.type
+
+        if t == "reply":
+            speaker = (getattr(node, "speaker", "") or "").lower()
+            text = (getattr(node, "text", "") or "").lower()
+            return query_lower in speaker or query_lower in text
+
+        if t == "choice":
+            question = (getattr(node, "question", "") or "").lower()
+            if query_lower in question:
+                return True
+            for opt in getattr(node, "options", []):
+                opt_text = (getattr(opt, "text", "") or "").lower()
+                if query_lower in opt_text:
+                    return True
+
+        return False
+
+    def find_nodes(self, query):
+        """
+        Возвращает список node_id, чьи тексты содержат query.
+
+        Поиск идёт по:
+          - ReplyNode: speaker + text
+          - ChoiceNode: question + options[].text
+        Регистр не важен.
+        """
+        if self.dialogue is None:
+            return []
+
+        if not query or not query.strip():
+            return []
+
+        q = query.strip().lower()
+        result = []
+
+        for node in self.dialogue.nodes.values():
+            if self._node_matches_query(node, q):
+                result.append(node.id)
+
+        return result
+
+    # =========================================================
     # COPY / CUT / PASTE (Ctrl+C / Ctrl+X / Ctrl+V)
     # =========================================================
 

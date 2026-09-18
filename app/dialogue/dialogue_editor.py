@@ -124,6 +124,12 @@ class DialogueEditorWindow(QMainWindow):
         )
         toolbar.addAction(act_fit)
 
+        act_find = QAction("Найти", self)
+        act_find.triggered.connect(
+            lambda: self.view.find_node_dialog()
+        )
+        toolbar.addAction(act_find)
+
         # Центральный виджет
         central = QWidget()
         layout = QSplitter(Qt.Orientation.Horizontal)

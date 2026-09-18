@@ -10,7 +10,7 @@ QGraphicsView для редактора диалогов.
 
 from PySide6.QtCore import Qt, QPoint
 from PySide6.QtGui import QPainter, QShortcut, QKeySequence
-from PySide6.QtWidgets import QGraphicsView, QFrame
+from PySide6.QtWidgets import QGraphicsView, QFrame, QInputDialog, QMessageBox
 
 from .scene import DialogueScene
 
@@ -82,6 +82,9 @@ class DialogueView(QGraphicsView):
 
         # Ctrl+0 — zoom to fit
         self._setup_zoom_fit_shortcut()
+
+        # Ctrl+F — поиск по узлам
+        self._setup_find_shortcut()
 
     def _setup_delete_shortcut(self):
         """QShortcut для Delete — работает вне зависимости от фокуса."""
@@ -183,6 +186,62 @@ class DialogueView(QGraphicsView):
             self.zoom_factor = float(m.m11())
         except Exception:
             pass
+
+    # =========================================================
+    # ПОИСК (Ctrl+F)
+    # =========================================================
+
+    def _setup_find_shortcut(self):
+        """QShortcut Ctrl+F — поиск по узлам."""
+        sc = QShortcut(QKeySequence("Ctrl+F"), self)
+        sc.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        sc.activated.connect(self.find_node_dialog)
+
+    def find_node_dialog(self):
+        """Открывает диалог поиска, центрирует view на первом совпадении."""
+        scene = self.dialogue_scene
+
+        if scene.dialogue is None:
+            return
+
+        query, ok = QInputDialog.getText(
+            self,
+            "Найти узел",
+            "Что искать? (текст реплики, speaker, вопрос, вариант)",
+        )
+
+        if not ok:
+            return
+
+        query = query.strip()
+        if not query:
+            return
+
+        matches = scene.find_nodes(query)
+
+        if not matches:
+            QMessageBox.information(
+                self,
+                "Поиск",
+                f"Ничего не найдено по запросу «{query}».",
+            )
+            return
+
+        # Выделяем и центрируем на первом совпадении
+        first_id = matches[0]
+        first_item = scene.node_items.get(first_id)
+
+        if first_item is not None:
+            scene.clearSelection()
+            first_item.setSelected(True)
+            self.centerOn(first_item)
+
+        if len(matches) > 1:
+            QMessageBox.information(
+                self,
+                "Поиск",
+                f"Найдено: {len(matches)}. Показан первый.",
+            )
 
     # =========================================================
     # ZOOM
