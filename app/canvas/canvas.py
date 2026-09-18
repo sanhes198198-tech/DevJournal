@@ -51,6 +51,19 @@ class Canvas(QGraphicsView):
 
     def mousePressEvent(self, event):
 
+        # =====================================================
+        # MIDDLE MOUSE — панорамирование
+        # =====================================================
+
+        if event.button() == Qt.MouseButton.MiddleButton:
+
+            self._panning = True
+            self._pan_start = event.pos()
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
+
+            event.accept()
+            return
+
         # DEACTIVATE TEXT ON EMPTY CLICK
         try:
             item = self.itemAt(event.pos())
@@ -81,6 +94,44 @@ class Canvas(QGraphicsView):
             pass
 
         super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+
+        # Панорамирование при зажатом middle mouse
+        if getattr(self, "_panning", False):
+
+            if self._pan_start is not None:
+
+                delta = event.pos() - self._pan_start
+
+                self._pan_start = event.pos()
+
+                self.horizontalScrollBar().setValue(
+                    self.horizontalScrollBar().value() - delta.x()
+                )
+
+                self.verticalScrollBar().setValue(
+                    self.verticalScrollBar().value() - delta.y()
+                )
+
+            event.accept()
+            return
+
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+
+        # Завершение панорамирования
+        if event.button() == Qt.MouseButton.MiddleButton:
+
+            self._panning = False
+            self._pan_start = None
+            self.unsetCursor()
+
+            event.accept()
+            return
+
+        super().mouseReleaseEvent(event)
 
     MIN_ZOOM = 25
     MAX_ZOOM = 200
@@ -133,9 +184,14 @@ class Canvas(QGraphicsView):
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
 
+        # ЛКМ на пустом месте — выделение рамкой (RubberBand).
+        # Панорамирование — через колёсико мыши (middle button).
         self.setDragMode(
-            QGraphicsView.DragMode.ScrollHandDrag
+            QGraphicsView.DragMode.RubberBandDrag
         )
+
+        self._panning = False
+        self._pan_start = None
 
         self.setTransformationAnchor(
             QGraphicsView.ViewportAnchor.NoAnchor

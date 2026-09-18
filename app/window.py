@@ -794,7 +794,7 @@ class DevJournal(QMainWindow):
         ):
 
             self.canvas.setDragMode(
-                self.canvas.DragMode.ScrollHandDrag
+                self.canvas.DragMode.RubberBandDrag
             )
 
         if hasattr(
