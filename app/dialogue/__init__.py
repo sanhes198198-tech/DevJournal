@@ -47,6 +47,14 @@ from .validation import (
     validate_dialogue,
 )
 
+from .view import (
+    PortItem,
+    DialogueNodeItem,
+    DialogueConnectionItem,
+    DialogueScene,
+    DialogueView,
+)
+
 
 __all__ = [
     # ids
@@ -83,4 +91,10 @@ __all__ = [
     "ValidationIssue",
     "ValidationResult",
     "validate_dialogue",
+    # view
+    "PortItem",
+    "DialogueNodeItem",
+    "DialogueConnectionItem",
+    "DialogueScene",
+    "DialogueView",
 ]
