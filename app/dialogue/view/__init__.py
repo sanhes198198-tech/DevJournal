@@ -10,6 +10,7 @@ from .connection_item import DialogueConnectionItem
 from .scene import DialogueScene
 from .view import DialogueView
 from .inspector import DialogueInspector
+from .validation_dialog import ValidationDialog
 
 
 __all__ = [
@@ -19,4 +20,5 @@ __all__ = [
     "DialogueScene",
     "DialogueView",
     "DialogueInspector",
+    "ValidationDialog",
 ]

@@ -208,6 +208,32 @@ class DialogueEditorWindow(QMainWindow):
         QShortcut(QKeySequence("Ctrl+Y"), self, self.undo_stack.redo)
         QShortcut(QKeySequence("Ctrl+N"), self, self.new_dialogue)
 
+        # Ctrl+0 — zoom to fit (на уровне окна, чтобы не конфликтовать с главным)
+        QShortcut(
+            QKeySequence("Ctrl+0"),
+            self,
+            self._on_zoom_fit_shortcut,
+        )
+
+        # Ctrl+F — поиск
+        QShortcut(
+            QKeySequence("Ctrl+F"),
+            self,
+            self._on_find_shortcut,
+        )
+
+    def _on_zoom_fit_shortcut(self):
+        try:
+            self.view.zoom_to_fit()
+        except Exception:
+            pass
+
+    def _on_find_shortcut(self):
+        try:
+            self.view.find_node_dialog()
+        except Exception:
+            pass
+
     # =========================================================
     # ПУБЛИЧНЫЙ API
     # =========================================================
@@ -313,12 +339,12 @@ class DialogueEditorWindow(QMainWindow):
         self._set_status("Сохранено", timeout_ms=3000)
 
     def validate_current(self):
-        """Валидирует текущий диалог и показывает результат."""
+        """Валидирует диалог и показывает диалог с навигацией."""
         if self.current_dialogue is None:
             self._set_status("Нет открытого диалога")
             return
 
-        # Собираем известные ID диалогов проекта
+        # Известные ID диалогов проекта (для cross-dialogue проверки)
         try:
             from .io import list_dialogue_ids
             known_ids = list_dialogue_ids(self.project_folder)
@@ -330,37 +356,48 @@ class DialogueEditorWindow(QMainWindow):
             known_dialogue_ids=known_ids,
         )
 
-        if result.is_ok() and not result.has_warnings():
-            QMessageBox.information(
-                self,
-                "Проверка",
-                "Ошибок и предупреждений нет.",
+        # Строим карту node_id -> человекочитаемое имя
+        node_labels = {}
+        for node in self.current_dialogue.nodes.values():
+            if node.type == "reply":
+                speaker = getattr(node, "speaker", "") or ""
+                text = getattr(node, "text", "") or ""
+                preview = (text[:30] + "...") if len(text) > 30 else text
+                label = f"REPLY {speaker} \u00ab{preview}\u00bb".strip()
+            elif node.type == "choice":
+                q = getattr(node, "question", "") or "(без вопроса)"
+                preview = (q[:30] + "...") if len(q) > 30 else q
+                label = f"CHOICE \u00ab{preview}\u00bb"
+            elif node.type == "start":
+                label = "START"
+            elif node.type == "end":
+                label = "END"
+            else:
+                label = node.type.upper()
+
+            node_labels[node.id] = label
+
+        # Открываем диалог
+        from .view import ValidationDialog
+
+        dlg = ValidationDialog(
+            result=result,
+            node_labels=node_labels,
+            parent=self,
+        )
+
+        dlg.exec()
+
+        # Если пользователь выбрал узел — центрируем
+        if dlg.selected_node_id:
+            item = self.view.dialogue_scene.node_items.get(
+                dlg.selected_node_id
             )
-            return
-
-        lines = []
-
-        errors = result.errors()
-        warnings = result.warnings()
-
-        if errors:
-            lines.append(f"Ошибки ({len(errors)}):")
-            for e in errors:
-                lines.append(f"  - {e.code}: {e.message}")
-            lines.append("")
-
-        if warnings:
-            lines.append(f"Предупреждения ({len(warnings)}):")
-            for w in warnings:
-                lines.append(f"  - {w.code}: {w.message}")
-
-        text = "\n".join(lines)
-
-        QMessageBox.information(self, "Проверка диалога", text)
-
-    # =========================================================
-    # СЛОТЫ
-    # =========================================================
+            if item is not None:
+                self.view.dialogue_scene.clearSelection()
+                item.setSelected(True)
+                self.view.centerOn(item)
+                self.view.setFocus()
 
     def _on_selection_changed(self):
         """Выделение в сцене → Inspector."""

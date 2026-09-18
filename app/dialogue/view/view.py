@@ -80,11 +80,8 @@ class DialogueView(QGraphicsView):
         # Ctrl+C / Ctrl+X / Ctrl+V — копирование/вырезание/вставка
         self._setup_clipboard_shortcuts()
 
-        # Ctrl+0 — zoom to fit
-        self._setup_zoom_fit_shortcut()
-
-        # Ctrl+F — поиск по узлам
-        self._setup_find_shortcut()
+        # Ctrl+0 и Ctrl+F настраиваются в DialogueEditorWindow,
+        # чтобы не конфликтовать с QShortcut главного окна DevJournal
 
     def _setup_delete_shortcut(self):
         """QShortcut для Delete — работает вне зависимости от фокуса."""
@@ -142,12 +139,6 @@ class DialogueView(QGraphicsView):
         if callable(f):
             f()
 
-    def _setup_zoom_fit_shortcut(self):
-        """QShortcut Ctrl+0 — вписать граф в окно."""
-        sc = QShortcut(QKeySequence("Ctrl+0"), self)
-        sc.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-        sc.activated.connect(self.zoom_to_fit)
-
     def zoom_to_fit(self):
         """Вписывает все узлы в viewport. Если узлов нет — reset zoom."""
         scene = self.dialogue_scene
@@ -190,12 +181,6 @@ class DialogueView(QGraphicsView):
     # =========================================================
     # ПОИСК (Ctrl+F)
     # =========================================================
-
-    def _setup_find_shortcut(self):
-        """QShortcut Ctrl+F — поиск по узлам."""
-        sc = QShortcut(QKeySequence("Ctrl+F"), self)
-        sc.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-        sc.activated.connect(self.find_node_dialog)
 
     def find_node_dialog(self):
         """Открывает диалог поиска, центрирует view на первом совпадении."""
