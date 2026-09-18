@@ -412,6 +412,9 @@ class DevJournal(QMainWindow):
 
         self.project_name = name
 
+        # Новый проект — всегда открываем Дневник
+        self.current_section = "dnevnik"
+
         ensure_project_folder(
             name
         )
@@ -463,6 +466,9 @@ class DevJournal(QMainWindow):
         )
 
         self.project_name = project_name
+
+        # Открытый проект — всегда начинаем с Дневника
+        self.current_section = "dnevnik"
 
         self.project_name_label.setText(
             project_name
