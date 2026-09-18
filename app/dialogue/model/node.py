@@ -87,10 +87,24 @@ class ReplyNode(DialogueNode):
 
     type = "reply"
 
-    def __init__(self, node_id, speaker="", text="", x=0.0, y=0.0):
+    def __init__(
+        self,
+        node_id,
+        speaker="",
+        text="",
+        presentation=None,
+        x=0.0,
+        y=0.0,
+    ):
         super().__init__(node_id, x, y)
         self.speaker = speaker
         self.text = text
+
+        # presentation: dict — контейнер для будущих визуальных данных
+        # (портрет, эмоция, позиция). MVP не интерпретирует, но сохраняет.
+        self.presentation = (
+            dict(presentation) if presentation else {}
+        )
 
     def get_input_ports(self):
         return ["input"]
@@ -102,14 +116,24 @@ class ReplyNode(DialogueNode):
         data = super().to_dict()
         data["speaker"] = self.speaker
         data["text"] = self.text
+        data["presentation"] = dict(self.presentation)
         return data
 
     @classmethod
     def _from_dict(cls, data):
+        presentation_raw = data.get("presentation", {})
+
+        if presentation_raw is None:
+            presentation_raw = {}
+        elif not isinstance(presentation_raw, dict):
+            # Некорректный формат — сбрасываем в пустой dict
+            presentation_raw = {}
+
         return cls(
             node_id=data["id"],
             speaker=data.get("speaker", ""),
             text=data.get("text", ""),
+            presentation=presentation_raw,
             x=data.get("x", 0.0),
             y=data.get("y", 0.0),
         )
@@ -122,12 +146,24 @@ class ReplyNode(DialogueNode):
 class ChoiceOption:
     """Один вариант выбора внутри ChoiceNode."""
 
-    def __init__(self, option_id, text="", order=0, condition=None):
+    def __init__(
+        self,
+        option_id,
+        text="",
+        order=0,
+        condition=None,
+        effects=None,
+    ):
         self.id = option_id
         self.text = text
         self.order = int(order)
-        # placeholder — MVP не использует
+
+        # Архитектурный контракт:
+        # condition и effects существуют, но MVP их не интерпретирует.
+        # condition: object | None — структура условия (задел)
+        # effects: list — упорядоченный список игровых операций (задел)
         self.condition = condition
+        self.effects = list(effects) if effects else []
 
     def to_dict(self):
         return {
@@ -135,15 +171,26 @@ class ChoiceOption:
             "text": self.text,
             "order": self.order,
             "condition": self.condition,
+            "effects": list(self.effects),
         }
 
     @classmethod
     def from_dict(cls, data):
+        # Проверка типов для известных полей (forward compat с защитой)
+        effects_raw = data.get("effects", [])
+
+        if effects_raw is None:
+            effects_raw = []
+        elif not isinstance(effects_raw, list):
+            # Некорректный формат — сбрасываем в пустой список
+            effects_raw = []
+
         return cls(
             option_id=data["id"],
             text=data.get("text", ""),
             order=data.get("order", 0),
             condition=data.get("condition"),
+            effects=effects_raw,
         )
 
     def __repr__(self):
@@ -216,11 +263,60 @@ class EndNode(DialogueNode):
 
     type = "end"
 
+    # Архитектурный контракт:
+    #   outcome == "end"       → target_dialogue_id = None
+    #   outcome == "dialogue"  → target_dialogue_id = <uuid>
+    # MVP интерпретирует только "end".
+    VALID_OUTCOMES = ("end", "dialogue")
+
+    def __init__(
+        self,
+        node_id,
+        outcome="end",
+        target_dialogue_id=None,
+        x=0.0,
+        y=0.0,
+    ):
+        super().__init__(node_id, x, y)
+
+        if outcome not in self.VALID_OUTCOMES:
+            outcome = "end"
+
+        self.outcome = outcome
+        self.target_dialogue_id = target_dialogue_id
+
     def get_input_ports(self):
         return ["input"]
 
     def get_output_ports(self):
         return []
+
+    def to_dict(self):
+        data = super().to_dict()
+        data["outcome"] = self.outcome
+        data["target_dialogue_id"] = self.target_dialogue_id
+        return data
+
+    @classmethod
+    def _from_dict(cls, data):
+        outcome = data.get("outcome", "end")
+
+        if outcome not in cls.VALID_OUTCOMES:
+            outcome = "end"
+
+        target = data.get("target_dialogue_id")
+
+        # Защита от несоответствия
+        if outcome == "end":
+            target = None
+
+        return cls(
+            node_id=data["id"],
+            outcome=outcome,
+            target_dialogue_id=target,
+            x=data.get("x", 0.0),
+            y=data.get("y", 0.0),
+        )
 
 
 # =========================================================
