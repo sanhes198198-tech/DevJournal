@@ -248,10 +248,7 @@ class CommentCard(Card):
 
         rect = self.rect()
 
-        radius = min(
-            28,
-            rect.height() / 2,
-        )
+        # radius больше не нужен — углы прямые
 
         # ----------------------------------------------------------
         # Тень
@@ -279,10 +276,8 @@ class CommentCard(Card):
             )
         )
 
-        painter.drawRoundedRect(
+        painter.drawRect(
             shadow_rect,
-            radius,
-            radius,
         )
 
         # ----------------------------------------------------------
@@ -319,10 +314,8 @@ class CommentCard(Card):
                 )
             )
 
-        painter.drawRoundedRect(
+        painter.drawRect(
             rect,
-            radius,
-            radius,
         )
 
         # ----------------------------------------------------------
