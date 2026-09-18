@@ -921,6 +921,10 @@ class DevJournal(QMainWindow):
         event,
     ):
 
+        # =====================================================
+        # DELETE
+        # =====================================================
+
         if (
             event.type()
             == event.Type.KeyPress
@@ -943,6 +947,56 @@ class DevJournal(QMainWindow):
             self.delete_selected()
 
             return True
+
+        # =====================================================
+        # CTRL+C / CTRL+V / CTRL+A
+        # =====================================================
+        # Перехватываем ДО EditableText, чтобы QGraphicsTextItem
+        # не поглотил эти события. Логика внутри handler-ов
+        # сама решает: текст или карточки.
+
+        if event.type() == event.Type.KeyPress:
+
+            mods = event.modifiers()
+
+            if mods & Qt.KeyboardModifier.ControlModifier:
+
+                key = event.key()
+
+                # Если фокус в тексте — НЕ перехватываем.
+                try:
+                    focus_item = self.canvas.scene.focusItem()
+
+                    if focus_item is not None:
+                        type_name = type(focus_item).__name__
+
+                        if type_name in (
+                            "EditableText",
+                            "CardTextItem",
+                            "QGraphicsTextItem",
+                        ):
+                            return False
+                except Exception:
+                    pass
+
+                if getattr(self, "active_text_item", None) is not None:
+                    return False
+
+                # Иначе — карточки.
+                if key == Qt.Key.Key_C:
+
+                    self._handle_ctrl_c()
+                    return True
+
+                if key == Qt.Key.Key_V:
+
+                    self._handle_ctrl_v()
+                    return True
+
+                if key == Qt.Key.Key_A:
+
+                    self._handle_ctrl_a()
+                    return True
 
         return super().eventFilter(
             watched,
@@ -990,9 +1044,243 @@ class DevJournal(QMainWindow):
 
                 return
 
+            # =================================================
+            # COPY / PASTE / SELECT ALL
+            # =================================================
+            # Если фокус в текстовом поле — Qt сам обработает
+            # Ctrl+C/V/A. Пропускаем.
+            # Иначе — копируем/вставляем/выделяем карточки.
+
+            # =================================================
+            # Ctrl+C — копируем карточки, если они выделены.
+            # =================================================
+
+            if event.key() == Qt.Key.Key_C:
+
+                if self._has_selected_cards():
+
+                    self._copy_selected_cards()
+
+                    event.accept()
+                    return
+
+            # =================================================
+            # Ctrl+V — вставляем карточки, если буфер не пуст.
+            # =================================================
+
+            if event.key() == Qt.Key.Key_V:
+
+                if getattr(self, "_clipboard_cards", None):
+
+                    self._paste_cards()
+
+                    event.accept()
+                    return
+
+            # =================================================
+            # Ctrl+A — выделяем карточки, если не редактируем текст.
+            # =================================================
+
+            if event.key() == Qt.Key.Key_A:
+
+                if not self._is_text_focused():
+
+                    self._select_all_cards()
+
+                    event.accept()
+                    return
+
+                if event.key() == Qt.Key.Key_V:
+
+                    self._paste_cards()
+
+                    event.accept()
+                    return
+
+                if event.key() == Qt.Key.Key_A:
+
+                    self._select_all_cards()
+
+                    event.accept()
+                    return
+
         super().keyPressEvent(
             event
         )
+
+    # =====================================================
+    # COPY / PASTE / SELECT ALL
+    # =====================================================
+
+    def _is_text_focused(self):
+        """True, если текст в режиме редактирования (тулбар активен)."""
+
+        return getattr(self, "active_text_item", None) is not None
+
+    def _has_selected_cards(self):
+        """True, если есть хотя бы одна выделенная карточка."""
+
+        try:
+            scene = self.canvas.scene
+
+            if scene is None:
+                print(f"[COPY-DEBUG] _has_selected_cards: scene=None")
+                return False
+
+            from .window_clipboard import is_internal
+
+            sel = scene.selectedItems()
+
+            for item in sel:
+
+                if is_internal(item):
+                    continue
+
+                return True
+
+            return False
+
+        except Exception as exc:
+            print(f"[COPY-DEBUG] _has_selected_cards error: {exc!r}")
+            return False
+
+    def _copy_selected_cards(self):
+        """Сериализует выделенные карточки в self._clipboard_cards."""
+
+        from .window_clipboard import serialize_item
+
+        selected = self.canvas.scene.selectedItems()
+
+        self._clipboard_cards = []
+
+        for item in selected:
+            data = serialize_item(item)
+
+            if data:
+                self._clipboard_cards.append(data)
+
+        if self._clipboard_cards:
+            self.update_status(
+                f"Скопировано: {len(self._clipboard_cards)}"
+            )
+
+    def _paste_cards(self):
+        """Создаёт новые карточки из self._clipboard_cards."""
+
+        from .window_clipboard import paste_cards_into_canvas
+
+        if not getattr(self, "_clipboard_cards", None):
+            return
+
+        new_items = paste_cards_into_canvas(
+            self.canvas,
+            self._clipboard_cards,
+        )
+
+        if new_items:
+
+            self.canvas.scene.clearSelection()
+
+            for item in new_items:
+
+                try:
+                    item.setSelected(True)
+                except Exception:
+                    pass
+
+            self.update_status(
+                f"Вставлено: {len(new_items)}"
+            )
+
+    def _select_all_cards(self):
+        """Выделяет все карточки на сцене."""
+
+        from .window_clipboard import get_selectable_items
+
+        scene = self.canvas.scene
+
+        if scene is None:
+            return
+
+        scene.clearSelection()
+
+        count = 0
+
+        for item in get_selectable_items(scene):
+
+            try:
+                item.setSelected(True)
+                count += 1
+            except Exception:
+                pass
+
+        if count:
+            self.update_status(
+                f"Выделено: {count}"
+            )
+
+    # =====================================================
+    # GLOBAL HOTKEY HANDLERS
+    # =====================================================
+
+    def _handle_ctrl_c(self):
+        """Ctrl+C: копируем текст (если в фокусе) или карточки."""
+
+        # Приоритет — выделенные карточки.
+        if self._has_selected_cards():
+            self._copy_selected_cards()
+            return
+
+        # Иначе — текст в фокусе.
+        if self._is_text_focused():
+
+            item = self.active_text_item
+
+            if item is not None:
+                try:
+                    item.copy()
+                except Exception:
+                    pass
+
+    def _handle_ctrl_v(self):
+        """Ctrl+V: вставляем текст (если в фокусе) или карточки."""
+
+        # Приоритет — буфер карточек.
+        if getattr(self, "_clipboard_cards", None):
+            self._paste_cards()
+            return
+
+        # Иначе — текст в фокусе.
+        if self._is_text_focused():
+
+            item = self.active_text_item
+
+            if item is not None:
+                try:
+                    item.paste()
+                except Exception:
+                    pass
+
+    def _handle_ctrl_a(self):
+        """Ctrl+A: выделяем текст (если в фокусе) или карточки."""
+
+        if self._is_text_focused():
+
+            item = self.active_text_item
+
+            if item is not None:
+                try:
+                    from PySide6.QtGui import QTextCursor
+
+                    cursor = item.textCursor()
+                    cursor.select(QTextCursor.SelectionType.Document)
+                    item.setTextCursor(cursor)
+                except Exception:
+                    pass
+
+            return
+
+        self._select_all_cards()
 
     # =====================================================
     # CLOSE

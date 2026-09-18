@@ -49,6 +49,39 @@ from ..items.arrow_ui import (
 
 class Canvas(QGraphicsView):
 
+    def mousePressEvent(self, event):
+
+        # DEACTIVATE TEXT ON EMPTY CLICK
+        try:
+            item = self.itemAt(event.pos())
+
+            if item is None:
+
+                window = getattr(self, "main_window", None)
+
+                if window is None:
+                    window = getattr(
+                        getattr(self, "parent", None),
+                        "main_window",
+                        None,
+                    )
+
+                if window is not None:
+
+                    deactivator = getattr(
+                        window,
+                        "deactivate_text",
+                        None,
+                    )
+
+                    if callable(deactivator):
+                        deactivator()
+
+        except Exception:
+            pass
+
+        super().mousePressEvent(event)
+
     MIN_ZOOM = 25
     MAX_ZOOM = 200
     ZOOM_STEP = 10

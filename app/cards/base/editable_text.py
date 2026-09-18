@@ -177,6 +177,89 @@ class EditableText(QGraphicsTextItem):
     # =========================================================
 
     def keyPressEvent(self, event):
+
+        # =====================================================
+        # CTRL+C / CTRL+V / CTRL+A для текста
+        # =====================================================
+        # QGraphicsTextItem НЕ обрабатывает эти клавиши сам.
+        # Делаем вручную.
+
+        from PySide6.QtCore import Qt
+        from PySide6.QtGui import QTextCursor
+        from PySide6.QtWidgets import QApplication
+
+        mods = event.modifiers()
+        key = event.key()
+
+        if mods & Qt.KeyboardModifier.ControlModifier:
+
+            if key == Qt.Key.Key_C:
+
+                try:
+                    cursor = self.textCursor()
+
+                    if not cursor.hasSelection():
+                        cursor.select(QTextCursor.SelectionType.Document)
+                        self.setTextCursor(cursor)
+                        cursor = self.textCursor()
+
+                    if cursor.hasSelection():
+                        QApplication.clipboard().setText(
+                            cursor.selectedText()
+                        )
+                except Exception:
+                    pass
+
+                event.accept()
+                return
+
+            if key == Qt.Key.Key_V:
+
+                try:
+                    text = QApplication.clipboard().text()
+
+                    if text:
+                        cursor = self.textCursor()
+                        cursor.insertText(text)
+                except Exception:
+                    pass
+
+                event.accept()
+                return
+
+            if key == Qt.Key.Key_A:
+
+                try:
+                    cursor = self.textCursor()
+                    cursor.select(QTextCursor.SelectionType.Document)
+                    self.setTextCursor(cursor)
+                except Exception:
+                    pass
+
+                event.accept()
+                return
+
+            # Ctrl+Z — отменить
+            if key == Qt.Key.Key_Z:
+
+                try:
+                    self.document().undo()
+                except Exception:
+                    pass
+
+                event.accept()
+                return
+
+            # Ctrl+Y — повторить
+            if key == Qt.Key.Key_Y:
+
+                try:
+                    self.document().redo()
+                except Exception:
+                    pass
+
+                event.accept()
+                return
         """
         После каждой нажатой клавиши применяем цвет.
         Qt при вводе символа подставляет свой дефолт (чёрный),
