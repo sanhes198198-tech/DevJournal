@@ -9,7 +9,7 @@ QGraphicsView для редактора диалогов.
 """
 
 from PySide6.QtCore import Qt, QPoint
-from PySide6.QtGui import QPainter
+from PySide6.QtGui import QPainter, QShortcut, QKeySequence
 from PySide6.QtWidgets import QGraphicsView, QFrame
 
 from .scene import DialogueScene
@@ -61,12 +61,30 @@ class DialogueView(QGraphicsView):
             QGraphicsView.DragMode.RubberBandDrag
         )
 
+        # Фокус — чтобы Delete и другие клавиши работали
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+
         # Zoom
         self.zoom_factor = 1.0
 
         # Pan (middle mouse)
         self._panning = False
         self._pan_start = QPoint()
+
+        # Delete shortcut — надёжнее чем keyPressEvent
+        self._setup_delete_shortcut()
+
+    def _setup_delete_shortcut(self):
+        """QShortcut для Delete — работает вне зависимости от фокуса."""
+        sc = QShortcut(QKeySequence(Qt.Key.Key_Delete), self)
+        sc.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        sc.activated.connect(self._on_delete_shortcut)
+
+    def _on_delete_shortcut(self):
+        scene = self.dialogue_scene
+        delete = getattr(scene, "delete_selected", None)
+        if callable(delete):
+            delete()
 
     # =========================================================
     # ZOOM
@@ -167,6 +185,22 @@ class DialogueView(QGraphicsView):
             return
 
         super().mouseReleaseEvent(event)
+
+    # =========================================================
+    # КЛАВИАТУРА
+    # =========================================================
+
+    def keyPressEvent(self, event):
+        """Delete — удаляет выделенные узлы и связи."""
+        if event.key() == Qt.Key.Key_Delete:
+            scene = self.dialogue_scene
+            delete = getattr(scene, "delete_selected", None)
+            if callable(delete):
+                delete()
+            event.accept()
+            return
+
+        super().keyPressEvent(event)
 
     # =========================================================
     # УДОБНЫЕ ОБЁРТКИ

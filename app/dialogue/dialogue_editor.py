@@ -167,6 +167,11 @@ class DialogueEditorWindow(QMainWindow):
         # Inspector command sink
         self.inspector.set_command_sink(self.undo_stack.push)
 
+        # Scene command sink (для ПКМ-создания узлов и т.д.)
+        self.view.dialogue_scene.set_command_sink(
+            self.undo_stack.push
+        )
+
         # View → Inspector
         self.view.dialogue_scene.selectionChanged.connect(
             self._on_selection_changed
