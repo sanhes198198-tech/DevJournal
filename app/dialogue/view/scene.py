@@ -7,16 +7,21 @@ QGraphicsScene для редактора диалогов.
 Отслеживает движение узлов и обновляет пути связей.
 """
 
-from PySide6.QtCore import QRectF
+from PySide6.QtCore import QRectF, Qt
 from PySide6.QtWidgets import QGraphicsScene, QMenu
 
 from .node_item import DialogueNodeItem
 from .connection_item import DialogueConnectionItem
 from .port_item import PortItem
 
-from ..commands import CreateNodeCommand, DeleteNodeCommand, DeleteConnectionCommand
-from ..ids import generate_node_id
-from ..model import StartNode, ReplyNode, ChoiceNode, EndNode
+from ..commands import (
+    CreateNodeCommand,
+    DeleteNodeCommand,
+    DeleteConnectionCommand,
+    CreateConnectionCommand,
+)
+from ..ids import generate_node_id, generate_connection_id
+from ..model import StartNode, ReplyNode, ChoiceNode, EndNode, DialogueConnection
 
 
 class DialogueScene(QGraphicsScene):
@@ -36,6 +41,10 @@ class DialogueScene(QGraphicsScene):
 
         # Command sink — callable(command) или None
         self._command_sink = None
+
+        # Состояние drag-создания связи
+        self._drag_source_port = None
+        self._temp_line = None
 
         # Сцена большая — граф может быть большим
         self.setSceneRect(
@@ -238,6 +247,128 @@ class DialogueScene(QGraphicsScene):
             base_pos.y(),
         )
         return self._create_node_at(node_type, new_pos)
+
+    # =========================================================
+    # DRAG-СОЗДАНИЕ СВЯЗИ
+    # =========================================================
+
+    def _find_port_at(self, scene_pos):
+        """Находит PortItem в точке сцены."""
+        for item in self.items(scene_pos):
+            if isinstance(item, PortItem):
+                return item
+        return None
+
+    def begin_connection_drag(self, source_port):
+        """Начинает drag-создание связи от output-порта."""
+        if source_port.is_input:
+            return
+
+        self._drag_source_port = source_port
+
+        from PySide6.QtGui import QPainterPath, QPen, QColor
+        from PySide6.QtWidgets import QGraphicsPathItem
+
+        path = QPainterPath()
+        start = source_port.scene_center()
+        path.moveTo(start)
+        path.lineTo(start)
+
+        line = QGraphicsPathItem(path)
+        pen = QPen(QColor("#4F7CFF"), 2.0)
+        pen.setStyle(Qt.PenStyle.DashLine)
+        line.setPen(pen)
+        line.setZValue(100)
+        self.addItem(line)
+
+        self._temp_line = line
+
+    def update_connection_drag(self, scene_pos):
+        """Обновляет временную линию до курсора."""
+        if self._temp_line is None or self._drag_source_port is None:
+            return
+
+        from PySide6.QtGui import QPainterPath
+        from PySide6.QtCore import QPointF
+
+        start = self._drag_source_port.scene_center()
+        end = QPointF(scene_pos)
+
+        path = QPainterPath()
+        path.moveTo(start)
+        path.lineTo(end)
+
+        self._temp_line.setPath(path)
+
+    def end_connection_drag(self, scene_pos):
+        """Завершает drag — создаёт связь, если попали в input-порт."""
+        if self._drag_source_port is None:
+            self._cleanup_connection_drag()
+            return
+
+        target_port = self._find_port_at(scene_pos)
+
+        if target_port is not None:
+            self._try_create_connection(
+                self._drag_source_port,
+                target_port,
+            )
+
+        self._cleanup_connection_drag()
+
+    def _cleanup_connection_drag(self):
+        if self._temp_line is not None:
+            try:
+                self.removeItem(self._temp_line)
+            except Exception:
+                pass
+            self._temp_line = None
+
+        self._drag_source_port = None
+
+    def _try_create_connection(self, src_port, tgt_port):
+        """Проверяет правила и создаёт связь через команду."""
+        if self.dialogue is None:
+            return
+
+        # Целевой порт должен быть input
+        if not tgt_port.is_input:
+            return
+
+        # Source не может быть input
+        if src_port.is_input:
+            return
+
+        # Нельзя соединить узел сам с собой
+        if src_port.node_id == tgt_port.node_id:
+            return
+
+        # Проверка: у source-порта уже есть связь?
+        existing = self.dialogue.find_connection(
+            src_port.node_id,
+            src_port.port_name,
+        )
+        if existing is not None:
+            return
+
+        # Создаём модель связи
+        conn = DialogueConnection(
+            connection_id=generate_connection_id(),
+            source_node_id=src_port.node_id,
+            source_port=src_port.port_name,
+            target_node_id=tgt_port.node_id,
+            target_port=tgt_port.port_name,
+        )
+
+        def _notify():
+            self._sync_connection_visual(conn)
+
+        cmd = CreateConnectionCommand(
+            dialogue=self.dialogue,
+            connection=conn,
+            notify=_notify,
+        )
+        self._push(cmd)
 
     # =========================================================
     # CONTEXT MENU

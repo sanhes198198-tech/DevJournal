@@ -86,13 +86,80 @@ class PortItem(QGraphicsItem):
 
     def hoverEnterEvent(self, event):
         self._hovered = True
+
+        # Курсор «крестик» только для выходных портов
+        if not self.is_input:
+            self.setCursor(Qt.CursorShape.CrossCursor)
+
         self.update()
         super().hoverEnterEvent(event)
 
     def hoverLeaveEvent(self, event):
         self._hovered = False
+        self.unsetCursor()
         self.update()
         super().hoverLeaveEvent(event)
+
+    # =========================================================
+    # DRAG — START CONNECTION
+    # =========================================================
+
+    def mousePressEvent(self, event):
+        # Input-порты не обрабатываем — событие уходит к узлу
+        if self.is_input:
+            event.ignore()
+            return
+
+        if event.button() != Qt.MouseButton.LeftButton:
+            event.ignore()
+            return
+
+        scene = self.scene()
+        if scene is None:
+            event.ignore()
+            return
+
+        begin = getattr(scene, "begin_connection_drag", None)
+        if not callable(begin):
+            event.ignore()
+            return
+
+        begin(self)
+        event.accept()
+
+    def mouseMoveEvent(self, event):
+        scene = self.scene()
+        if scene is None:
+            event.ignore()
+            return
+
+        src = getattr(scene, "_drag_source_port", None)
+        if src is not self:
+            event.ignore()
+            return
+
+        update = getattr(scene, "update_connection_drag", None)
+        if callable(update):
+            update(event.scenePos())
+
+        event.accept()
+
+    def mouseReleaseEvent(self, event):
+        scene = self.scene()
+        if scene is None:
+            event.ignore()
+            return
+
+        src = getattr(scene, "_drag_source_port", None)
+        if src is not self:
+            event.ignore()
+            return
+
+        end = getattr(scene, "end_connection_drag", None)
+        if callable(end):
+            end(event.scenePos())
+
+        event.accept()
 
     # =========================================================
     # УТИЛИТЫ
