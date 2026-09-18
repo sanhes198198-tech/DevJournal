@@ -80,6 +80,9 @@ class DialogueView(QGraphicsView):
         # Ctrl+C / Ctrl+X / Ctrl+V — копирование/вырезание/вставка
         self._setup_clipboard_shortcuts()
 
+        # Ctrl+0 — zoom to fit
+        self._setup_zoom_fit_shortcut()
+
     def _setup_delete_shortcut(self):
         """QShortcut для Delete — работает вне зависимости от фокуса."""
         sc = QShortcut(QKeySequence(Qt.Key.Key_Delete), self)
@@ -135,6 +138,51 @@ class DialogueView(QGraphicsView):
         f = getattr(scene, "paste_clipboard", None)
         if callable(f):
             f()
+
+    def _setup_zoom_fit_shortcut(self):
+        """QShortcut Ctrl+0 — вписать граф в окно."""
+        sc = QShortcut(QKeySequence("Ctrl+0"), self)
+        sc.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        sc.activated.connect(self.zoom_to_fit)
+
+    def zoom_to_fit(self):
+        """Вписывает все узлы в viewport. Если узлов нет — reset zoom."""
+        scene = self.dialogue_scene
+
+        # Собираем boundingRect всех узлов (без соединений)
+        node_items = list(scene.node_items.values())
+
+        if not node_items:
+            self.reset_zoom()
+            return
+
+        from PySide6.QtCore import QRectF
+
+        bounding = QRectF()
+        first = True
+
+        for item in node_items:
+            item_rect = item.sceneBoundingRect()
+            if first:
+                bounding = item_rect
+                first = False
+            else:
+                bounding = bounding.united(item_rect)
+
+        # Отступ 80px
+        bounding = bounding.adjusted(-80, -80, 80, 80)
+
+        self.fitInView(
+            bounding,
+            Qt.AspectRatioMode.KeepAspectRatio,
+        )
+
+        # Обновляем zoom_factor по текущему transform
+        try:
+            m = self.transform()
+            self.zoom_factor = float(m.m11())
+        except Exception:
+            pass
 
     # =========================================================
     # ZOOM

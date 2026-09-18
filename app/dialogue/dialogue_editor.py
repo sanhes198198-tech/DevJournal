@@ -116,6 +116,14 @@ class DialogueEditorWindow(QMainWindow):
         act_validate.triggered.connect(self.validate_current)
         toolbar.addAction(act_validate)
 
+        toolbar.addSeparator()
+
+        act_fit = QAction("Zoom fit", self)
+        act_fit.triggered.connect(
+            lambda: self.view.zoom_to_fit()
+        )
+        toolbar.addAction(act_fit)
+
         # Центральный виджет
         central = QWidget()
         layout = QSplitter(Qt.Orientation.Horizontal)
