@@ -247,9 +247,25 @@ def save_board(canvas):
         canvas.main_window.project_name
     )
 
-    board_path = os.path.join(
+    section = getattr(
+        canvas.main_window,
+        "current_section",
+        "dnevnik",
+    )
+
+    sections_dir = os.path.join(
         project_folder,
-        "board.json",
+        "sections",
+    )
+
+    os.makedirs(
+        sections_dir,
+        exist_ok=True,
+    )
+
+    board_path = os.path.join(
+        sections_dir,
+        f"{section}.json",
     )
 
     view_state = canvas.get_view_state()
@@ -523,10 +539,39 @@ def load_board(canvas, project_name):
         project_name
     )
 
-    board_path = os.path.join(
-        project_folder,
-        "board.json",
+    section = getattr(
+        canvas.main_window,
+        "current_section",
+        "dnevnik",
     )
+
+    sections_dir = os.path.join(
+        project_folder,
+        "sections",
+    )
+
+    os.makedirs(
+        sections_dir,
+        exist_ok=True,
+    )
+
+    board_path = os.path.join(
+        sections_dir,
+        f"{section}.json",
+    )
+
+    # Fallback: старый board.json (для Дневника)
+    if (
+        section == "dnevnik"
+        and not os.path.exists(board_path)
+    ):
+        old_path = os.path.join(
+            project_folder,
+            "board.json",
+        )
+
+        if os.path.exists(old_path):
+            board_path = old_path
 
     canvas.scene.clear()
 

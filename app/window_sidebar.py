@@ -1,4 +1,4 @@
-﻿"""Sidebar builder for DevJournal."""
+"""Sidebar builder for DevJournal."""
 
 from PySide6.QtCore import (
     Qt,
@@ -421,24 +421,18 @@ def build_sidebar(
         sections_label
     )
 
-    sections = [
-        "📖  Дневник",
-        "🌍  Мир",
-        "👤  Персонажи",
-        "🏙  Локации",
-        "🎮  Геймплей",
-        "🎨  Арт",
-        "🔧  Техника",
-    ]
+    from .config import SECTIONS
 
     window.section_buttons = []
 
-    for index, name in enumerate(
-        sections
-    ):
+    for index, (slug, label) in enumerate(SECTIONS):
 
         button = QPushButton(
-            name
+            label
+        )
+
+        button.setCursor(
+            Qt.CursorShape.PointingHandCursor
         )
 
         if index == 0:
@@ -446,6 +440,10 @@ def build_sidebar(
             button.setObjectName(
                 "activeSection"
             )
+
+        button.clicked.connect(
+            lambda checked=False, s=slug: window.switch_section(s)
+        )
 
         sidebar_layout.addWidget(
             button

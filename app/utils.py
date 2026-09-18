@@ -42,4 +42,12 @@ def ensure_project_folder(name):
         exist_ok=True,
     )
 
+    os.makedirs(
+        os.path.join(
+            folder,
+            "sections",
+        ),
+        exist_ok=True,
+    )
+
     return folder

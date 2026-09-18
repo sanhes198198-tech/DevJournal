@@ -44,6 +44,9 @@ class DevJournal(QMainWindow):
         self.last_selected_item = None
         self.active_text_item = None
 
+        # Активный раздел проекта (Дневник / Мир / ...)
+        self.current_section = "dnevnik"
+
         self.setWindowTitle(APP_NAME)
 
         self.resize(
@@ -1281,6 +1284,82 @@ class DevJournal(QMainWindow):
             return
 
         self._select_all_cards()
+
+    # =====================================================
+    # SECTION SWITCHING
+    # =====================================================
+
+    def switch_section(self, slug):
+        """Переключает активный раздел проекта."""
+
+        if slug == getattr(self, "current_section", None):
+            return
+
+        if not self.project_name:
+            return
+
+        # Сохранить текущий раздел
+        try:
+            self.canvas.save_board()
+        except Exception as exc:
+            print(f"[SECTION] save failed: {exc!r}")
+
+        # Переключить
+        self.current_section = slug
+
+        # Загрузить новый раздел
+        try:
+            self.canvas.load_board(self.project_name)
+        except Exception as exc:
+            print(f"[SECTION] load failed: {exc!r}")
+
+        # Обновить выделение кнопок
+        try:
+            self.update_section_buttons()
+        except Exception:
+            pass
+
+        # Обновить статус
+        try:
+            from .config import SECTION_LABELS
+
+            label = SECTION_LABELS.get(slug, slug)
+
+            self.update_status(f"Раздел: {label}")
+        except Exception:
+            pass
+
+    def update_section_buttons(self):
+        """Подсвечивает активную кнопку раздела."""
+
+        from .config import SECTIONS
+
+        buttons = getattr(self, "section_buttons", None)
+
+        if not buttons:
+            return
+
+        for index, (slug, _label) in enumerate(SECTIONS):
+
+            if index >= len(buttons):
+                break
+
+            button = buttons[index]
+
+            try:
+                if slug == self.current_section:
+                    button.setObjectName("activeSection")
+                else:
+                    button.setObjectName("")
+            except Exception:
+                pass
+
+            # Qt требует перерисовку после смены objectName
+            try:
+                button.style().unpolish(button)
+                button.style().polish(button)
+            except Exception:
+                pass
 
     # =====================================================
     # CLOSE
