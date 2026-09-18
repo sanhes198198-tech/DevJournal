@@ -95,6 +95,15 @@ class TopNavigationPanel(QFrame):
             "Удалить проект…"
         )
 
+        project_menu.addSeparator()
+
+        dialogue_action = project_menu.addAction(
+            "Диалоги…"
+        )
+        dialogue_action.triggered.connect(
+            self.window.open_dialogue_editor
+        )
+
         new_action.triggered.connect(
             self.window.new_project
         )

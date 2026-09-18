@@ -56,6 +56,9 @@ from .view import (
     DialogueInspector,
 )
 
+from .dialogue_list import DialogueList
+from .dialogue_editor import DialogueEditorWindow
+
 from .commands import (
     ChangePropertyCommand,
     MoveNodeCommand,
@@ -111,6 +114,9 @@ __all__ = [
     "DialogueScene",
     "DialogueView",
     "DialogueInspector",
+    # list
+    "DialogueList",
+    "DialogueEditorWindow",
     # commands
     "ChangePropertyCommand",
     "MoveNodeCommand",

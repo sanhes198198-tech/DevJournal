@@ -748,6 +748,37 @@ class DevJournal(QMainWindow):
             )
 
     # =====================================================
+    # DIALOGUE EDITOR
+    # =====================================================
+
+    def open_dialogue_editor(self):
+
+        if not self.project_name:
+            QMessageBox.information(
+                self,
+                "Диалоги",
+                "Сначала создайте или откройте проект.",
+            )
+            return
+
+        from .dialogue import DialogueEditorWindow
+        from .utils import ensure_project_folder
+
+        project_folder = ensure_project_folder(
+            self.project_name
+        )
+
+        if getattr(self, "_dialogue_editor", None) is None:
+            self._dialogue_editor = DialogueEditorWindow(
+                project_folder,
+                parent=self,
+            )
+
+        self._dialogue_editor.show()
+        self._dialogue_editor.raise_()
+        self._dialogue_editor.activateWindow()
+
+    # =====================================================
     # FORMAT TOOLBAR — ACTIVATION
     # =====================================================
 
