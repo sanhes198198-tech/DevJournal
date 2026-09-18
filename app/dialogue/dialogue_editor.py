@@ -298,7 +298,17 @@ class DialogueEditorWindow(QMainWindow):
             self._set_status("Нет открытого диалога")
             return
 
-        result = validate_dialogue(self.current_dialogue)
+        # Собираем известные ID диалогов проекта
+        try:
+            from .io import list_dialogue_ids
+            known_ids = list_dialogue_ids(self.project_folder)
+        except Exception:
+            known_ids = None
+
+        result = validate_dialogue(
+            self.current_dialogue,
+            known_dialogue_ids=known_ids,
+        )
 
         if result.is_ok() and not result.has_warnings():
             QMessageBox.information(

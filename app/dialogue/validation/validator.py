@@ -350,12 +350,81 @@ def _check_cycles(dialogue, result):
 
 
 # =========================================================
+# END OUTCOME
+# =========================================================
+
+def _check_end_outcomes(dialogue, result, known_dialogue_ids=None):
+    """
+    Проверка корректности outcome у EndNode.
+
+    known_dialogue_ids — опциональный set из известных ID диалогов.
+    Если не передан — cross-dialogue проверка пропускается.
+    """
+    current_id = getattr(dialogue, "id", None)
+
+    for node in dialogue.nodes.values():
+        if not isinstance(node, EndNode):
+            continue
+
+        outcome = getattr(node, "outcome", "end")
+        target = getattr(node, "target_dialogue_id", None)
+
+        # --- outcome="end", но target указан ---
+        if outcome == "end" and target is not None:
+            result.add_error(
+                "END_OUTCOME_MISMATCH",
+                f"EndNode {node.id!r}: outcome='end', "
+                f"но target_dialogue_id={target!r} указан.",
+                node_id=node.id,
+            )
+            continue
+
+        # --- outcome="dialogue", но target отсутствует ---
+        if outcome == "dialogue" and not target:
+            result.add_error(
+                "END_OUTCOME_MISSING_TARGET",
+                f"EndNode {node.id!r}: outcome='dialogue', "
+                f"но target_dialogue_id не указан.",
+                node_id=node.id,
+            )
+            continue
+
+        # --- outcome="dialogue" и target указывает на себя ---
+        if outcome == "dialogue" and target == current_id:
+            result.add_warning(
+                "END_OUTCOME_SELF_TARGET",
+                f"EndNode {node.id!r}: диалог ссылается сам на себя.",
+                node_id=node.id,
+            )
+
+        # --- outcome="dialogue", target не в known_dialogue_ids ---
+        if (
+            outcome == "dialogue"
+            and known_dialogue_ids is not None
+            and target
+            and target not in known_dialogue_ids
+        ):
+            result.add_warning(
+                "END_OUTCOME_UNKNOWN_TARGET",
+                f"EndNode {node.id!r}: target_dialogue_id={target!r} "
+                f"не найден среди известных диалогов проекта.",
+                node_id=node.id,
+            )
+
+
+# =========================================================
 # ГЛАВНАЯ ФУНКЦИЯ
 # =========================================================
 
-def validate_dialogue(dialogue):
+def validate_dialogue(dialogue, known_dialogue_ids=None):
     """
     Валидирует диалог.
+
+    Параметры:
+        dialogue — Dialogue
+        known_dialogue_ids — опциональный set/list ID диалогов проекта.
+            Если передан — проверяется, что outcome="dialogue"
+            указывает на существующий диалог.
 
     Возвращает ValidationResult со списком issue.
     """
@@ -370,5 +439,6 @@ def validate_dialogue(dialogue):
     _check_unreachable(dialogue, result)
     _check_choice_nodes(dialogue, result)
     _check_cycles(dialogue, result)
+    _check_end_outcomes(dialogue, result, known_dialogue_ids)
 
     return result
