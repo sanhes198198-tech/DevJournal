@@ -422,6 +422,16 @@ def delete_selected(canvas):
 
     for item in all_to_delete:
 
+        # Вызываем cleanup() перед удалением — чтобы стрелка
+        # удалила свой bend handle, если он у неё есть.
+        try:
+            cleanup = getattr(item, "cleanup", None)
+
+            if callable(cleanup):
+                cleanup()
+        except Exception:
+            pass
+
         try:
             if item.scene() is canvas.scene:
                 canvas.scene.removeItem(item)
