@@ -114,9 +114,20 @@ def _restore_text_item(text_item, text, html):
     if text_item is None:
         return
 
+    # CardTextItem (используется в VideoTextItem) — не чистим HTML,
+    # иначе теряется форматирование (жирный, курсив, цвет, шрифт).
+    is_card_text_item = (
+        type(text_item).__name__ == "CardTextItem"
+    )
+
     if html:
-        cleaned = clean_html_colors(html)
-        text_item.setHtml(cleaned)
+        if is_card_text_item:
+            # Для видео — применяем HTML как есть
+            text_item.setHtml(html)
+        else:
+            # Для EditableText — чистим, чтобы typography работала
+            cleaned = clean_html_colors(html)
+            text_item.setHtml(cleaned)
     else:
         text_item.setPlainText(text or "")
 
@@ -417,6 +428,7 @@ def save_board(canvas):
                 "width": item.item_width,
                 "height": item.item_height,
                 "title": title_data["text"],
+                "title": title_data["text"],
                 "title_html": title_data["html"],
                 "text": body_data["text"],
                 "text_html": body_data["html"],
@@ -674,7 +686,7 @@ def load_board(canvas, project_name):
                 item = VideoTextItem(
                     title=item_data.get(
                         "title",
-                        "Заголовок",
+                        "",
                     ),
                     text=item_data.get(
                         "text",

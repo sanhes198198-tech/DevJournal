@@ -47,6 +47,12 @@ class CardTextItem(QGraphicsTextItem):
 
         self.parent_card = parent_card
 
+        self._editing_enabled = False
+
+    # =========================================================
+    # MOUSE / FOCUS
+    # =========================================================
+
     def mousePressEvent(
         self,
         event,
@@ -61,10 +67,308 @@ class CardTextItem(QGraphicsTextItem):
 
         self.parent_card.update()
 
+        # Активируем редактирование + тулбар
+        self.set_editing_enabled(True)
+        self._register_for_format_toolbar()
 
-# =========================================================
-# Окно просмотра видео
-# =========================================================
+    def mouseDoubleClickEvent(
+        self,
+        event,
+    ):
+        super().mouseDoubleClickEvent(event)
+
+        self.set_editing_enabled(True)
+        self._register_for_format_toolbar()
+
+    def focusInEvent(
+        self,
+        event,
+    ):
+        super().focusInEvent(event)
+
+        self.set_editing_enabled(True)
+        self._register_for_format_toolbar()
+
+    def focusOutEvent(
+        self,
+        event,
+    ):
+        self.set_editing_enabled(False)
+
+        super().focusOutEvent(event)
+
+    # =========================================================
+    # EDITING STATE
+    # =========================================================
+
+    # =========================================================
+    # FORMAT TOOLBAR FOCUS GUARD
+    # =========================================================
+
+    def _is_format_toolbar_interaction(self):
+        """
+        Проверяет, является ли текущая потеря фокуса
+        результатом взаимодействия с плавающей панелью
+        форматирования.
+
+        Важно:
+        CardTextItem является QGraphicsTextItem, а toolbar
+        является обычным QWidget. Поэтому проверять QWidget-фокус
+        напрямую здесь нельзя.
+
+        Вместо этого проверяем положение курсора мыши,
+        popup ComboBox и модальное окно QColorDialog.
+        """
+
+        from PySide6.QtGui import QCursor
+        from PySide6.QtCore import QRect
+        from PySide6.QtWidgets import QApplication
+
+        scene = self.scene()
+
+        if scene is None:
+            return False
+
+        views = scene.views()
+
+        if not views:
+            return False
+
+        main_window = getattr(
+            views[0],
+            "main_window",
+            None,
+        )
+
+        if main_window is None:
+            return False
+
+        toolbar = getattr(
+            main_window,
+            "format_toolbar",
+            None,
+        )
+
+        if toolbar is None:
+            return False
+
+        if not toolbar.isVisible():
+            return False
+
+        global_pos = QCursor.pos()
+
+        # -----------------------------------------------------
+        # Сам FormatToolbar
+        # -----------------------------------------------------
+
+        toolbar_top_left = toolbar.mapToGlobal(
+            toolbar.rect().topLeft()
+        )
+
+        toolbar_rect = QRect(
+            toolbar_top_left,
+            toolbar.size(),
+        )
+
+        if toolbar_rect.contains(global_pos):
+            return True
+
+        # -----------------------------------------------------
+        # Popup ComboBox / QFontComboBox
+        # -----------------------------------------------------
+
+        popup = QApplication.activePopupWidget()
+
+        if popup is not None and popup.isVisible():
+
+            popup_top_left = popup.mapToGlobal(
+                popup.rect().topLeft()
+            )
+
+            popup_rect = QRect(
+                popup_top_left,
+                popup.size(),
+            )
+
+            if popup_rect.contains(global_pos):
+                return True
+
+        # -----------------------------------------------------
+        # Модальный диалог цвета
+        # -----------------------------------------------------
+
+        modal = QApplication.activeModalWidget()
+
+        if modal is not None and modal.isVisible():
+
+            current = modal
+
+            while current is not None:
+
+                if current is toolbar:
+                    return True
+
+                current = current.parentWidget()
+
+        return False
+
+    def is_editing_enabled(self):
+        return (
+            self.textInteractionFlags()
+            != Qt.TextInteractionFlag.NoTextInteraction
+        )
+
+    def set_editing_enabled(
+        self,
+        enabled,
+    ):
+        self._editing_enabled = bool(enabled)
+
+        scene = self.scene()
+
+        main_window = None
+
+        if scene is not None:
+            views = scene.views()
+
+            if views:
+                main_window = getattr(
+                    views[0],
+                    "main_window",
+                    None,
+                )
+
+        if enabled:
+
+            self.setTextInteractionFlags(
+                Qt.TextInteractionFlag.TextEditorInteraction
+            )
+
+            self.setFlag(
+                QGraphicsTextItem.GraphicsItemFlag.ItemIsFocusable,
+                True,
+            )
+
+            self.setAcceptedMouseButtons(
+                Qt.MouseButton.LeftButton
+            )
+
+            self.setCursor(
+                Qt.CursorShape.IBeamCursor
+            )
+
+            self.setFocus(
+                Qt.FocusReason.MouseFocusReason
+            )
+
+            if main_window is not None:
+                activator = getattr(
+                    main_window,
+                    "activate_text",
+                    None,
+                )
+
+                if callable(activator):
+                    try:
+                        activator(self)
+                    except Exception:
+                        pass
+
+        else:
+
+            cursor = self.textCursor()
+
+            if cursor is not None:
+                cursor.clearSelection()
+                self.setTextCursor(cursor)
+
+            self.setTextInteractionFlags(
+                Qt.TextInteractionFlag.NoTextInteraction
+            )
+
+            # НЕ отключаем фокус полностью — иначе повторный клик не сработает.
+            self.setFlag(
+                QGraphicsTextItem.GraphicsItemFlag.ItemIsFocusable,
+                True,
+            )
+
+            # ВАЖНО: не ставим NoButton — иначе повторный клик не сработает.
+            self.setAcceptedMouseButtons(
+                Qt.MouseButton.LeftButton
+            )
+
+            self.unsetCursor()
+
+            # ВАЖНО: если потеря фокуса — это клик в тулбар или его popup,
+            # НЕ вызываем deactivate_text (иначе тулбар закроется).
+            is_toolbar_interaction = False
+
+            try:
+                is_toolbar_interaction = self._is_format_toolbar_interaction()
+            except Exception:
+                is_toolbar_interaction = False
+
+            if not is_toolbar_interaction:
+                self.clearFocus()
+
+                if main_window is not None:
+                    deactivator = getattr(
+                        main_window,
+                        "deactivate_text",
+                        None,
+                    )
+
+                    if callable(deactivator):
+                        try:
+                            deactivator()
+                        except Exception:
+                            pass
+            else:
+                # Фокус ушёл в тулбар — оставляем всё как есть,
+                # тулбар продолжает работать.
+                self.setFlag(
+                    QGraphicsTextItem.GraphicsItemFlag.ItemIsFocusable,
+                    True,
+                )
+
+    # =========================================================
+    # TOOLBAR REGISTRATION
+    # =========================================================
+
+    def _register_for_format_toolbar(self):
+        scene = self.scene()
+
+        if scene is None:
+            return
+
+        views = scene.views()
+
+        if not views:
+            return
+
+        view = views[0]
+
+        main_window = getattr(
+            view,
+            "main_window",
+            None,
+        )
+
+        if main_window is None:
+            return
+
+        activator = getattr(
+            main_window,
+            "activate_text",
+            None,
+        )
+
+        if callable(activator):
+            try:
+                activator(self)
+            except Exception:
+                pass
+
 
 class VideoWindow(QWidget):
 
@@ -148,6 +452,7 @@ class VideoTextItem(QGraphicsObject):
 
     MIN_WIDTH = 260
     MIN_HEIGHT = 280
+    SNAP_THRESHOLD = 5.0
 
     CONNECTION_POINT_RADIUS = 5
 
@@ -203,6 +508,12 @@ class VideoTextItem(QGraphicsObject):
 
         self.setFlag(
             QGraphicsObject.GraphicsItemFlag.ItemIsFocusable,
+            True,
+        )
+
+        # Snap guides: без этого флага itemChange не вызывается при движении
+        self.setFlag(
+            QGraphicsObject.GraphicsItemFlag.ItemSendsGeometryChanges,
             True,
         )
 
@@ -983,6 +1294,22 @@ class VideoTextItem(QGraphicsObject):
         event,
     ):
 
+        # Snap guides: убираем направляющие при отпускании
+        try:
+            scene = self.scene()
+
+            if scene is not None:
+                views = scene.views()
+
+                if views:
+                    view = views[0]
+                    clearer = getattr(view, "clear_snap_guides", None)
+
+                    if callable(clearer):
+                        clearer()
+        except Exception:
+            pass
+
         if self.dragging_resize:
 
             self.dragging_resize = False
@@ -1079,6 +1406,14 @@ class VideoTextItem(QGraphicsObject):
 
                     except Exception:
                         pass
+
+            # Snap guides: прилипание к другим карточкам
+            try:
+                from ..base.card import Card
+
+                Card._apply_snap(self)
+            except Exception:
+                pass
 
         if (
             change
