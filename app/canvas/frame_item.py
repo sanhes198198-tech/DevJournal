@@ -186,7 +186,9 @@ class FrameItem(QGraphicsRectItem):
                 QGraphicsRectItem.GraphicsItemFlag.ItemIsSelectable,
                 False,
             )
-            self.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
+            # Принимаем ТОЛЬКО правую кнопку — чтобы можно было
+            # вызвать контекстное меню и разблокировать.
+            self.setAcceptedMouseButtons(Qt.MouseButton.RightButton)
             self.setAcceptHoverEvents(False)
 
             try:
@@ -448,6 +450,16 @@ class FrameItem(QGraphicsRectItem):
         self._last_move_pos = None
 
     def mousePressEvent(self, event):
+        # Если рамка заблокирована — принимаем ТОЛЬКО правую кнопку
+        # для вызова контекстного меню (чтобы можно было разблокировать).
+        if self.locked:
+            if event.button() == Qt.MouseButton.RightButton:
+                self.contextMenuEvent(event)
+                event.accept()
+                return
+            event.ignore()
+            return
+
         if event.button() == Qt.MouseButton.LeftButton:
 
             # Resize Р В Р’В Р вЂ™Р’В Р В РІР‚в„ўР вЂ™Р’В Р В Р’В Р Р†Р вЂљРІвЂћСћР В РІР‚в„ўР вЂ™Р’В·Р В Р’В Р вЂ™Р’В Р В РІР‚в„ўР вЂ™Р’В Р В Р’В Р Р†Р вЂљРІвЂћСћР В РІР‚в„ўР вЂ™Р’В° Р В Р’В Р вЂ™Р’В Р В Р’В Р В РІР‚в„–Р В Р’В Р вЂ™Р’В Р В Р вЂ Р В РІР‚С™Р РЋРІвЂћСћР В Р’В Р вЂ™Р’В Р В Р’В Р В РІР‚в„–Р В Р’В Р В Р вЂ№Р В Р вЂ Р В РІР‚С™Р РЋРЎв„ўР В Р’В Р вЂ™Р’В Р В Р’В Р В РІР‚в„–Р В Р’В Р В РІР‚В Р В Р’В Р Р†Р вЂљРЎв„ўР В Р’В Р В РІР‚в„–Р В Р’В Р вЂ™Р’В Р В РІР‚в„ўР вЂ™Р’В Р В Р’В Р В Р вЂ№Р В Р вЂ Р В РІР‚С™Р РЋРЎС™Р В Р’В Р вЂ™Р’В Р В РІР‚в„ўР вЂ™Р’В Р В Р’В Р В Р вЂ№Р В Р вЂ Р В РІР‚С™Р вЂ™Р’В Р В Р’В Р вЂ™Р’В Р В Р’В Р Р†Р вЂљР’В Р В Р’В Р вЂ™Р’В Р В Р вЂ Р В РІР‚С™Р РЋРІвЂћСћР В Р’В Р В РІР‚В Р В Р’В Р Р†Р вЂљРЎв„ўР В Р Р‹Р РЋРЎв„ў Р В Р’В Р вЂ™Р’В Р В РІР‚в„ўР вЂ™Р’В Р В Р’В Р В Р вЂ№Р В Р вЂ Р В РІР‚С™Р РЋРЎвЂєР В Р’В Р вЂ™Р’В Р В Р’В Р В РІР‚в„–Р В Р’В Р В РІР‚В Р В Р’В Р Р†Р вЂљРЎв„ўР В Р Р‹Р Р†РІР‚С›РЎС›Р В Р’В Р вЂ™Р’В Р В РІР‚в„ўР вЂ™Р’В Р В Р’В Р РЋРЎвЂєР В Р вЂ Р В РІР‚С™Р вЂ™Р’ВР В Р’В Р вЂ™Р’В Р В РІР‚в„ўР вЂ™Р’В Р В Р’В Р Р†Р вЂљРІвЂћСћР В РІР‚в„ўР вЂ™Р’ВµР В Р’В Р вЂ™Р’В Р В РІР‚в„ўР вЂ™Р’В Р В Р’В Р Р†Р вЂљРІвЂћСћР В РІР‚в„ўР вЂ™Р’В»Р В Р’В Р вЂ™Р’В Р В Р’В Р В РІР‚в„–Р В Р’В Р вЂ™Р’В Р В Р’В Р Р†Р вЂљР’В°Р В Р’В Р вЂ™Р’В Р В РІР‚в„ўР вЂ™Р’В Р В Р’В Р вЂ™Р’В Р В Р вЂ Р В РІР‚С™Р вЂ™Р’В¦Р В Р’В Р вЂ™Р’В Р В РІР‚в„ўР вЂ™Р’В Р В Р’В Р В Р вЂ№Р В Р вЂ Р В РІР‚С™Р РЋРЎвЂє.
@@ -479,6 +491,22 @@ class FrameItem(QGraphicsRectItem):
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
+        # Snap guides: убираем направляющие при отпускании
+        try:
+            scene = self.scene()
+
+            if scene is not None:
+                views = scene.views()
+
+                if views:
+                    view = views[0]
+                    clearer = getattr(view, "clear_snap_guides", None)
+
+                    if callable(clearer):
+                        clearer()
+        except Exception:
+            pass
+
         if getattr(self, "resizing", False):
             finish_resize(self)
 
@@ -546,7 +574,10 @@ class FrameItem(QGraphicsRectItem):
         menu.addSeparator()
         autosize_action = menu.addAction(LABEL_AUTOSIZE)
         menu.addSeparator()
-        lock_action = menu.addAction(LABEL_LOCK)
+        if self.locked:
+            lock_action = menu.addAction(LABEL_UNLOCK)
+        else:
+            lock_action = menu.addAction(LABEL_LOCK)
         menu.addSeparator()
         delete_action = menu.addAction(LABEL_DELETE)
 
@@ -569,7 +600,7 @@ class FrameItem(QGraphicsRectItem):
         elif action == fill_black_action:
             self._set_fill_and_save("black")
         elif action == lock_action:
-            self._set_locked_and_save(True)
+            self._set_locked_and_save(not self.locked)
 
     def _rename_self(self):
         scene = self.scene()
