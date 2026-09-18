@@ -5,7 +5,7 @@ Containment logic for frames.
 from .frame_item import FrameItem
 
 
-CONTAINMENT_THRESHOLD = 0.5
+CONTAINMENT_THRESHOLD = 0.5   # центр внутри -> 1.0, иначе 0.0
 
 
 # ============================================================
@@ -55,25 +55,23 @@ def _scene_rect(item):
 
 
 def _overlap_ratio(item_rect, frame_rect):
+    """
+    Возвращает 1.0, если ЦЕНТР элемента внутри рамки, иначе 0.0.
+
+    Это предсказуемое правило: элемент становится членом рамки
+    только когда его центр попадает внутрь рамки.
+    Никаких "наполовину зашёл — уже член".
+    """
+
     if item_rect is None or frame_rect is None:
         return 0.0
 
-    try:
-        intersection = item_rect.intersected(frame_rect)
-    except Exception:
-        return 0.0
+    center = item_rect.center()
 
-    if intersection.isEmpty():
-        return 0.0
+    if frame_rect.contains(center):
+        return 1.0
 
-    item_area = item_rect.width() * item_rect.height()
-
-    if item_area <= 0.0:
-        return 0.0
-
-    inter_area = intersection.width() * intersection.height()
-
-    return inter_area / item_area
+    return 0.0
 
 
 # ============================================================
@@ -114,7 +112,12 @@ def find_frame_for_item(item, scene):
 
         frames_count += 1
 
-        frame_rect = _scene_rect(obj)
+        # Используем визуальный прямоугольник рамки (rect()),
+        # а не sceneBoundingRect() — чтобы не захватить лишнее.
+        try:
+            frame_rect = obj.mapToScene(obj.rect()).boundingRect()
+        except Exception:
+            frame_rect = _scene_rect(obj)
 
         ratio = _overlap_ratio(item_rect, frame_rect)
 
@@ -212,6 +215,29 @@ def update_all_memberships(scene):
     except Exception:
         return
 
+    # 1. Очищаем _members у ВСЕХ рамок — чтобы не осталось
+    #    старых членов от прошлой геометрии.
+    for obj in items:
+        if isinstance(obj, FrameItem):
+            try:
+                obj._members = []
+            except Exception:
+                pass
+
+    # 2. Обнуляем _frame у всех карточек.
+    for item in items:
+        if isinstance(item, FrameItem):
+            continue
+
+        if _is_internal_item(item):
+            continue
+
+        try:
+            item._frame = None
+        except Exception:
+            pass
+
+    # 3. Пересчитываем membership с нуля.
     for item in items:
         if isinstance(item, FrameItem):
             continue

@@ -457,7 +457,9 @@ class FrameItem(QGraphicsRectItem):
                 self.contextMenuEvent(event)
                 event.accept()
                 return
-            event.ignore()
+            # Поглощаем событие — чтобы клик НЕ пробрасывался
+            # к карточкам под рамкой.
+            event.accept()
             return
 
         if event.button() == Qt.MouseButton.LeftButton:

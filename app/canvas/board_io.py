@@ -977,6 +977,21 @@ def load_board(canvas, project_name):
             "Проект загружен"
         )
 
+        # =====================================================
+        # RECOMPUTE FRAME MEMBERSHIP
+        # =====================================================
+        # После загрузки все карточки уже на сцене, но
+        # _members рамок ещё содержат устаревшие данные
+        # (или пусты). Пересчитываем — чтобы центры карточек
+        # внутри рамки правильно определялись.
+
+        try:
+            from .frame_containment import update_all_memberships
+
+            update_all_memberships(canvas.scene)
+        except Exception as exc:
+            print(f"[LOAD] update_all_memberships failed: {exc!r}")
+
         canvas.viewport().update()
 
     except Exception as e:
