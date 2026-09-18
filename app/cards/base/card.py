@@ -441,7 +441,31 @@ class Card(QGraphicsRectItem):
                 continue
 
             # Игнорируем стрелки, рамки, overlay
-            if not hasattr(other, "card_id"):
+            # Игнорируем внутренние элементы, стрелки, рамки, overlay
+            type_name = type(other).__name__
+
+            IGNORED_TYPES = (
+                "EditableText",
+                "CardTextItem",
+                "QGraphicsTextItem",
+                "QGraphicsRectItem",
+                "QGraphicsPixmapItem",
+                "FrameOverlay",
+                "ArrowItem",
+                "RoutedArrow",
+                "ArrowBend",
+                "ArrowFollow",
+                "FrameItem",
+                "SnapOverlay",
+            )
+
+            if type_name in IGNORED_TYPES:
+                continue
+
+            # Пропускаем только те, у которых нет sceneBoundingRect
+            try:
+                other.sceneBoundingRect()
+            except Exception:
                 continue
 
             if other.scene() is None:

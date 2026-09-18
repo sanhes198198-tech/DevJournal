@@ -165,6 +165,8 @@ class VideoTextItem(QGraphicsObject):
             width
         )
 
+        self.card_id = None
+
         self.item_height = float(
             height
         )
