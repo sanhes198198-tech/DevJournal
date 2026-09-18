@@ -77,6 +77,9 @@ class DialogueView(QGraphicsView):
         # Ctrl+D — дублирование узлов
         self._setup_duplicate_shortcut()
 
+        # Ctrl+C / Ctrl+X / Ctrl+V — копирование/вырезание/вставка
+        self._setup_clipboard_shortcuts()
+
     def _setup_delete_shortcut(self):
         """QShortcut для Delete — работает вне зависимости от фокуса."""
         sc = QShortcut(QKeySequence(Qt.Key.Key_Delete), self)
@@ -100,6 +103,38 @@ class DialogueView(QGraphicsView):
         dup = getattr(scene, "duplicate_selected", None)
         if callable(dup):
             dup()
+
+    def _setup_clipboard_shortcuts(self):
+        """QShortcut для Ctrl+C / Ctrl+X / Ctrl+V."""
+        sc_copy = QShortcut(QKeySequence("Ctrl+C"), self)
+        sc_copy.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        sc_copy.activated.connect(self._on_copy_shortcut)
+
+        sc_cut = QShortcut(QKeySequence("Ctrl+X"), self)
+        sc_cut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        sc_cut.activated.connect(self._on_cut_shortcut)
+
+        sc_paste = QShortcut(QKeySequence("Ctrl+V"), self)
+        sc_paste.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        sc_paste.activated.connect(self._on_paste_shortcut)
+
+    def _on_copy_shortcut(self):
+        scene = self.dialogue_scene
+        f = getattr(scene, "copy_selected", None)
+        if callable(f):
+            f()
+
+    def _on_cut_shortcut(self):
+        scene = self.dialogue_scene
+        f = getattr(scene, "cut_selected", None)
+        if callable(f):
+            f()
+
+    def _on_paste_shortcut(self):
+        scene = self.dialogue_scene
+        f = getattr(scene, "paste_clipboard", None)
+        if callable(f):
+            f()
 
     # =========================================================
     # ZOOM

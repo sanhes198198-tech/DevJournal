@@ -47,6 +47,12 @@ class DialogueScene(QGraphicsScene):
         self._drag_source_port = None
         self._temp_line = None
 
+        # Внутренний буфер копирования узлов
+        self._clipboard = None
+
+        # Ссылка на undo_stack (для макросов при вставке)
+        self._undo_stack = None
+
         # Сцена большая — граф может быть большим
         self.setSceneRect(
             -self.SCENE_PADDING,
@@ -61,9 +67,10 @@ class DialogueScene(QGraphicsScene):
     # COMMAND SINK
     # =========================================================
 
-    def set_command_sink(self, sink):
-        """sink — callable(command) или None."""
+    def set_command_sink(self, sink, undo_stack=None):
+        """sink — callable(command) или None. undo_stack — для макросов."""
         self._command_sink = sink
+        self._undo_stack = undo_stack
 
     def _push(self, command):
         if self._command_sink is not None:
@@ -405,6 +412,170 @@ class DialogueScene(QGraphicsScene):
             notify=_notify,
         )
         self._push(cmd)
+
+    # =========================================================
+    # COPY / CUT / PASTE (Ctrl+C / Ctrl+X / Ctrl+V)
+    # =========================================================
+
+    def copy_selected(self):
+        """Копирует выделенные узлы + связи между ними во внутренний буфер."""
+        if self.dialogue is None:
+            return
+
+        selected_items = self.get_selected_node_items()
+        selected_ids = {item.node_id for item in selected_items}
+
+        if not selected_ids:
+            self._clipboard = None
+            return
+
+        # Узлы
+        nodes_data = []
+        for nid in selected_ids:
+            node = self.dialogue.get_node(nid)
+            if node is not None:
+                nodes_data.append(node.to_dict())
+
+        # Только ВНУТРЕННИЕ связи (оба конца выделены)
+        conns_data = []
+        for c in self.dialogue.connections:
+            if (
+                c.source_node_id in selected_ids
+                and c.target_node_id in selected_ids
+            ):
+                conns_data.append(c.to_dict())
+
+        self._clipboard = {
+            "nodes": nodes_data,
+            "connections": conns_data,
+        }
+
+    def cut_selected(self):
+        """Копирует + удаляет выделенные узлы."""
+        self.copy_selected()
+        self.delete_selected()
+
+    def paste_clipboard(self):
+        """Вставляет содержимое буфера со смещением +40/+40."""
+        if self.dialogue is None:
+            return
+        if not self._clipboard:
+            return
+
+        nodes_data = self._clipboard.get("nodes", [])
+        conns_data = self._clipboard.get("connections", [])
+
+        if not nodes_data:
+            return
+
+        # --- Готовим новые ID для узлов и опций ---
+        node_id_map = {}      # old_node_id -> new_node_id
+        option_id_map = {}    # old_option_id -> new_option_id
+
+        new_nodes = []
+
+        for nd in nodes_data:
+            old_id = nd["id"]
+            new_id = generate_node_id()
+            node_id_map[old_id] = new_id
+
+            new_data = dict(nd)
+            new_data["id"] = new_id
+            new_data["x"] = float(new_data.get("x", 0.0)) + 40.0
+            new_data["y"] = float(new_data.get("y", 0.0)) + 40.0
+
+            # Для choice — пересоздать option_ids
+            if new_data.get("type") == "choice":
+                new_options = []
+                for opt_data in new_data.get("options", []):
+                    new_opt = dict(opt_data)
+                    old_opt_id = new_opt.get("id", "")
+                    new_opt_id = generate_option_id()
+                    option_id_map[old_opt_id] = new_opt_id
+                    new_opt["id"] = new_opt_id
+                    new_options.append(new_opt)
+                new_data["options"] = new_options
+
+            new_nodes.append(DialogueNode.from_dict(new_data))
+
+        # --- Открываем макрос (одна команда для Ctrl+Z) ---
+        if self._undo_stack is not None:
+            try:
+                self._undo_stack.beginMacro("Paste")
+            except Exception:
+                pass
+
+        new_node_ids = []
+
+        try:
+            # Создаём новые узлы
+            for node in new_nodes:
+                def _notify(n=node):
+                    self._sync_node_visual(n)
+
+                cmd = CreateNodeCommand(
+                    dialogue=self.dialogue,
+                    node=node,
+                    notify=_notify,
+                )
+                self._push(cmd)
+                new_node_ids.append(node.id)
+
+            # Восстанавливаем связи
+            for cd in conns_data:
+                old_src = cd["source_node_id"]
+                old_tgt = cd["target_node_id"]
+
+                if old_src not in node_id_map:
+                    continue
+                if old_tgt not in node_id_map:
+                    continue
+
+                new_src = node_id_map[old_src]
+                new_tgt = node_id_map[old_tgt]
+
+                # source_port: если choice-порт — мапим option_id
+                source_port = cd["source_port"]
+                if source_port.startswith("opt_"):
+                    old_opt_id = source_port[4:]
+                    if old_opt_id in option_id_map:
+                        source_port = f"opt_{option_id_map[old_opt_id]}"
+
+                new_conn = DialogueConnection(
+                    connection_id=generate_connection_id(),
+                    source_node_id=new_src,
+                    source_port=source_port,
+                    target_node_id=new_tgt,
+                    target_port=cd["target_port"],
+                )
+
+                def _notify_conn(c=new_conn):
+                    self._sync_connection_visual(c)
+
+                cmd = CreateConnectionCommand(
+                    dialogue=self.dialogue,
+                    connection=new_conn,
+                    notify=_notify_conn,
+                )
+                self._push(cmd)
+
+        finally:
+            # Закрываем макрос
+            if self._undo_stack is not None:
+                try:
+                    self._undo_stack.endMacro()
+                except Exception:
+                    pass
+
+        # Выделяем вставленные узлы
+        try:
+            self.clearSelection()
+            for nid in new_node_ids:
+                item = self.node_items.get(nid)
+                if item is not None:
+                    item.setSelected(True)
+        except Exception:
+            pass
 
     # =========================================================
     # ДУБЛИРОВАНИЕ УЗЛОВ (Ctrl+D)

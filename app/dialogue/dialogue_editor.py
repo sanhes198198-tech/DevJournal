@@ -172,9 +172,10 @@ class DialogueEditorWindow(QMainWindow):
         # Inspector command sink
         self.inspector.set_command_sink(self.undo_stack.push)
 
-        # Scene command sink (для ПКМ-создания узлов и т.д.)
+        # Scene command sink (для ПКМ-создания узлов, макросов и т.д.)
         self.view.dialogue_scene.set_command_sink(
-            self.undo_stack.push
+            self.undo_stack.push,
+            undo_stack=self.undo_stack,
         )
 
         # View → Inspector
