@@ -56,6 +56,18 @@ from .view import (
     DialogueInspector,
 )
 
+from .commands import (
+    ChangePropertyCommand,
+    MoveNodeCommand,
+    CreateNodeCommand,
+    DeleteNodeCommand,
+    CreateConnectionCommand,
+    DeleteConnectionCommand,
+    AddOptionCommand,
+    RemoveOptionCommand,
+    MoveOptionCommand,
+)
+
 
 __all__ = [
     # ids
@@ -99,4 +111,14 @@ __all__ = [
     "DialogueScene",
     "DialogueView",
     "DialogueInspector",
+    # commands
+    "ChangePropertyCommand",
+    "MoveNodeCommand",
+    "CreateNodeCommand",
+    "DeleteNodeCommand",
+    "CreateConnectionCommand",
+    "DeleteConnectionCommand",
+    "AddOptionCommand",
+    "RemoveOptionCommand",
+    "MoveOptionCommand",
 ]

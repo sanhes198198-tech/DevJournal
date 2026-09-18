@@ -2,17 +2,12 @@
 Инспектор свойств выбранного узла.
 
 Правая панель редактора диалогов.
-Меняется в зависимости от типа узла:
-- StartNode    → только подпись
-- ReplyNode    → speaker + text
-- ChoiceNode   → question + список options
-- EndNode      → только подпись
 
-При изменении поля:
-1. Мутируем модель (node.speaker = ...)
-2. Испускаем сигнал node_changed → сцена перерисует узел
-3. Если изменились порты (добавили/удалили option) →
-   испускаем connections_changed → сцена перестроит связи
+ВАЖНО: Inspector НЕ мутирует модель напрямую.
+Все изменения идут через command_sink → QUndoStack → Command.redo().
+
+При заполнении UI из модели используется self._updating
++ blockSignals, чтобы не порождать «фантомные» команды.
 """
 
 from PySide6.QtCore import Qt, Signal
@@ -26,7 +21,6 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QFrame,
-    QSizePolicy,
 )
 
 from ..model import (
@@ -35,6 +29,14 @@ from ..model import (
     ChoiceNode,
     EndNode,
 )
+from ..commands import (
+    ChangePropertyCommand,
+    AddOptionCommand,
+    RemoveOptionCommand,
+    MoveOptionCommand,
+)
+from ..ids import generate_option_id
+from ..model.node import ChoiceOption
 
 
 # =========================================================
@@ -44,10 +46,7 @@ from ..model import (
 class DialogueInspector(QWidget):
     """Правая панель редактирования свойств узла."""
 
-    # Сигнал: модель узла изменилась (нужно обновить visual)
     node_changed = Signal(str)
-
-    # Сигнал: изменились порты (нужно перестроить connections)
     connections_changed = Signal()
 
     def __init__(self, parent=None):
@@ -56,10 +55,33 @@ class DialogueInspector(QWidget):
         self.dialogue = None
         self.current_node_id = None
 
-        # Чтобы при обновлении UI не было цикла сигналов
+        # Защита от циклов
         self._updating = False
 
+        # command_sink — callable, куда кидаем QUndoCommand.
+        # В DialogueEditorWindow: sink = undo_stack.push.
+        # Fallback: применяем команду сразу через .redo().
+        self._command_sink = None
+
         self._build_ui()
+
+    # =========================================================
+    # COMMAND SINK
+    # =========================================================
+
+    def set_command_sink(self, sink):
+        """
+        sink — callable(command) или None.
+        Если None — команды применяются сразу (без undo).
+        """
+        self._command_sink = sink
+
+    def _push(self, command):
+        """Отправляет команду в sink либо применяет сразу."""
+        if self._command_sink is not None:
+            self._command_sink(command)
+        else:
+            command.redo()
 
     # =========================================================
     # UI КАРКАС
@@ -70,21 +92,17 @@ class DialogueInspector(QWidget):
         outer.setContentsMargins(10, 10, 10, 10)
         outer.setSpacing(6)
 
-        # Заголовок
         self.title_label = QLabel("Свойства")
         self.title_label.setStyleSheet(
             "font-weight: 600; font-size: 13px;"
         )
-
         outer.addWidget(self.title_label)
 
-        # Разделитель
         line = QFrame()
         line.setFrameShape(QFrame.Shape.HLine)
         line.setFrameShadow(QFrame.Shadow.Sunken)
         outer.addWidget(line)
 
-        # Область контента (прокручиваемая)
         self.content = QWidget()
         self.content_layout = QVBoxLayout(self.content)
         self.content_layout.setContentsMargins(0, 6, 0, 0)
@@ -98,11 +116,9 @@ class DialogueInspector(QWidget):
 
         outer.addWidget(scroll, 1)
 
-        # Изначально — пусто
         self._show_placeholder()
 
     def _clear_content(self):
-        """Удаляет все виджеты из content."""
         while self.content_layout.count() > 0:
             item = self.content_layout.takeAt(0)
             widget = item.widget()
@@ -110,10 +126,8 @@ class DialogueInspector(QWidget):
                 widget.deleteLater()
 
     def _add_row(self, label_text, widget):
-        """Добавляет строку 'label + widget'."""
         label = QLabel(label_text)
         label.setStyleSheet("color: #666; font-size: 11px;")
-
         self.content_layout.addWidget(label)
         self.content_layout.addWidget(widget)
 
@@ -130,21 +144,15 @@ class DialogueInspector(QWidget):
     # =========================================================
 
     def set_dialogue(self, dialogue):
-        """Устанавливает модель диалога."""
         self.dialogue = dialogue
         self.current_node_id = None
         self._show_placeholder()
 
     def clear(self):
-        """
-        Сбрасывает инспектор — снимает выделение,
-        но НЕ теряет ссылку на dialogue.
-        """
         self.current_node_id = None
         self._show_placeholder()
 
     def set_node(self, node_id):
-        """Показывает свойства узла."""
         if self.dialogue is None:
             return
 
@@ -155,36 +163,52 @@ class DialogueInspector(QWidget):
 
         self.current_node_id = node_id
 
-        self._clear_content()
+        # Блокируем создание команд на время заполнения UI
+        self._updating = True
+        try:
+            self._clear_content()
 
-        if isinstance(node, StartNode):
-            self._build_start_ui(node)
-        elif isinstance(node, ReplyNode):
-            self._build_reply_ui(node)
-        elif isinstance(node, ChoiceNode):
-            self._build_choice_ui(node)
-        elif isinstance(node, EndNode):
-            self._build_end_ui(node)
-        else:
-            label = QLabel(f"Неизвестный тип: {node.type}")
-            self.content_layout.addWidget(label)
+            if isinstance(node, StartNode):
+                self._build_start_ui(node)
+            elif isinstance(node, ReplyNode):
+                self._build_reply_ui(node)
+            elif isinstance(node, ChoiceNode):
+                self._build_choice_ui(node)
+            elif isinstance(node, EndNode):
+                self._build_end_ui(node)
+            else:
+                label = QLabel(f"Неизвестный тип: {node.type}")
+                self.content_layout.addWidget(label)
 
-        self.content_layout.addStretch()
+            self.content_layout.addStretch()
+        finally:
+            self._updating = False
 
     # =========================================================
-    # START
+    # START / END
     # =========================================================
 
     def _build_start_ui(self, node):
         label = QLabel("Начало диалога")
-        label.setStyleSheet(
-            "font-weight: 600; padding: 8px 0;"
-        )
+        label.setStyleSheet("font-weight: 600; padding: 8px 0;")
         self.content_layout.addWidget(label)
 
         hint = QLabel(
             "Точка входа в диалог.\n"
             "В диалоге может быть только один StartNode."
+        )
+        hint.setWordWrap(True)
+        hint.setStyleSheet("color: #888;")
+        self.content_layout.addWidget(hint)
+
+    def _build_end_ui(self, node):
+        label = QLabel("Конец диалога")
+        label.setStyleSheet("font-weight: 600; padding: 8px 0;")
+        self.content_layout.addWidget(label)
+
+        hint = QLabel(
+            "Точка завершения диалога.\n"
+            "Узел не имеет исходящих связей."
         )
         hint.setWordWrap(True)
         hint.setStyleSheet("color: #888;")
@@ -197,29 +221,52 @@ class DialogueInspector(QWidget):
     def _build_reply_ui(self, node):
         # Speaker
         speaker_edit = QLineEdit()
+        speaker_edit.blockSignals(True)
         speaker_edit.setText(node.speaker)
+        speaker_edit.blockSignals(False)
         speaker_edit.setPlaceholderText("Имя персонажа")
 
         def on_speaker_changed(text):
             if self._updating:
                 return
-            node.speaker = text
-            self.node_changed.emit(node.id)
+            old = node.speaker
+            if old == text:
+                return
+            cmd = ChangePropertyCommand(
+                target=node,
+                prop_name="speaker",
+                old_value=old,
+                new_value=text,
+                notify=lambda: self.node_changed.emit(node.id),
+            )
+            self._push(cmd)
 
         speaker_edit.textChanged.connect(on_speaker_changed)
         self._add_row("Персонаж", speaker_edit)
 
         # Text
         text_edit = QPlainTextEdit()
+        text_edit.blockSignals(True)
         text_edit.setPlainText(node.text)
+        text_edit.blockSignals(False)
         text_edit.setPlaceholderText("Текст реплики")
         text_edit.setMinimumHeight(120)
 
         def on_text_changed():
             if self._updating:
                 return
-            node.text = text_edit.toPlainText()
-            self.node_changed.emit(node.id)
+            old = node.text
+            new = text_edit.toPlainText()
+            if old == new:
+                return
+            cmd = ChangePropertyCommand(
+                target=node,
+                prop_name="text",
+                old_value=old,
+                new_value=new,
+                notify=lambda: self.node_changed.emit(node.id),
+            )
+            self._push(cmd)
 
         text_edit.textChanged.connect(on_text_changed)
         self._add_row("Текст реплики", text_edit)
@@ -231,26 +278,37 @@ class DialogueInspector(QWidget):
     def _build_choice_ui(self, node):
         # Question
         question_edit = QLineEdit()
+        question_edit.blockSignals(True)
         question_edit.setText(node.question)
+        question_edit.blockSignals(False)
         question_edit.setPlaceholderText("Вопрос или ремарка")
 
         def on_question_changed(text):
             if self._updating:
                 return
-            node.question = text
-            self.node_changed.emit(node.id)
+            old = node.question
+            if old == text:
+                return
+            cmd = ChangePropertyCommand(
+                target=node,
+                prop_name="question",
+                old_value=old,
+                new_value=text,
+                notify=lambda: self.node_changed.emit(node.id),
+            )
+            self._push(cmd)
 
         question_edit.textChanged.connect(on_question_changed)
         self._add_row("Вопрос", question_edit)
 
-        # Заголовок списка options
+        # Заголовок
         options_label = QLabel("Варианты ответа")
         options_label.setStyleSheet(
             "font-weight: 600; padding-top: 8px;"
         )
         self.content_layout.addWidget(options_label)
 
-        # Контейнер для options
+        # Контейнер
         self._options_container = QWidget()
         self._options_layout = QVBoxLayout(self._options_container)
         self._options_layout.setContentsMargins(0, 0, 0, 0)
@@ -263,12 +321,10 @@ class DialogueInspector(QWidget):
         add_btn.clicked.connect(lambda: self._on_add_option(node))
         self.content_layout.addWidget(add_btn)
 
-        # Заполняем список
+        # Заполняем
         self._rebuild_options(node)
 
     def _rebuild_options(self, node):
-        """Полностью перестраивает список вариантов."""
-        # Очищаем контейнер
         while self._options_layout.count() > 0:
             item = self._options_layout.takeAt(0)
             widget = item.widget()
@@ -282,32 +338,39 @@ class DialogueInspector(QWidget):
             self._options_layout.addWidget(row)
 
     def _build_option_row(self, node, opt, idx):
-        """Строка одного варианта."""
         row = QWidget()
         h = QHBoxLayout(row)
         h.setContentsMargins(0, 0, 0, 0)
         h.setSpacing(4)
 
-        # Номер
         num = QLabel(f"{idx + 1}.")
         num.setFixedWidth(20)
         h.addWidget(num)
 
-        # Текст
         edit = QLineEdit()
+        edit.blockSignals(True)
         edit.setText(opt.text)
+        edit.blockSignals(False)
         edit.setPlaceholderText("Текст варианта")
 
         def on_text_changed(text):
             if self._updating:
                 return
-            opt.text = text
-            self.node_changed.emit(node.id)
+            old = opt.text
+            if old == text:
+                return
+            cmd = ChangePropertyCommand(
+                target=opt,
+                prop_name="text",
+                old_value=old,
+                new_value=text,
+                notify=lambda: self.node_changed.emit(node.id),
+            )
+            self._push(cmd)
 
         edit.textChanged.connect(on_text_changed)
         h.addWidget(edit, 1)
 
-        # Вверх
         if idx > 0:
             up_btn = QPushButton("▲")
             up_btn.setFixedWidth(28)
@@ -316,7 +379,6 @@ class DialogueInspector(QWidget):
             )
             h.addWidget(up_btn)
 
-        # Вниз
         if idx < len(node.options) - 1:
             down_btn = QPushButton("▼")
             down_btn.setFixedWidth(28)
@@ -325,7 +387,6 @@ class DialogueInspector(QWidget):
             )
             h.addWidget(down_btn)
 
-        # Удалить
         del_btn = QPushButton("×")
         del_btn.setFixedWidth(28)
         del_btn.clicked.connect(
@@ -336,21 +397,38 @@ class DialogueInspector(QWidget):
         return row
 
     def _on_add_option(self, node):
-        node.add_option("Новый вариант")
-        self._rebuild_options(node)
+        if self._updating:
+            return
 
-        # Порты изменились
-        self.node_changed.emit(node.id)
-        self.connections_changed.emit()
+        order = max((o.order for o in node.options), default=-1) + 1
+        opt = ChoiceOption(
+            option_id=generate_option_id(),
+            text="Новый вариант",
+            order=order,
+        )
+
+        cmd = AddOptionCommand(
+            node=node,
+            option=opt,
+            notify=lambda: self._after_option_change(node),
+        )
+        self._push(cmd)
 
     def _on_delete_option(self, node, opt):
-        node.remove_option(opt.id)
-        self._rebuild_options(node)
+        if self._updating:
+            return
 
-        self.node_changed.emit(node.id)
-        self.connections_changed.emit()
+        cmd = RemoveOptionCommand(
+            node=node,
+            option=opt,
+            notify=lambda: self._after_option_change(node),
+        )
+        self._push(cmd)
 
     def _on_move_option(self, node, idx, delta):
+        if self._updating:
+            return
+
         node.sort_options()
         new_idx = idx + delta
 
@@ -360,28 +438,29 @@ class DialogueInspector(QWidget):
         a = node.options[idx]
         b = node.options[new_idx]
 
-        a.order, b.order = b.order, a.order
+        cmd = MoveOptionCommand(
+            node=node,
+            option_a=a,
+            option_b=b,
+            notify=lambda: self.node_changed.emit(node.id),
+        )
+        self._push(cmd)
 
-        node.sort_options()
-        self._rebuild_options(node)
+        # После смены порядка перестраиваем UI
+        self._updating = True
+        try:
+            self._rebuild_options(node)
+        finally:
+            self._updating = False
 
+    def _after_option_change(self, node):
+        """После add/remove option — обновить визуал + порты + UI."""
         self.node_changed.emit(node.id)
+        self.connections_changed.emit()
 
-    # =========================================================
-    # END
-    # =========================================================
-
-    def _build_end_ui(self, node):
-        label = QLabel("Конец диалога")
-        label.setStyleSheet(
-            "font-weight: 600; padding: 8px 0;"
-        )
-        self.content_layout.addWidget(label)
-
-        hint = QLabel(
-            "Точка завершения диалога.\n"
-            "Узел не имеет исходящих связей."
-        )
-        hint.setWordWrap(True)
-        hint.setStyleSheet("color: #888;")
-        self.content_layout.addWidget(hint)
+        # Перестраиваем UI (текущий узел — тот же)
+        self._updating = True
+        try:
+            self._rebuild_options(node)
+        finally:
+            self._updating = False
