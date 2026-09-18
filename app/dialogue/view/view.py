@@ -74,6 +74,9 @@ class DialogueView(QGraphicsView):
         # Delete shortcut — надёжнее чем keyPressEvent
         self._setup_delete_shortcut()
 
+        # Ctrl+D — дублирование узлов
+        self._setup_duplicate_shortcut()
+
     def _setup_delete_shortcut(self):
         """QShortcut для Delete — работает вне зависимости от фокуса."""
         sc = QShortcut(QKeySequence(Qt.Key.Key_Delete), self)
@@ -85,6 +88,18 @@ class DialogueView(QGraphicsView):
         delete = getattr(scene, "delete_selected", None)
         if callable(delete):
             delete()
+
+    def _setup_duplicate_shortcut(self):
+        """QShortcut для Ctrl+D — дублирование выделенных узлов."""
+        sc = QShortcut(QKeySequence("Ctrl+D"), self)
+        sc.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        sc.activated.connect(self._on_duplicate_shortcut)
+
+    def _on_duplicate_shortcut(self):
+        scene = self.dialogue_scene
+        dup = getattr(scene, "duplicate_selected", None)
+        if callable(dup):
+            dup()
 
     # =========================================================
     # ZOOM

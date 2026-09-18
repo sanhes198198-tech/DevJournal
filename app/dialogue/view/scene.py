@@ -21,8 +21,8 @@ from ..commands import (
     CreateConnectionCommand,
     MoveNodeCommand,
 )
-from ..ids import generate_node_id, generate_connection_id
-from ..model import StartNode, ReplyNode, ChoiceNode, EndNode, DialogueConnection
+from ..ids import generate_node_id, generate_connection_id, generate_option_id
+from ..model import StartNode, ReplyNode, ChoiceNode, EndNode, DialogueConnection, DialogueNode
 
 
 class DialogueScene(QGraphicsScene):
@@ -405,6 +405,76 @@ class DialogueScene(QGraphicsScene):
             notify=_notify,
         )
         self._push(cmd)
+
+    # =========================================================
+    # ДУБЛИРОВАНИЕ УЗЛОВ (Ctrl+D)
+    # =========================================================
+
+    def duplicate_selected(self):
+        """Дублирует все выделенные узлы со смещением."""
+        if self.dialogue is None:
+            return
+
+        selected = self.get_selected_node_items()
+        if not selected:
+            return
+
+        new_node_ids = []
+
+        for item in selected:
+            new_id = self._duplicate_node(item.node_id)
+            if new_id:
+                new_node_ids.append(new_id)
+
+        # Выделить новые узлы (снять выделение со старых)
+        try:
+            self.clearSelection()
+            for nid in new_node_ids:
+                new_item = self.node_items.get(nid)
+                if new_item is not None:
+                    new_item.setSelected(True)
+        except Exception:
+            pass
+
+    def _duplicate_node(self, source_node_id):
+        """Создаёт копию узла со смещением. Возвращает новый id или None."""
+        if self.dialogue is None:
+            return None
+
+        src_node = self.dialogue.get_node(source_node_id)
+        if src_node is None:
+            return None
+
+        # Копируем через to_dict — сохраняет все поля
+        data = src_node.to_dict()
+
+        # Новый id узла
+        new_id = generate_node_id()
+        data["id"] = new_id
+
+        # Смещение позиции
+        data["x"] = float(data.get("x", 0.0)) + 40.0
+        data["y"] = float(data.get("y", 0.0)) + 40.0
+
+        # Для ChoiceNode — пересоздать option_ids
+        if src_node.type == "choice":
+            for opt_data in data.get("options", []):
+                opt_data["id"] = generate_option_id()
+
+        # Создаём через from_dict — вставит дефолты если что
+        new_node = DialogueNode.from_dict(data)
+
+        def _notify():
+            self._sync_node_visual(new_node)
+
+        cmd = CreateNodeCommand(
+            dialogue=self.dialogue,
+            node=new_node,
+            notify=_notify,
+        )
+        self._push(cmd)
+
+        return new_id
 
     # =========================================================
     # CONTEXT MENU
