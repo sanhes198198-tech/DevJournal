@@ -54,6 +54,7 @@ from .io import (
 )
 
 from .validation import validate_dialogue
+from .commands import ChangePropertyCommand
 
 
 class DialogueEditorWindow(QMainWindow):
@@ -156,6 +157,10 @@ class DialogueEditorWindow(QMainWindow):
         )
         self.dialogue_list.dialogue_deleted.connect(
             self._on_dialogue_deleted
+        )
+
+        self.dialogue_list.dialogue_rename_requested.connect(
+            self._on_dialogue_rename_requested
         )
 
         # Inspector → View
@@ -398,6 +403,40 @@ class DialogueEditorWindow(QMainWindow):
             self.inspector.clear()
             self.undo_stack.clear()
             self._update_window_title()
+
+    def _on_dialogue_rename_requested(self, dialogue_id, new_name):
+        """Переименовать диалог (через ChangePropertyCommand)."""
+        if not dialogue_id or not new_name:
+            return
+
+        # Если это не текущий — сначала загружаем
+        if (
+            self.current_dialogue is None
+            or self.current_dialogue.id != dialogue_id
+        ):
+            self.load_dialogue(dialogue_id)
+
+        if self.current_dialogue is None:
+            return
+
+        old_name = self.current_dialogue.name
+        if old_name == new_name:
+            return
+
+        def _notify():
+            self.dialogue_list.update_dialogue_name(
+                dialogue_id, new_name
+            )
+            self._update_window_title()
+
+        cmd = ChangePropertyCommand(
+            target=self.current_dialogue,
+            prop_name="name",
+            old_value=old_name,
+            new_value=new_name,
+            notify=_notify,
+        )
+        self.undo_stack.push(cmd)
 
     def _on_clean_changed(self, is_clean):
         """Обновляет суффикс в заголовке окна."""

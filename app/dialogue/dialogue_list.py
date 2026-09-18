@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QMessageBox,
     QFrame,
+    QInputDialog,
 )
 
 from .io import (
@@ -38,6 +39,9 @@ class DialogueList(QWidget):
 
     # Эмитится после успешного удаления файла
     dialogue_deleted = Signal(str)          # dialogue_id
+
+    # Эмитится, когда пользователь хочет переименовать диалог
+    dialogue_rename_requested = Signal(str, str)  # (dialogue_id, new_name)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -83,6 +87,10 @@ class DialogueList(QWidget):
         self.btn_new = QPushButton("+ Новый")
         self.btn_new.clicked.connect(self._on_new_clicked)
         buttons.addWidget(self.btn_new)
+
+        self.btn_rename = QPushButton("Имя")
+        self.btn_rename.clicked.connect(self._on_rename_clicked)
+        buttons.addWidget(self.btn_rename)
 
         self.btn_delete = QPushButton("Удалить")
         self.btn_delete.clicked.connect(self._on_delete_clicked)
@@ -142,6 +150,17 @@ class DialogueList(QWidget):
                 self.list_widget.setCurrentItem(item)
                 return
 
+    def update_dialogue_name(self, dialogue_id, new_name):
+        """Обновляет отображаемое имя диалога в списке (O(1))."""
+        for i in range(self.list_widget.count()):
+            item = self.list_widget.item(i)
+            if item.data(Qt.ItemDataRole.UserRole) == dialogue_id:
+                if new_name:
+                    item.setText(new_name)
+                else:
+                    item.setText(f"Диалог {i + 1}")
+                return
+
     # =========================================================
     # ОБРАБОТЧИКИ
     # =========================================================
@@ -153,6 +172,34 @@ class DialogueList(QWidget):
 
     def _on_new_clicked(self):
         self.dialogue_new_requested.emit()
+
+    def _on_rename_clicked(self):
+        """Открывает диалог ввода нового имени."""
+        item = self.list_widget.currentItem()
+        if item is None:
+            return
+
+        dialogue_id = item.data(Qt.ItemDataRole.UserRole)
+        if not dialogue_id:
+            return
+
+        current_name = item.text()
+
+        new_name, ok = QInputDialog.getText(
+            self,
+            "Переименовать диалог",
+            "Новое имя:",
+            text=current_name,
+        )
+
+        if not ok:
+            return
+
+        new_name = new_name.strip()
+        if not new_name or new_name == current_name:
+            return
+
+        self.dialogue_rename_requested.emit(dialogue_id, new_name)
 
     def _on_delete_clicked(self):
         dialogue_id = self.current_dialogue_id()
