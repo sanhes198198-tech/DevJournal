@@ -116,6 +116,10 @@ class DialogueEditorWindow(QMainWindow):
         act_validate.triggered.connect(self.validate_current)
         toolbar.addAction(act_validate)
 
+        act_preview = QAction("▶ Предпросмотр", self)
+        act_preview.triggered.connect(self.preview_current)
+        toolbar.addAction(act_preview)
+
         toolbar.addSeparator()
 
         act_fit = QAction("Zoom fit", self)
@@ -398,6 +402,20 @@ class DialogueEditorWindow(QMainWindow):
                 item.setSelected(True)
                 self.view.centerOn(item)
                 self.view.setFocus()
+
+    def preview_current(self):
+        """Открывает предпросмотр текущего диалога."""
+        if self.current_dialogue is None:
+            self._set_status("Нет открытого диалога")
+            return
+
+        from .view import PreviewDialog
+
+        dlg = PreviewDialog(
+            dialogue=self.current_dialogue,
+            parent=self,
+        )
+        dlg.exec()
 
     def _on_selection_changed(self):
         """Выделение в сцене → Inspector."""

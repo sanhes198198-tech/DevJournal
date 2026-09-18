@@ -11,6 +11,7 @@ from .scene import DialogueScene
 from .view import DialogueView
 from .inspector import DialogueInspector
 from .validation_dialog import ValidationDialog
+from .preview_dialog import PreviewDialog
 
 
 __all__ = [
@@ -21,4 +22,5 @@ __all__ = [
     "DialogueView",
     "DialogueInspector",
     "ValidationDialog",
+    "PreviewDialog",
 ]
