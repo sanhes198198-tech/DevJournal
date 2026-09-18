@@ -25,6 +25,8 @@ class ImageItem(QGraphicsPixmapItem):
 
     CONNECTION_POINT_RADIUS = 5
 
+    SNAP_THRESHOLD = 5.0
+
     def __init__(
         self,
         pixmap,
@@ -56,6 +58,8 @@ class ImageItem(QGraphicsPixmapItem):
             QGraphicsItem.GraphicsItemFlag.ItemIsMovable
             |
             QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
+            |
+            QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges
         )
 
         self.setShapeMode(
@@ -156,6 +160,15 @@ class ImageItem(QGraphicsPixmapItem):
         change,
         value,
     ):
+
+        # Snap guides: прилипание к другим карточкам
+        try:
+            if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
+                from ..base.card import Card
+
+                Card._apply_snap(self)
+        except Exception:
+            pass
 
         if (
             change
@@ -324,6 +337,22 @@ class ImageItem(QGraphicsPixmapItem):
             event.accept()
 
             return
+
+        # Snap guides: убираем направляющие при отпускании
+        try:
+            scene = self.scene()
+
+            if scene is not None:
+                views = scene.views()
+
+                if views:
+                    view = views[0]
+                    clearer = getattr(view, "clear_snap_guides", None)
+
+                    if callable(clearer):
+                        clearer()
+        except Exception:
+            pass
 
         super().mouseReleaseEvent(
             event

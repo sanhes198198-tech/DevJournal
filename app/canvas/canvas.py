@@ -84,7 +84,7 @@ class Canvas(QGraphicsView):
 
     MIN_ZOOM = 25
     MAX_ZOOM = 200
-    ZOOM_STEP = 10
+    ZOOM_STEP = 5
 
     def __init__(self, parent=None):
         super().__init__(parent)

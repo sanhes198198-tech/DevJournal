@@ -20,6 +20,8 @@ class ColorItem(QGraphicsRectItem):
     CONNECTION_POINT_RADIUS = 3.5
     CONNECTION_POINT_DISTANCE = 8
 
+    SNAP_THRESHOLD = 5.0
+
     SIDE_MARGIN = 14
     TOP_MARGIN = 14
     BOTTOM_MARGIN = 14
@@ -63,6 +65,8 @@ class ColorItem(QGraphicsRectItem):
             QGraphicsItem.GraphicsItemFlag.ItemIsMovable
             |
             QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
+            |
+            QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges
         )
 
         self.setAcceptHoverEvents(True)
@@ -102,6 +106,15 @@ class ColorItem(QGraphicsRectItem):
         change,
         value,
     ):
+
+        # Snap guides: прилипание к другим карточкам
+        try:
+            if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
+                from ..base.card import Card
+
+                Card._apply_snap(self)
+        except Exception:
+            pass
 
         if (
             change
@@ -238,6 +251,22 @@ class ColorItem(QGraphicsRectItem):
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
+
+        # Snap guides: убираем направляющие при отпускании
+        try:
+            scene = self.scene()
+
+            if scene is not None:
+                views = scene.views()
+
+                if views:
+                    view = views[0]
+                    clearer = getattr(view, "clear_snap_guides", None)
+
+                    if callable(clearer):
+                        clearer()
+        except Exception:
+            pass
 
         if (
             event.button() == Qt.MouseButton.LeftButton

@@ -21,6 +21,8 @@ class FileItem(QGraphicsItem):
     ICON_WIDTH = 100
     ICON_HEIGHT = 125
 
+    SNAP_THRESHOLD = 5.0
+
     WIDTH = 160
     HEIGHT = 165
 
@@ -49,6 +51,8 @@ class FileItem(QGraphicsItem):
             QGraphicsItem.GraphicsItemFlag.ItemIsMovable
             |
             QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
+            |
+            QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges
         )
 
         # Р РЋРЎвЂљРЎР‚Р ВµР В»Р С”Р С‘, Р С—РЎР‚Р С‘Р Р†РЎРЏР В·Р В°Р Р…Р Р…РЎвЂ№Р Вµ Р С” РЎРЊРЎвЂљР С•Р СРЎС“ РЎРЊР В»Р ВµР СР ВµР Р…РЎвЂљРЎС“
@@ -102,6 +106,14 @@ class FileItem(QGraphicsItem):
             change
             == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged
         ):
+
+            # Snap guides: прилипание к другим карточкам
+            try:
+                from ..cards.base.card import Card
+
+                Card._apply_snap(self)
+            except Exception:
+                pass
 
             arrows = getattr(self, "arrows", None)
 
@@ -470,6 +482,22 @@ class FileItem(QGraphicsItem):
         self,
         event,
     ):
+
+        # Snap guides: убираем направляющие при отпускании
+        try:
+            scene = self.scene()
+
+            if scene is not None:
+                views = scene.views()
+
+                if views:
+                    view = views[0]
+                    clearer = getattr(view, "clear_snap_guides", None)
+
+                    if callable(clearer):
+                        clearer()
+        except Exception:
+            pass
 
         super().mouseReleaseEvent(
             event
