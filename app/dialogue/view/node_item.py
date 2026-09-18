@@ -92,6 +92,9 @@ class DialogueNodeItem(QGraphicsItem):
         # Позиция
         self.setPos(model_node.x, model_node.y)
 
+        # Запоминаем позицию в начале drag — для MoveNodeCommand
+        self._drag_start_pos = None
+
         # Пересчитываем высоту по содержимому ДО создания портов
         self._recalc_height()
 
@@ -302,13 +305,12 @@ class DialogueNodeItem(QGraphicsItem):
 
     def itemChange(self, change, value):
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
-            # Обновляем модель сразу — simple и понятно.
-            # В будущем можно вынести в команду для undo.
-            pos = self.pos()
-            self.model_node.x = float(pos.x())
-            self.model_node.y = float(pos.y())
+            # ВАЖНО: модель НЕ трогаем.
+            # Позиция пишется в модель только при mouseRelease
+            # через MoveNodeCommand — иначе undo не работает.
 
-            # Уведомляем сцену, чтобы все связи обновили свой path.
+            # Обновляем пути связей во время движения —
+            # чтобы кривые «тянулись» за узлом.
             scene = self.scene()
             if scene is not None:
                 on_moved = getattr(scene, "on_node_moved", None)
@@ -319,6 +321,41 @@ class DialogueNodeItem(QGraphicsItem):
                         pass
 
         return super().itemChange(change, value)
+
+    # =========================================================
+    # DRAG — MOVE (через команду)
+    # =========================================================
+
+    def mousePressEvent(self, event):
+        # Запоминаем позицию ДО начала движения
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_start_pos = self.pos()
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        super().mouseReleaseEvent(event)
+
+        if event.button() != Qt.MouseButton.LeftButton:
+            return
+
+        if self._drag_start_pos is None:
+            return
+
+        old_pos = self._drag_start_pos
+        new_pos = self.pos()
+        self._drag_start_pos = None
+
+        # Не двигали — ничего не пушим
+        if old_pos == new_pos:
+            return
+
+        scene = self.scene()
+        if scene is None:
+            return
+
+        push = getattr(scene, "push_move_command", None)
+        if callable(push):
+            push(self, old_pos, new_pos)
 
     # =========================================================
     # УТИЛИТЫ

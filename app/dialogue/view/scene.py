@@ -19,6 +19,7 @@ from ..commands import (
     DeleteNodeCommand,
     DeleteConnectionCommand,
     CreateConnectionCommand,
+    MoveNodeCommand,
 )
 from ..ids import generate_node_id, generate_connection_id
 from ..model import StartNode, ReplyNode, ChoiceNode, EndNode, DialogueConnection
@@ -247,6 +248,41 @@ class DialogueScene(QGraphicsScene):
             base_pos.y(),
         )
         return self._create_node_at(node_type, new_pos)
+
+    # =========================================================
+    # ПЕРЕМЕЩЕНИЕ УЗЛА (через команду)
+    # =========================================================
+
+    def push_move_command(self, node_item, old_pos, new_pos):
+        """
+        Создаёт MoveNodeCommand для перетаскивания узла.
+
+        old_pos / new_pos — QPointF из visual.
+        Команда пишет координаты в модель и обновляет visual через notify.
+        """
+        if self.dialogue is None:
+            return
+
+        node = self.dialogue.get_node(node_item.node_id)
+        if node is None:
+            return
+
+        def _notify():
+            # Приводим visual в соответствие с моделью (для undo/redo)
+            item = self.node_items.get(node.id)
+            if item is not None:
+                from PySide6.QtCore import QPointF
+                item.setPos(QPointF(node.x, node.y))
+
+            self.on_node_moved(node.id)
+
+        cmd = MoveNodeCommand(
+            node=node,
+            old_pos=(float(old_pos.x()), float(old_pos.y())),
+            new_pos=(float(new_pos.x()), float(new_pos.y())),
+            notify=_notify,
+        )
+        self._push(cmd)
 
     # =========================================================
     # DRAG-СОЗДАНИЕ СВЯЗИ
