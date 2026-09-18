@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QFrame,
+    QRadioButton,
 )
 
 from ..model import (
@@ -125,6 +126,93 @@ class DialogueInspector(QWidget):
             if widget is not None:
                 widget.deleteLater()
 
+    # =========================================================
+    # READ-ONLY БЛОКИ (архитектурный контракт)
+    # =========================================================
+
+    def _add_section_header(self, text):
+        label = QLabel(text)
+        label.setStyleSheet(
+            "color: #999; font-size: 10px; "
+            "font-weight: 600; padding-top: 10px;"
+        )
+        self.content_layout.addWidget(label)
+
+    def _add_presentation_block(self, node):
+        """Read-only: presentation у ReplyNode."""
+
+        self._add_section_header("PRESENTATION (скоро)")
+
+        if node.presentation:
+            for key, val in node.presentation.items():
+                row = QLabel(f"{key}: {val}")
+                row.setStyleSheet(
+                    "color: #666; font-size: 11px; padding-left: 8px;"
+                )
+                self.content_layout.addWidget(row)
+        else:
+            hint = QLabel(
+                "Портрет, эмоция, позиция — "
+                "будут редактироваться в след. версии."
+            )
+            hint.setWordWrap(True)
+            hint.setStyleSheet(
+                "color: #aaa; font-size: 10px; padding-left: 8px;"
+            )
+            self.content_layout.addWidget(hint)
+
+    def _add_outcome_block(self, node):
+        """Read-only: outcome у EndNode."""
+
+        self._add_section_header("OUTCOME")
+
+        rb_end = QRadioButton("Завершить диалог")
+        rb_end.setChecked(node.outcome == "end")
+        rb_end.setEnabled(False)
+        self.content_layout.addWidget(rb_end)
+
+        rb_jump = QRadioButton("Перейти в диалог...")
+        rb_jump.setChecked(node.outcome == "dialogue")
+        rb_jump.setEnabled(False)
+        self.content_layout.addWidget(rb_jump)
+
+        if node.outcome == "dialogue" and node.target_dialogue_id:
+            target = QLabel(f"-> {node.target_dialogue_id}")
+            target.setStyleSheet(
+                "color: #aaa; font-size: 10px; padding-left: 24px;"
+            )
+            self.content_layout.addWidget(target)
+
+        hint = QLabel("Редактирование появится в след. версии.")
+        hint.setStyleSheet(
+            "color: #aaa; font-size: 10px; padding-top: 4px;"
+        )
+        self.content_layout.addWidget(hint)
+
+    def _build_option_info(self, opt):
+        """Read-only: condition / effects у ChoiceOption."""
+
+        parts = []
+
+        if opt.condition is not None:
+            parts.append(f"condition: {opt.condition}")
+
+        if opt.effects:
+            parts.append(f"effects: {len(opt.effects)}")
+
+        if parts:
+            text = "  [i] " + " · ".join(parts)
+            color = "#666"
+        else:
+            text = "  [i] Condition / Effects - скоро"
+            color = "#bbb"
+
+        label = QLabel(text)
+        label.setStyleSheet(
+            f"color: {color}; font-size: 10px; padding-left: 24px;"
+        )
+        return label
+
     def _add_row(self, label_text, widget):
         label = QLabel(label_text)
         label.setStyleSheet("color: #666; font-size: 11px;")
@@ -214,6 +302,9 @@ class DialogueInspector(QWidget):
         hint.setStyleSheet("color: #888;")
         self.content_layout.addWidget(hint)
 
+        # Read-only блок outcome (архитектурный контракт)
+        self._add_outcome_block(node)
+
     # =========================================================
     # REPLY
     # =========================================================
@@ -270,6 +361,9 @@ class DialogueInspector(QWidget):
 
         text_edit.textChanged.connect(on_text_changed)
         self._add_row("Текст реплики", text_edit)
+
+        # Read-only блок (архитектурный контракт)
+        self._add_presentation_block(node)
 
     # =========================================================
     # CHOICE
@@ -336,6 +430,9 @@ class DialogueInspector(QWidget):
         for idx, opt in enumerate(node.options):
             row = self._build_option_row(node, opt, idx)
             self._options_layout.addWidget(row)
+
+            info = self._build_option_info(opt)
+            self._options_layout.addWidget(info)
 
     def _build_option_row(self, node, opt, idx):
         row = QWidget()
