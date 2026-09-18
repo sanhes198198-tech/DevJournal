@@ -18,7 +18,7 @@ from ..model import Dialogue
 DIALOGUES_DIR_NAME = "dialogues"
 INDEX_FILE_NAME = "index.json"
 
-DIALOGUE_FORMAT_VERSION = 1
+DIALOGUE_FORMAT_VERSION = 2
 
 
 # =========================================================
@@ -57,6 +57,56 @@ def get_index_path(project_folder):
 # ОДИН ДИАЛОГ
 # =========================================================
 
+# =========================================================
+# МИГРАЦИИ ФОРМАТА
+# =========================================================
+
+def _migrate_v1_to_v2(dialogue_data):
+    """
+    Миграция данных диалога v1 → v2.
+
+    Добавляет отсутствующие поля, появившиеся в v2:
+      - ReplyNode.presentation = {}
+      - ChoiceOption.effects = []
+      - ChoiceOption.condition = None
+      - EndNode.outcome = "end"
+      - EndNode.target_dialogue_id = None
+
+    Не трогает существующие поля и ID.
+    Возвращает изменённый dialogue_data (тот же объект).
+    """
+    if not isinstance(dialogue_data, dict):
+        return dialogue_data
+
+    nodes = dialogue_data.get("nodes", [])
+    if not isinstance(nodes, list):
+        return dialogue_data
+
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+
+        ntype = node.get("type")
+
+        if ntype == "reply":
+            node.setdefault("presentation", {})
+
+        elif ntype == "choice":
+            options = node.get("options", [])
+            if isinstance(options, list):
+                for opt in options:
+                    if not isinstance(opt, dict):
+                        continue
+                    opt.setdefault("effects", [])
+                    opt.setdefault("condition", None)
+
+        elif ntype == "end":
+            node.setdefault("outcome", "end")
+            node.setdefault("target_dialogue_id", None)
+
+    return dialogue_data
+
+
 def save_dialogue(dialogue, project_folder):
     """
     Сохраняет диалог в JSON-файл.
@@ -92,13 +142,17 @@ def load_dialogue(dialogue_id, project_folder):
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    version = data.get("version", 0)
+    version = data.get("version", 1)
     dialogue_data = data.get("dialogue", {})
 
-    # Заготовка под будущие миграции
-    if version != DIALOGUE_FORMAT_VERSION:
-        # Пока просто игнорируем — версия 1 единственная
-        pass
+    # Явный пайплайн миграций: v1 → v2 → ... → current
+    # Каждая миграция — отдельная функция. Новые версии — новые шаги.
+    if version == 1:
+        dialogue_data = _migrate_v1_to_v2(dialogue_data)
+        version = 2
+
+    # Если версия неизвестна (например, новее) — пробуем загрузить как есть.
+    # Модель сама подставит дефолты для отсутствующих полей.
 
     return Dialogue.from_dict(dialogue_data)
 
