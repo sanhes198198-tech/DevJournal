@@ -65,7 +65,7 @@ class DialogueNodeItem(QGraphicsItem):
         self.node_id = model_node.id
         self.node_type = model_node.type
 
-        # Размеры
+        # Размеры (высота будет уточнена в _recalc_height)
         self._width = NODE_WIDTH
         self._height = NODE_HEADER_HEIGHT + NODE_BODY_MIN_HEIGHT
 
@@ -91,6 +91,9 @@ class DialogueNodeItem(QGraphicsItem):
 
         # Позиция
         self.setPos(model_node.x, model_node.y)
+
+        # Пересчитываем высоту по содержимому ДО создания портов
+        self._recalc_height()
 
         # Создаём порты
         self._build_ports()
@@ -332,6 +335,15 @@ class DialogueNodeItem(QGraphicsItem):
         return list(self.input_ports.values()) + list(
             self.output_ports.values()
         )
+
+    def refresh_text_only(self):
+        """
+        Лёгкое обновление — только пересчёт высоты и перерисовка.
+
+        НЕ трогает порты — для случаев изменения текста/вопроса.
+        """
+        self._recalc_height()
+        self.update()
 
     def refresh_from_model(self):
         """

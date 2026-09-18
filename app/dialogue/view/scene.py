@@ -55,23 +55,42 @@ class DialogueScene(QGraphicsScene):
         """
         Полностью пересобирает сцену из модели.
 
-        Удаляет все items и создаёт новые.
+        Удаляет items вручную (без scene.clear()) — это безопаснее,
+        потому что сохраняет нормальное состояние сцены.
         """
         self.dialogue = dialogue
 
-        # Очищаем
-        self.clear()
+        # 1. Удаляем connections — сначала отвязываем от портов
+        for conn_item in list(self.connection_items.values()):
+            try:
+                conn_item.detach_from_ports()
+            except Exception:
+                pass
+            try:
+                if conn_item.scene() is self:
+                    self.removeItem(conn_item)
+            except Exception:
+                pass
+
+        # 2. Удаляем узлы
+        for node_item in list(self.node_items.values()):
+            try:
+                if node_item.scene() is self:
+                    self.removeItem(node_item)
+            except Exception:
+                pass
+
         self.node_items.clear()
         self.connection_items.clear()
 
         if dialogue is None:
             return
 
-        # 1. Узлы
+        # 3. Узлы
         for model_node in dialogue.nodes.values():
             self._add_node_item(model_node)
 
-        # 2. Связи (после узлов, чтобы порты уже существовали)
+        # 4. Связи (после узлов — чтобы порты уже существовали)
         for model_conn in dialogue.connections:
             self._add_connection_item(model_conn)
 

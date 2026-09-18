@@ -53,6 +53,7 @@ from .view import (
     DialogueConnectionItem,
     DialogueScene,
     DialogueView,
+    DialogueInspector,
 )
 
 
@@ -97,4 +98,5 @@ __all__ = [
     "DialogueConnectionItem",
     "DialogueScene",
     "DialogueView",
+    "DialogueInspector",
 ]
