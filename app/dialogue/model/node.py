@@ -7,6 +7,8 @@
 """
 
 from ..ids import generate_option_id
+from .condition import Condition, ConditionGroup
+from .effect import Effect
 
 
 # =========================================================
@@ -195,12 +197,30 @@ class ChoiceOption:
         self.text = text
         self.order = int(order)
 
-        # Архитектурный контракт v3:
-        #   conditions = None | {"logic": "AND"|"OR", "items": [Condition...]}
-        #   effects = [Effect...]
-        #   is_default — fallback вариант, если остальные недоступны
-        self.conditions = conditions
-        self.effects = list(effects) if effects else []
+        # conditions: ConditionGroup | None
+        if isinstance(conditions, ConditionGroup):
+            self.conditions = conditions
+        elif isinstance(conditions, dict):
+            self.conditions = ConditionGroup.from_dict(conditions)
+        else:
+            self.conditions = None
+
+        # effects: list[Effect]
+        if effects is None:
+            self.effects = []
+        elif isinstance(effects, list):
+            result = []
+            for e in effects:
+                if isinstance(e, Effect):
+                    result.append(e)
+                elif isinstance(e, dict):
+                    eff = Effect.from_dict(e)
+                    if eff is not None:
+                        result.append(eff)
+            self.effects = result
+        else:
+            self.effects = []
+
         self.is_default = bool(is_default)
 
     def to_dict(self):
@@ -208,31 +228,29 @@ class ChoiceOption:
             "id": self.id,
             "text": self.text,
             "order": self.order,
-            "conditions": self.conditions,
-            "effects": list(self.effects),
+            "conditions": (
+                self.conditions.to_dict()
+                if self.conditions is not None
+                else None
+            ),
+            "effects": [e.to_dict() for e in self.effects],
             "is_default": self.is_default,
         }
 
     @classmethod
     def from_dict(cls, data):
-        # Проверка типов для известных полей (forward compat с защитой)
+        if not isinstance(data, dict):
+            return None
+
+        # conditions: v3 conditions | v2 condition | None
+        conditions_raw = data.get("conditions")
+        if conditions_raw is None:
+            conditions_raw = data.get("condition")
+
+        # effects: list
         effects_raw = data.get("effects", [])
-        if effects_raw is None:
+        if not isinstance(effects_raw, list):
             effects_raw = []
-        elif not isinstance(effects_raw, list):
-            effects_raw = []
-
-        # conditions: приоритет v3, fallback на v2 (condition)
-        conditions = data.get("conditions")
-        if conditions is None and "condition" in data:
-            old_cond = data.get("condition")
-            # v2 condition=None → v3 conditions=None
-            # v2 condition=<dict> → v3 conditions=<dict>
-            conditions = old_cond
-
-        # Защита: если conditions пришёл не dict и не None — сбрасываем
-        if conditions is not None and not isinstance(conditions, dict):
-            conditions = None
 
         is_default = bool(data.get("is_default", False))
 
@@ -240,7 +258,7 @@ class ChoiceOption:
             option_id=data["id"],
             text=data.get("text", ""),
             order=data.get("order", 0),
-            conditions=conditions,
+            conditions=conditions_raw,
             effects=effects_raw,
             is_default=is_default,
         )

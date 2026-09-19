@@ -230,22 +230,18 @@ class DialogueInspector(QWidget):
         self.content_layout.addWidget(hint)
 
     def _build_option_info(self, opt):
-        """Read-only: conditions / effects у ChoiceOption."""
+        """Read-only: conditions / effects у ChoiceOption (объекты)."""
 
         parts = []
 
-        # conditions — dict | None
-        if opt.conditions is not None and isinstance(opt.conditions, dict):
-            items = opt.conditions.get("items", [])
-            logic = opt.conditions.get("logic", "AND")
-            if isinstance(items, list) and items:
-                n = len(items)
-                word = "условие" if n == 1 else "условий"
-                parts.append(f"conditions: {logic} · {n} {word}")
-            else:
-                parts.append(f"conditions: {logic} (пусто)")
+        # conditions — ConditionGroup | None
+        if opt.conditions is not None and len(opt.conditions) > 0:
+            logic = opt.conditions.logic
+            n = len(opt.conditions)
+            word = "условие" if n == 1 else "условий"
+            parts.append(f"conditions: {logic} · {n} {word}")
 
-        # effects — list
+        # effects — list[Effect]
         if opt.effects:
             n = len(opt.effects)
             word = "эффект" if n == 1 else "эффектов"
