@@ -14,6 +14,7 @@ from typing import Any
 
 from .contour import VectorContour
 from .semantic_group import SemanticGroup
+from .parameter import Parameter
 
 
 # ============================================================
@@ -147,7 +148,10 @@ class Asset:
                 gid: g.to_dict()
                 for gid, g in self.semantic_groups.items()
             },
-            "parameters": self.parameters,
+            "parameters": {
+                pid: p.to_dict()
+                for pid, p in self.parameters.items()
+            },
             "generation_rules": self.generation_rules,
         }
 
@@ -159,8 +163,18 @@ class Asset:
             try:
                 groups[gid] = SemanticGroup.from_dict(gdict)
             except Exception:
-                # Битая группа — пропускаем, не ломаем весь Asset
                 continue
+
+        params_raw = d.get("parameters") or {}
+        params: dict[str, Parameter] = {}
+        if isinstance(params_raw, dict):
+            for pid, pdict in params_raw.items():
+                if not isinstance(pdict, dict):
+                    continue
+                try:
+                    params[pid] = Parameter.from_dict(pdict)
+                except Exception:
+                    continue
 
         return cls(
             asset_id=d.get("id"),
@@ -168,7 +182,7 @@ class Asset:
             type_=d.get("type", "other"),
             geometry=d.get("geometry") or cls._empty_geometry(),
             semantic_groups=groups,
-            parameters=d.get("parameters") or {},
+            parameters=params,
             generation_rules=d.get("generation_rules") or cls._default_rules(),
         )
 
@@ -229,3 +243,38 @@ class Asset:
 
     def semantic_group_count(self) -> int:
         return len(self.semantic_groups)
+
+    # ------------------------------------------------------------
+    # PARAMETERS
+    # ------------------------------------------------------------
+
+    def add_parameter(self, param: Parameter) -> None:
+        self.parameters[param.id] = param
+
+    def remove_parameter(self, param_id: str) -> Parameter | None:
+        return self.parameters.pop(param_id, None)
+
+    def get_parameter(self, param_id: str) -> Parameter | None:
+        return self.parameters.get(param_id)
+
+    def parameter_count(self) -> int:
+        return len(self.parameters)
+
+    def parameters_list(self) -> list[Parameter]:
+        """Параметры, отсортированные по label."""
+        return sorted(
+            self.parameters.values(),
+            key=lambda p: (p.label or p.name).lower(),
+        )
+
+    def prune_parameters(self) -> None:
+        """Удалить таргеты, ссылающиеся на несуществующие группы.
+
+        Параметр без таргетов остаётся — пользователь может
+        потом перепривязать его или удалить вручную.
+        """
+        valid_ids = set(self.semantic_groups.keys())
+        for param in self.parameters.values():
+            param.targets = [
+                t for t in param.targets if t.group_id in valid_ids
+            ]

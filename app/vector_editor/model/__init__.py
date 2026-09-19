@@ -11,6 +11,13 @@ from .asset import (
     ASSET_TYPE_IDS,
 )
 from .semantic_group import SemanticGroup
+from .parameter import (
+    Parameter,
+    ParameterTarget,
+    compute_delta_for_parameter,
+    compute_combined_delta,
+    apply_delta_to_points,
+)
 from .analysis import (
     AUTO_GROUP_TYPES,
     generate_auto_group,
@@ -28,6 +35,11 @@ __all__ = [
     "ASSET_TYPES",
     "ASSET_TYPE_IDS",
     "SemanticGroup",
+    "Parameter",
+    "ParameterTarget",
+    "compute_delta_for_parameter",
+    "compute_combined_delta",
+    "apply_delta_to_points",
     "AUTO_GROUP_TYPES",
     "generate_auto_group",
     "find_horizontal_edge_nodes",
