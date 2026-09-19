@@ -27,7 +27,10 @@ from .storage import (
     _migrate_v1_to_v2,
     _migrate_v2_to_v3,
     build_speaker_map,
+    rebuild_index,
 )
+from .project_io import save_project_data, load_project_data
+from ..project_data import Character
 
 
 def plan_project_v2_to_v3_migration(project_folder):
@@ -134,11 +137,29 @@ def plan_project_v2_to_v3_migration(project_folder):
 
     # --- Планируемые characters ---
     planned_chars = []
+    slug_to_name = {}   # slug -> лучшее raw_name
+
     for raw_name in sorted(speaker_map.keys()):
         slug = speaker_map[raw_name]
-        if slug not in planned_chars:
-            planned_chars.append(slug)
+
+        if slug not in slug_to_name:
+            slug_to_name[slug] = raw_name
+        else:
+            # Предпочитаем форму с заглавной буквы
+            current = slug_to_name[slug]
+            if (
+                current
+                and not current[0].isupper()
+                and raw_name
+                and raw_name[0].isupper()
+            ):
+                slug_to_name[slug] = raw_name
+
+    for slug in sorted(slug_to_name.keys()):
+        planned_chars.append(slug)
+
     report["planned_characters"] = planned_chars
+    report["planned_character_names"] = slug_to_name
 
     # --- Подготовить мигрированные данные (в памяти) ---
     for did in report["v2_dialogues"]:
@@ -162,3 +183,101 @@ def plan_project_v2_to_v3_migration(project_folder):
         }
 
     return report
+
+# =========================================================
+# APPLY MIGRATION (запись на диск)
+# =========================================================
+
+def apply_project_migration(project_folder):
+    """
+    Реальная миграция проекта v2/v1 -> v3 с записью на диск.
+
+    Порядок (атомарная логика):
+      1. plan (read-only) — что мигрировать
+      2. Подготовить ProjectData в памяти
+      3. Записать project_data.json
+      4. Записать все мигрированные диалоги
+      5. Обновить index.json
+
+    Возвращает dict-отчёт:
+      {
+        "applied": bool,
+        "reason": str | None,
+        "migrated": [dialogue_id, ...],
+        "characters_created": [slug, ...],
+        "errors": [...]
+      }
+    """
+
+    report = plan_project_v2_to_v3_migration(project_folder)
+
+    # Никакой миграции, если в плане ошибки
+    if report["errors"]:
+        return {
+            "applied": False,
+            "reason": "plan has errors",
+            "migrated": [],
+            "characters_created": [],
+            "errors": report["errors"],
+        }
+
+    if not report["v2_dialogues"]:
+        return {
+            "applied": False,
+            "reason": "no v2 dialogues",
+            "migrated": [],
+            "characters_created": [],
+            "errors": [],
+        }
+
+    # --- Загружаем существующий ProjectData ---
+    try:
+        pd = load_project_data(project_folder)
+    except Exception as e:
+        return {
+            "applied": False,
+            "reason": f"load_project_data failed: {e!r}",
+            "migrated": [],
+            "characters_created": [],
+            "errors": [],
+        }
+
+    # --- Обогащаем ProjectData персонажами ---
+    planned_names = report.get("planned_character_names", {})
+    created_slugs = []
+
+    for slug in report["planned_characters"]:
+        if slug in pd.characters:
+            continue
+
+        name = planned_names.get(slug, slug)
+        pd.add_character(Character(character_id=slug, name=name))
+        created_slugs.append(slug)
+
+    # --- Атомарная запись ---
+    try:
+        save_project_data(pd, project_folder)
+
+        for did, data in report["planned_migrated_dialogues"].items():
+            path = get_dialogue_path(did, project_folder)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+
+        rebuild_index(project_folder)
+
+    except Exception as e:
+        return {
+            "applied": False,
+            "reason": f"write failed: {e!r}",
+            "migrated": [],
+            "characters_created": created_slugs,
+            "errors": [],
+        }
+
+    return {
+        "applied": True,
+        "reason": None,
+        "migrated": list(report["planned_migrated_dialogues"].keys()),
+        "characters_created": created_slugs,
+        "errors": [],
+    }
