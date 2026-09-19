@@ -20,8 +20,8 @@ from .scene import ArchScene
 
 
 # Ограничения zoom (pixels per meter)
-PPM_MIN = 0.05   # 1 пиксель = 20 метров
-PPM_MAX = 20.0   # 1 метр = 20 пикселей
+PPM_MIN = 0.5    # 1 пиксель = 2 метра (далеко)
+PPM_MAX = 500.0  # 1 метр = 500 пикселей (близко)
 
 
 # Начальный zoom
@@ -56,18 +56,23 @@ class ArchCanvas(QGraphicsView):
     # ============================================================
 
     def wheelEvent(self, event) -> None:
-        """Ctrl + wheel — zoom. Иначе — стандартный скролл."""
-        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            delta = event.angleDelta().y()
-            if delta == 0:
-                return
+        """Колесо — zoom к курсору.
 
-            factor = 1.1 ** (delta / 120.0)
-            anchor = event.position().toPoint()
-            self._zoom_by(factor, anchor)
-            event.accept()
-        else:
+        Plain wheel = zoom (как в Milanote / Miro).
+        Shift + wheel = горизонтальный скролл (по X).
+        """
+        if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
             super().wheelEvent(event)
+            return
+
+        delta = event.angleDelta().y()
+        if delta == 0:
+            return
+
+        factor = 1.1 ** (delta / 120.0)
+        anchor = event.position().toPoint()
+        self._zoom_by(factor, anchor)
+        event.accept()
 
     def _zoom_by(self, factor: float, viewport_anchor: QPoint) -> None:
         """Zoom с ограничением и anchor под курсором."""

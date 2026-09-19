@@ -149,7 +149,7 @@ class ArchitectureEditor(QMainWindow):
 
     def _build_central(self) -> None:
         # Scene + Canvas
-        self._scene = ArchScene()
+        self._scene = ArchScene(self._document)
         self._canvas = ArchCanvas(self._scene)
 
         # Центральная колонка: ModeTabs над Canvas

@@ -1,14 +1,11 @@
 """
 ArchScene — QGraphicsScene архитектурного редактора.
 
-Координатная система сцены: метры.
-Направление Y: вниз (Qt-нативно).
+Подписывается на сигналы ArchitectureDocument и держит items_by_id
+в синхроне с моделью.
 
-Модель использует Y↑ (архитектурно). Конвертация:
-    scene_y = -model_y
-
-Выполняется в момент размещения items (в M1+).
-В M0 items нет — только сетка, которая живёт в Qt-системе.
+Координаты сцены: метры. Y↓ (Qt нативно).
+Модель: Y↑. Конвертация через view/coords.py.
 """
 
 from __future__ import annotations
@@ -16,11 +13,11 @@ from __future__ import annotations
 from PySide6.QtCore import QRectF
 from PySide6.QtWidgets import QGraphicsScene
 
+from ..model.room import Room
 from .grid import GridLayer
+from .items.room_item import RoomItem
 
 
-# Огромный scene rect: ±1000 метров.
-# Авто-расширение Qt не работает, пока нет items.
 SCENE_HALF = 1000.0
 SCENE_RECT = QRectF(-SCENE_HALF, -SCENE_HALF, SCENE_HALF * 2, SCENE_HALF * 2)
 
@@ -28,30 +25,81 @@ SCENE_RECT = QRectF(-SCENE_HALF, -SCENE_HALF, SCENE_HALF * 2, SCENE_HALF * 2)
 class ArchScene(QGraphicsScene):
     """Сцена архитектурного редактора."""
 
-    def __init__(self, parent=None):
+    def __init__(self, document, parent=None):
         super().__init__(parent)
 
-        # Сцена в метрах
+        self._document = document
+        self._items_by_id: dict[str, RoomItem] = {}
+
         self.setSceneRect(SCENE_RECT)
-
-        # Сетка
         self._grid = GridLayer()
-
-        # Фон (позади сетки)
         self.setBackgroundBrush(self._make_background_brush())
 
-    # ------------------------------------------------------------
+        # Подписка на сигналы документа
+        document.element_added.connect(self._on_element_added)
+        document.element_removed.connect(self._on_element_removed)
+        document.element_changed.connect(self._on_element_changed)
+
+        # Заполнить из модели (если загружен существующий документ)
+        self._populate_from_model()
+
+    # ============================================================
+    # ДОСТУП
+    # ============================================================
+
+    @property
+    def document(self):
+        return self._document
+
+    def item_for(self, element_id: str) -> RoomItem | None:
+        return self._items_by_id.get(element_id)
+
+    # ============================================================
+    # ЗАПОЛНЕНИЕ
+    # ============================================================
+
+    def _populate_from_model(self) -> None:
+        for el in self._document.model.elements.values():
+            self._create_item(el)
+
+    def _create_item(self, element) -> RoomItem | None:
+        """Создаёт item по элементу модели."""
+        if isinstance(element, Room):
+            item = RoomItem(element)
+            self.addItem(item)
+            self._items_by_id[element.id] = item
+            return item
+        # Другие типы — в M2+
+        return None
+
+    # ============================================================
+    # СИГНАЛЫ ДОКУМЕНТА
+    # ============================================================
+
+    def _on_element_added(self, element_id: str) -> None:
+        el = self._document.model.get_element(element_id)
+        if el is None:
+            return
+        self._create_item(el)
+
+    def _on_element_removed(self, element_id: str) -> None:
+        item = self._items_by_id.pop(element_id, None)
+        if item is not None:
+            self.removeItem(item)
+
+    def _on_element_changed(self, element_id: str) -> None:
+        item = self._items_by_id.get(element_id)
+        if item is not None:
+            item.sync_from_model()
+
+    # ============================================================
+    # РИСОВАНИЕ
+    # ============================================================
 
     def drawBackground(self, painter, rect: QRectF) -> None:
-        """Рисует фон и сетку.
-
-        rect — видимая область сцены в метрах.
-        ppm — pixels per meter, из текущего transform view.
-        """
         super().drawBackground(painter, rect)
 
-        # Найти ppm. У сцены может быть несколько view (у нас одно).
-        ppm = 50.0  # fallback
+        ppm = 50.0
         views = self.views()
         if views:
             transform = views[0].transform()
@@ -60,11 +108,10 @@ class ArchScene(QGraphicsScene):
         self._grid.draw(painter, rect, ppm)
 
     def drawForeground(self, painter, rect: QRectF) -> None:
-        """Зарезервировано для будущих overlays (snap, selection)."""
         super().drawForeground(painter, rect)
-        # M0: пусто
+        # M0/M1b: пусто
 
-    # ------------------------------------------------------------
+    # ============================================================
 
     @staticmethod
     def _make_background_brush():
