@@ -14,7 +14,7 @@ VectorEditor — QMainWindow V4.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QEvent
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QMainWindow,
@@ -149,6 +149,9 @@ class VectorEditor(QMainWindow):
         self._canvas.contour_created.connect(self._on_contour_created)
         self._browser.asset_open_requested.connect(self._on_open_asset)
 
+        # Клик по пустому месту сцены — снимаем подсветку группы
+        self._scene.installEventFilter(self)
+
         self._scene.selectionChanged.connect(
             self._on_scene_selection_changed
         )
@@ -198,8 +201,19 @@ class VectorEditor(QMainWindow):
         self._groups_panel.set_selected_node_ids(node_ids)
 
     def _on_group_selected(self, group_id: str) -> None:
-        """Подсветить узлы выбранной группы."""
-        if self._contour_item is None or self._current_asset is None:
+        """Подсветить узлы выбранной группы.
+
+        Пустой group_id → снять подсветку (например, после удаления).
+        """
+        if self._contour_item is None:
+            return
+
+        if not group_id:
+            self._contour_item.clear_highlight()
+            return
+
+        if self._current_asset is None:
+            self._contour_item.clear_highlight()
             return
 
         group = self._current_asset.get_semantic_group(group_id)
@@ -503,6 +517,27 @@ class VectorEditor(QMainWindow):
     # ============================================================
     # KEYBOARD
     # ============================================================
+
+    # ============================================================
+    # EVENT FILTER — клик по пустому месту сцены
+    # ============================================================
+
+    def eventFilter(self, obj, event) -> bool:
+        if obj is self._scene:
+            if event.type() == QEvent.Type.GraphicsSceneMousePress:
+                items = self._scene.items(event.scenePos())
+                has_node = any(
+                    isinstance(it, NodeItem) for it in items
+                )
+                if not has_node:
+                    self._on_empty_scene_click()
+        return super().eventFilter(obj, event)
+
+    def _on_empty_scene_click(self) -> None:
+        """Клик мимо узлов → снимаем подсветку группы."""
+        if self._contour_item is not None:
+            self._contour_item.clear_highlight()
+        self._groups_panel.clear_selection()
 
     def keyPressEvent(self, event) -> None:
         if event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):

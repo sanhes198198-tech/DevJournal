@@ -11,6 +11,14 @@ from .asset import (
     ASSET_TYPE_IDS,
 )
 from .semantic_group import SemanticGroup
+from .analysis import (
+    AUTO_GROUP_TYPES,
+    generate_auto_group,
+    find_horizontal_edge_nodes,
+    find_vertical_edge_nodes,
+    find_convex_nodes,
+    find_concave_nodes,
+)
 
 __all__ = [
     "VectorContour",
@@ -20,4 +28,10 @@ __all__ = [
     "ASSET_TYPES",
     "ASSET_TYPE_IDS",
     "SemanticGroup",
+    "AUTO_GROUP_TYPES",
+    "generate_auto_group",
+    "find_horizontal_edge_nodes",
+    "find_vertical_edge_nodes",
+    "find_convex_nodes",
+    "find_concave_nodes",
 ]

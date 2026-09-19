@@ -23,9 +23,17 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QWidget,
     QFrame,
+    QToolButton,
+    QMenu,
+    QMessageBox,
 )
 
 from .semantic_group_dialog import SemanticGroupDialog
+from ..model.analysis import (
+    AUTO_GROUP_TYPES,
+    generate_auto_group,
+)
+from ..model.semantic_group import SemanticGroup
 
 
 class SemanticGroupsPanel(QWidget):
@@ -124,6 +132,32 @@ class SemanticGroupsPanel(QWidget):
 
         layout.addLayout(buttons)
 
+        # ============================================================
+        # АВТО-ГРУППЫ
+        # ============================================================
+        self._btn_auto = QToolButton()
+        self._btn_auto.setText("⚡ Авто")
+        self._btn_auto.setPopupMode(
+            QToolButton.ToolButtonPopupMode.InstantPopup
+        )
+        self._btn_auto.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_auto.setToolTip(
+            "Сгенерировать группу по геометрии контура"
+        )
+
+        menu = QMenu(self._btn_auto)
+        for kind, label, slug in AUTO_GROUP_TYPES:
+            action = menu.addAction(label)
+            # default-аргументы, чтобы не поймать замыкание
+            action.triggered.connect(
+                lambda _checked=False, k=kind, l=label, s=slug:
+                self._on_auto_group(k, l, s)
+            )
+
+        self._btn_auto.setMenu(menu)
+        self._style_button(self._btn_auto)
+        layout.addWidget(self._btn_auto)
+
     @staticmethod
     def _style_button(btn: QPushButton) -> None:
         btn.setStyleSheet(
@@ -188,6 +222,11 @@ class SemanticGroupsPanel(QWidget):
             item.setData(Qt.ItemDataRole.UserRole, g.id)
             self._list.addItem(item)
 
+        self._update_buttons()
+
+    def clear_selection(self) -> None:
+        """Снять выделение с текущего item (без эмитов)."""
+        self._list.clearSelection()
         self._update_buttons()
 
     def _update_buttons(self) -> None:
@@ -263,6 +302,51 @@ class SemanticGroupsPanel(QWidget):
         self.refresh()
         self.groups_changed.emit()
 
+    def _on_auto_group(
+        self, kind: str, label: str, slug: str,
+    ) -> None:
+        """Сгенерировать группу по геометрии контура.
+
+        Если группа с таким slug уже существует — перезаписываем
+        её node_ids и label. Иначе создаём новую.
+        """
+        if self._asset is None:
+            return
+
+        points = self._asset.points()
+        node_ids = list(self._asset.geometry.get("node_ids", []))
+
+        generated = generate_auto_group(kind, points, node_ids)
+        if not generated:
+            QMessageBox.information(
+                self,
+                "Авто-группа",
+                f"Не найдено ни одного узла для группы «{label}».",
+            )
+            return
+
+        # Ищем существующую группу с таким slug
+        existing = None
+        for g in self._asset.semantic_groups.values():
+            if g.name == slug:
+                existing = g
+                break
+
+        if existing is not None:
+            existing.node_ids = list(generated)
+            existing.label = label
+        else:
+            self._asset.add_semantic_group(
+                SemanticGroup(
+                    name=slug,
+                    label=label,
+                    node_ids=list(generated),
+                )
+            )
+
+        self.refresh()
+        self.groups_changed.emit()
+
     def _on_delete(self) -> None:
         if self._asset is None:
             return
@@ -290,4 +374,6 @@ class SemanticGroupsPanel(QWidget):
 
         self._asset.remove_semantic_group(gid)
         self.refresh()
+        # Снять подсветку узлов удалённой группы в сцене
+        self.group_selected.emit("")
         self.groups_changed.emit()
