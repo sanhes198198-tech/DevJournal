@@ -1,8 +1,8 @@
 """
 NodeItem — маркер одной вершины контура.
 
-Размер в пикселях (косметический) — вычисляется в paint()
-из текущего zoom, чтобы не зависеть от трансформации.
+Размер в пикселях экрана (косметический) — вычисляется в paint().
+Выделяется как QGraphicsItem.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from PySide6.QtGui import QBrush, QColor, QPen
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsObject
 
 
-NODE_PIXELS = 10.0  # размер в пикселях экрана (постоянный)
+NODE_PIXELS = 10.0
 
 
 class NodeItem(QGraphicsObject):
@@ -27,6 +27,10 @@ class NodeItem(QGraphicsObject):
 
         self.setFlag(
             QGraphicsItem.GraphicsItemFlag.ItemIsMovable,
+            True,
+        )
+        self.setFlag(
+            QGraphicsItem.GraphicsItemFlag.ItemIsSelectable,
             True,
         )
         self.setFlag(
@@ -47,23 +51,25 @@ class NodeItem(QGraphicsObject):
         return self._idx
 
     def _half_size_m(self, painter) -> float:
-        """Полуразмер в МЕТРАХ, чтобы визуально был NODE_PIXELS/2 px."""
         ppm = abs(painter.transform().m11()) or 50.0
         return (NODE_PIXELS / 2.0) / ppm
 
     def boundingRect(self) -> QRectF:
-        # Запас на случай любого zoom (в метрах)
         pad = 0.5
         return QRectF(-pad, -pad, pad * 2, pad * 2)
 
     def paint(self, painter, option, widget=None) -> None:
         half = self._half_size_m(painter)
 
-        if self._hover:
+        if self.isSelected():
             fill = QColor("#0055CC")
+            border = QColor("#003399")
+        elif self._hover:
+            fill = QColor("#8AB4FF")
+            border = QColor("#0055CC")
         else:
             fill = QColor("#FFFFFF")
-        border = QColor("#0055CC")
+            border = QColor("#0055CC")
 
         painter.setBrush(QBrush(fill))
         pen = QPen(border, 0)
@@ -90,6 +96,7 @@ class NodeItem(QGraphicsObject):
 
     def itemChange(self, change, value):
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
-            pos = value
-            self.node_moved.emit(self._idx, pos.x(), pos.y())
+            self.node_moved.emit(self._idx, value.x(), value.y())
+        elif change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
+            self.update()
         return super().itemChange(change, value)
