@@ -23,7 +23,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtGui import QAction, QKeySequence, QUndoStack
 from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
@@ -39,6 +39,11 @@ from .io import (
     get_architecture_path,
 )
 from .model.room import Room
+from .commands import (
+    AddElementCommand,
+    DeleteElementCommand,
+    ModifyElementCommand,
+)
 from .view import (
     ArchScene,
     ArchCanvas,
@@ -55,6 +60,7 @@ class ArchitectureEditor(QMainWindow):
         super().__init__(parent)
 
         self._document = document
+        self._undo_stack = QUndoStack(self)
 
         self._build_ui()
         self._connect_signals()
@@ -144,6 +150,32 @@ class ArchitectureEditor(QMainWindow):
 
         toolbar.addSeparator()
 
+        # --- Undo / Redo ---
+        action_undo = self._undo_stack.createUndoAction(
+            self, "Отменить"
+        )
+        action_undo.setShortcut(QKeySequence.StandardKey.Undo)
+        toolbar.addAction(action_undo)
+
+        action_redo = self._undo_stack.createRedoAction(
+            self, "Повторить"
+        )
+        action_redo.setShortcut(QKeySequence.StandardKey.Redo)
+        toolbar.addAction(action_redo)
+
+        toolbar.addSeparator()
+
+        # --- Delete ---
+        action_delete = QAction("Удалить", self)
+        action_delete.setShortcuts([
+            QKeySequence(Qt.Key.Key_Delete),
+            QKeySequence(Qt.Key.Key_Backspace),
+        ])
+        action_delete.triggered.connect(self._on_delete_requested)
+        toolbar.addAction(action_delete)
+
+        toolbar.addSeparator()
+
         action_close = QAction("Закрыть", self)
         action_close.triggered.connect(self.close)
         toolbar.addAction(action_close)
@@ -209,6 +241,9 @@ class ArchitectureEditor(QMainWindow):
         self._properties.field_changed.connect(
             self._on_field_changed
         )
+        self._document.element_changed.connect(
+            self._on_element_changed_external
+        )
         self._mode_tabs.mode_changed.connect(
             self._on_mode_changed
         )
@@ -246,6 +281,53 @@ class ArchitectureEditor(QMainWindow):
         self.statusBar().showMessage("Сохранено", 2000)
 
     # ============================================================
+    # DELETE
+    # ============================================================
+
+    def _on_delete_requested(self) -> None:
+        """Удаление выделенных элементов."""
+        items = self._scene.selectedItems()
+        if not items:
+            return
+
+        # Удаляем всё, что имеет room
+        to_delete = [
+            it for it in items
+            if getattr(it, "room", None) is not None
+        ]
+        if not to_delete:
+            return
+
+        for item in to_delete:
+            room = item.room
+            self._undo_stack.push(
+                DeleteElementCommand(self._document, room)
+            )
+
+        self.statusBar().showMessage(
+            f"Удалено: {len(to_delete)}", 2000
+        )
+
+    # ============================================================
+    # EXTERNAL CHANGES → PROPERTIES
+    # ============================================================
+
+    def _on_element_changed_external(self, element_id: str) -> None:
+        """Document изменился извне (undo/redo) — обновить Properties."""
+        items = self._scene.selectedItems()
+        if len(items) != 1:
+            return
+
+        item = items[0]
+        room_id = getattr(item, "room_id", None)
+        if room_id != element_id:
+            return
+
+        room = getattr(item, "room", None)
+        if room is not None:
+            self._properties.show_element(room)
+
+    # ============================================================
     # SELECTION → PROPERTIES
     # ============================================================
 
@@ -275,9 +357,25 @@ class ArchitectureEditor(QMainWindow):
         if room_id is None:
             return
 
+        # Текущее значение из модели
+        room = getattr(items[0], "room", None)
+        if room is None:
+            return
+
+        old_value = getattr(room, field, None)
+        if old_value == value:
+            return
+
+        # Через команду (с поддержкой undo)
         try:
-            self._document.update_element(
-                room_id, **{field: value}
+            self._undo_stack.push(
+                ModifyElementCommand(
+                    self._document,
+                    room_id,
+                    field,
+                    old_value,
+                    value,
+                )
             )
         except (ValueError, AttributeError) as e:
             self.statusBar().showMessage(
@@ -319,7 +417,9 @@ class ArchitectureEditor(QMainWindow):
             height=3.0,
         )
 
-        self._document.add_element(room)
+        self._undo_stack.push(
+            AddElementCommand(self._document, room)
+        )
 
         # Выделить созданную
         item = self._scene.item_for(room.id)
@@ -381,7 +481,9 @@ class ArchitectureEditor(QMainWindow):
             preset_id=preset.id,
         )
 
-        self._document.add_element(room)
+        self._undo_stack.push(
+            AddElementCommand(self._document, room)
+        )
 
         # Выделить созданную
         item = self._scene.item_for(room.id)
