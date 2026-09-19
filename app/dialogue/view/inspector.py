@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QFrame,
     QRadioButton,
+    QComboBox,
 )
 
 from ..model import (
@@ -63,6 +64,10 @@ class DialogueInspector(QWidget):
         # В DialogueEditorWindow: sink = undo_stack.push.
         # Fallback: применяем команду сразу через .redo().
         self._command_sink = None
+
+        # ProjectData — справочник персонажей / переменных / флагов.
+        # Может быть None, если ещё не загружен.
+        self.project_data = None
 
         self._build_ui()
 
@@ -240,6 +245,10 @@ class DialogueInspector(QWidget):
         self.current_node_id = None
         self._show_placeholder()
 
+    def set_project_data(self, project_data):
+        """Устанавливает справочник проекта (characters, variables, flags)."""
+        self.project_data = project_data
+
     def set_node(self, node_id):
         if self.dialogue is None:
             return
@@ -310,32 +319,10 @@ class DialogueInspector(QWidget):
     # =========================================================
 
     def _build_reply_ui(self, node):
-        # Speaker
-        speaker_edit = QLineEdit()
-        speaker_edit.blockSignals(True)
-        speaker_edit.setText(node.speaker)
-        speaker_edit.blockSignals(False)
-        speaker_edit.setPlaceholderText("Имя персонажа")
+        # === Персонаж ===
+        self._build_speaker_widget(node)
 
-        def on_speaker_changed(text):
-            if self._updating:
-                return
-            old = node.speaker
-            if old == text:
-                return
-            cmd = ChangePropertyCommand(
-                target=node,
-                prop_name="speaker",
-                old_value=old,
-                new_value=text,
-                notify=lambda: self.node_changed.emit(node.id),
-            )
-            self._push(cmd)
-
-        speaker_edit.textChanged.connect(on_speaker_changed)
-        self._add_row("Персонаж", speaker_edit)
-
-        # Text
+        # === Текст реплики ===
         text_edit = QPlainTextEdit()
         text_edit.blockSignals(True)
         text_edit.setPlainText(node.text)
@@ -364,6 +351,93 @@ class DialogueInspector(QWidget):
 
         # Read-only блок (архитектурный контракт)
         self._add_presentation_block(node)
+
+    def _build_speaker_widget(self, node):
+        """Строит dropdown (или fallback QLineEdit) для выбора персонажа."""
+        characters = []
+        if self.project_data is not None:
+            characters = sorted(
+                self.project_data.characters.values(),
+                key=lambda c: (c.name or c.id).lower(),
+            )
+
+        if not characters:
+            # Нет справочника — fallback на QLineEdit
+            speaker_edit = QLineEdit()
+            speaker_edit.blockSignals(True)
+            speaker_edit.setText(node.speaker_id or "")
+            speaker_edit.blockSignals(False)
+            speaker_edit.setPlaceholderText(
+                "Введите имя персонажа (создастся slug)"
+            )
+
+            def on_speaker_changed(text):
+                if self._updating:
+                    return
+                old = node.speaker_id or ""
+                new = text.strip()
+                if new == old:
+                    return
+                cmd = ChangePropertyCommand(
+                    target=node,
+                    prop_name="speaker_id",
+                    old_value=old,
+                    new_value=new,
+                    notify=lambda: self.node_changed.emit(node.id),
+                )
+                self._push(cmd)
+
+            speaker_edit.textChanged.connect(on_speaker_changed)
+            self._add_row("Персонаж", speaker_edit)
+            return
+
+        # Есть справочник — QComboBox
+        combo = QComboBox()
+        combo.setEditable(False)
+
+        # Пустой вариант
+        combo.addItem("— не указан —", "")
+
+        # Все персонажи
+        current_idx = 0
+        current_id = node.speaker_id or ""
+
+        for char in characters:
+            label = char.name or char.id
+            combo.addItem(f"{label}  ({char.id})", char.id)
+            if char.id == current_id:
+                current_idx = combo.count() - 1
+
+        # Если текущий speaker_id не найден в справочнике — добавим
+        if current_id and current_idx == 0:
+            combo.addItem(
+                f"{current_id}  (нет в справочнике)",
+                current_id,
+            )
+            current_idx = combo.count() - 1
+
+        combo.blockSignals(True)
+        combo.setCurrentIndex(current_idx)
+        combo.blockSignals(False)
+
+        def on_combo_changed(idx):
+            if self._updating:
+                return
+            new_id = combo.itemData(idx) or ""
+            old_id = node.speaker_id or ""
+            if new_id == old_id:
+                return
+            cmd = ChangePropertyCommand(
+                target=node,
+                prop_name="speaker_id",
+                old_value=old_id,
+                new_value=new_id,
+                notify=lambda: self.node_changed.emit(node.id),
+            )
+            self._push(cmd)
+
+        combo.currentIndexChanged.connect(on_combo_changed)
+        self._add_row("Персонаж", combo)
 
     # =========================================================
     # CHOICE

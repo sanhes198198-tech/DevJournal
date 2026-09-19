@@ -51,6 +51,7 @@ from .io import (
     load_index,
     save_index,
     dialogue_exists,
+    load_project_data,
 )
 
 from .validation import validate_dialogue
@@ -67,6 +68,13 @@ class DialogueEditorWindow(QMainWindow):
 
         # Текущий загруженный диалог (Dialogue или None)
         self.current_dialogue = None
+
+        # ProjectData — справочник персонажей / переменных / флагов
+        try:
+            self.project_data = load_project_data(project_folder)
+        except Exception:
+            from .project_data import ProjectData
+            self.project_data = ProjectData()
 
         # Undo stack
         self.undo_stack = QUndoStack(self)
@@ -192,6 +200,9 @@ class DialogueEditorWindow(QMainWindow):
         self.inspector.connections_changed.connect(
             self._on_inspector_connections_changed
         )
+
+        # Inspector: справочник проекта
+        self.inspector.set_project_data(self.project_data)
 
         # Inspector command sink
         self.inspector.set_command_sink(self.undo_stack.push)
