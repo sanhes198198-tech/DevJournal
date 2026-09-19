@@ -30,6 +30,11 @@ class ContourItem(QGraphicsObject):
     # move узла, insert, remove.
     changed = Signal()
 
+    # Начало/конец перетаскивания одного узла.
+    # Позволяют editor'у сделать одну undo-запись на весь drag.
+    node_drag_started = Signal()
+    node_drag_finished = Signal()
+
     LINE_WIDTH = 1.2
     LINE_WIDTH_SELECTED = 2.5
     LINE_WIDTH_HOVER = 2.0
@@ -226,6 +231,8 @@ class ContourItem(QGraphicsObject):
             node = NodeItem(idx, x, y, node_id=nid)
             node.setParentItem(self)
             node.node_moved.connect(self._on_node_moved)
+            node.drag_started.connect(self.node_drag_started.emit)
+            node.drag_finished.connect(self.node_drag_finished.emit)
             node.setVisible(self._editable)
             self._nodes.append(node)
 

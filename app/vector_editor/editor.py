@@ -14,7 +14,7 @@ VectorEditor — QMainWindow V4.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, QEvent
+from PySide6.QtCore import Qt, QEvent, QElapsedTimer
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QMainWindow,
@@ -60,7 +60,14 @@ class VectorEditor(QMainWindow):
         self._canvas = VectorCanvas(self._scene, self)
 
         self._counter = 0
-        self._undo_stack: list[tuple[ContourItem, list]] = []
+        self._undo_stack: list[tuple] = []
+
+        # Сессия слияния undo-записей от изменения параметра
+        self._param_undo_active_id: str | None = None
+        self._param_undo_timer = QElapsedTimer()
+
+        # Снапшот перед началом ручного drag узла
+        self._pending_drag_snapshot: list | None = None
 
         # Текущий Asset (объект, не только id — нужен для групп)
         self._current_asset: Asset | None = None
@@ -244,10 +251,16 @@ class VectorEditor(QMainWindow):
 
         self._contour_item.highlight_nodes(group.node_ids)
 
+    PARAM_UNDO_MERGE_MS = 1500
+
     def _on_parameter_value_changed(
         self, param_id: str, new_value: float, old_value: float,
     ) -> None:
-        """Пользователь изменил значение параметра — применить delta."""
+        """Изменилось значение параметра — применить сдвиг к геометрии.
+
+        Последовательные изменения ОДНОГО параметра с интервалом
+        < PARAM_UNDO_MERGE_MS сливаются в одну undo-запись.
+        """
         if self._current_asset is None or self._contour_item is None:
             return
 
@@ -259,10 +272,27 @@ class VectorEditor(QMainWindow):
         if abs(delta_value) < 1e-12:
             return
 
-        # Снимок геометрии для undo
-        snapshot = list(self._contour_item.contour.points)
+        # --- Слияние серии изменений ---
+        same_param = self._param_undo_active_id == param_id
+        recent = (
+            self._param_undo_timer.isValid()
+            and self._param_undo_timer.elapsed()
+                < self.PARAM_UNDO_MERGE_MS
+        )
 
-        # Считаем сдвиг узлов
+        if same_param and recent:
+            # Продолжаем серию — snapshot НЕ пишем.
+            pass
+        else:
+            # Новая серия: снапшот ДО текущего изменения.
+            snapshot = list(self._contour_item.contour.points)
+            self._undo_stack.append(
+                (self._contour_item, snapshot, param_id, old_value)
+            )
+            self._param_undo_active_id = param_id
+            self._param_undo_timer.restart()
+
+        # --- Применяем сдвиг ---
         node_delta = compute_delta_for_parameter(
             param, delta_value, self._current_asset.semantic_groups,
         )
@@ -277,14 +307,7 @@ class VectorEditor(QMainWindow):
             self._contour_item._rebuild_nodes()
             self._contour_item._rebuild_path()
 
-            # Undo-запись: (item, snapshot, param_id, old_value)
-            self._undo_stack.append(
-                (self._contour_item, snapshot, param_id, old_value)
-            )
-
-        # Значение параметра в модели
         param.value = new_value
-
         self._mark_modified()
 
     def _on_groups_changed(self) -> None:
@@ -300,6 +323,15 @@ class VectorEditor(QMainWindow):
             if all(nid in valid for nid in g.node_ids):
                 result[gid] = g
         return result
+
+    def _reset_param_undo_session(self) -> None:
+        """Закрыть текущую серию изменений одного параметра.
+
+        Следующее изменение того же параметра начнёт новую undo-запись.
+        """
+        self._param_undo_active_id = None
+        if self._param_undo_timer.isValid():
+            self._param_undo_timer.invalidate()
 
     def _on_new(self) -> None:
         if not self._confirm_discard():
@@ -346,6 +378,8 @@ class VectorEditor(QMainWindow):
         self._groups_panel.set_asset(None)
         self._parameters_panel.set_asset(None)
 
+        self._reset_param_undo_session()
+
     # ============================================================
     # DRAW → CONTOUR
     # ============================================================
@@ -362,6 +396,8 @@ class VectorEditor(QMainWindow):
 
         item = ContourItem(contour)
         item.changed.connect(self._on_contour_changed)
+        item.node_drag_started.connect(self._on_node_drag_started)
+        item.node_drag_finished.connect(self._on_node_drag_finished)
         self._scene.addItem(item)
         self._contour_item = item
 
@@ -377,7 +413,35 @@ class VectorEditor(QMainWindow):
         )
 
     def _on_contour_changed(self) -> None:
+        # Ручное изменение геометрии (drag узла, extrude, insert и т.п.)
+        # завершает текущую сессию изменения параметра.
+        self._reset_param_undo_session()
         self._mark_modified()
+
+    def _on_node_drag_started(self) -> None:
+        """Пользователь начал тянуть узел — запомним снапшот."""
+        if self._contour_item is None:
+            return
+        self._pending_drag_snapshot = list(
+            self._contour_item.contour.points
+        )
+
+    def _on_node_drag_finished(self) -> None:
+        """Пользователь отпустил узел — если что-то изменилось,
+        кладём ОДНУ undo-запись.
+        """
+        snapshot = self._pending_drag_snapshot
+        self._pending_drag_snapshot = None
+
+        if snapshot is None or self._contour_item is None:
+            return
+
+        current = list(self._contour_item.contour.points)
+        if current == snapshot:
+            return
+
+        # 2-tuple (item, snapshot) — совместимо с _on_undo
+        self._undo_stack.append((self._contour_item, snapshot))
 
     # ============================================================
     # OPEN
@@ -414,6 +478,8 @@ class VectorEditor(QMainWindow):
 
         item = ContourItem(contour)
         item.changed.connect(self._on_contour_changed)
+        item.node_drag_started.connect(self._on_node_drag_started)
+        item.node_drag_finished.connect(self._on_node_drag_finished)
         self._scene.addItem(item)
         self._contour_item = item
 
@@ -598,6 +664,9 @@ class VectorEditor(QMainWindow):
                 if p is not None:
                     p.value = old_value
                     self._parameters_panel.refresh()
+
+        # Откат рвёт текущую сессию параметра
+        self._reset_param_undo_session()
 
         self._mark_modified()
         self.statusBar().showMessage("Отменено", 2000)

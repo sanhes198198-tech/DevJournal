@@ -21,6 +21,8 @@ class NodeItem(QGraphicsObject):
     """Маркер одной вершины контура."""
 
     node_moved = Signal(int, float, float)
+    drag_started = Signal()
+    drag_finished = Signal()
 
     def __init__(
         self,
@@ -116,6 +118,14 @@ class NodeItem(QGraphicsObject):
         painter.drawRect(QRectF(-half, -half, half * 2, half * 2))
 
     # ------------------------------------------------------------
+
+    def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+        self.drag_started.emit()
+
+    def mouseReleaseEvent(self, event):
+        super().mouseReleaseEvent(event)
+        self.drag_finished.emit()
 
     def hoverEnterEvent(self, event):
         self._hover = True
