@@ -53,6 +53,10 @@ from .io import (
     dialogue_exists,
     load_project_data,
 )
+from .io.migrator import (
+    plan_project_v2_to_v3_migration,
+    apply_project_migration,
+)
 
 from .validation import validate_dialogue
 from .commands import ChangePropertyCommand
@@ -93,6 +97,10 @@ class DialogueEditorWindow(QMainWindow):
 
         # Авто-открытие последнего диалога
         self._open_last_dialogue_if_any()
+
+        # Проверка миграции v2 -> v3 — отложенно,
+        # чтобы окно редактора уже было показано.
+        QTimer.singleShot(100, self._check_migration)
 
     def _apply_theme(self):
         import os
@@ -649,6 +657,136 @@ class DialogueEditorWindow(QMainWindow):
     # =========================================================
     # ЗАКРЫТИЕ
     # =========================================================
+
+    def _check_migration(self):
+        """Проверяет, есть ли v2-диалоги. Спрашивает про миграцию."""
+        try:
+            report = plan_project_v2_to_v3_migration(
+                self.project_folder
+            )
+        except Exception:
+            return
+
+        v2_count = len(report.get("v2_dialogues", []))
+        if v2_count == 0:
+            return
+
+        # Есть ошибки — не мигрируем автоматически, сообщаем
+        errors = report.get("errors", [])
+        planned_chars = report.get("planned_characters", [])
+        planned_names = report.get("planned_character_names", {})
+
+        lines = []
+        lines.append(
+            f"В проекте найдено {v2_count} "
+            f"диалогов старого формата (v2)."
+        )
+        lines.append("")
+        lines.append("Миграция в формат v3:")
+        lines.append(f"  • {v2_count} диалогов → v3")
+
+        if planned_chars:
+            names_display = []
+            for slug in planned_chars:
+                name = planned_names.get(slug, slug)
+                names_display.append(name)
+
+            lines.append(
+                f"  • Создать/дополнить справочник: "
+                f"{', '.join(names_display)}"
+            )
+        else:
+            lines.append(
+                "  • Персонажи не найдены (нет REPLY с speaker)"
+            )
+
+        if errors:
+            lines.append("")
+            lines.append(
+                f"⚠ Обнаружено {len(errors)} "
+                f"битых файлов — они будут пропущены:"
+            )
+            for e in errors[:3]:
+                lines.append(
+                    f"  • {e['dialogue_id']}: {e['error'][:60]}"
+                )
+            if len(errors) > 3:
+                lines.append(f"  • ... и ещё {len(errors) - 3}")
+
+        lines.append("")
+        lines.append(
+            "Рекомендуется сделать миграцию один раз, "
+            "чтобы все диалоги были в едином формате."
+        )
+
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Icon.Question)
+        msg.setWindowTitle("Миграция диалогов")
+        msg.setText("\n".join(lines))
+
+        btn_migrate = msg.addButton(
+            "Мигрировать",
+            QMessageBox.ButtonRole.AcceptRole,
+        )
+        btn_cancel = msg.addButton(
+            "Позже",
+            QMessageBox.ButtonRole.RejectRole,
+        )
+        msg.setDefaultButton(btn_migrate)
+
+        msg.exec()
+
+        if msg.clickedButton() != btn_migrate:
+            return
+
+        # --- Применяем миграцию ---
+        try:
+            result = apply_project_migration(self.project_folder)
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                "Ошибка миграции",
+                f"Миграция не удалась: {e!r}",
+            )
+            return
+
+        if not result.get("applied"):
+            QMessageBox.information(
+                self,
+                "Миграция",
+                f"Миграция не выполнена: "
+                f"{result.get('reason')}",
+            )
+            return
+
+        # --- Успех: перезагружаем ---
+        migrated = result.get("migrated", [])
+        created = result.get("characters_created", [])
+
+        QMessageBox.information(
+            self,
+            "Миграция завершена",
+            f"Мигрировано: {len(migrated)} диалогов.\n"
+            f"Создано персонажей: {len(created)}.",
+        )
+
+        # Перечитываем ProjectData
+        try:
+            self.project_data = load_project_data(
+                self.project_folder
+            )
+            self.inspector.set_project_data(self.project_data)
+            self.view.dialogue_scene.set_project_data(
+                self.project_data
+            )
+        except Exception:
+            pass
+
+        # Обновляем список диалогов
+        try:
+            self.dialogue_list.refresh()
+        except Exception:
+            pass
 
     def closeEvent(self, event):
         """При закрытии — спрашиваем сохранить, если есть несохранённое."""
