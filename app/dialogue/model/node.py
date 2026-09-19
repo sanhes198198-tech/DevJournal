@@ -90,14 +90,16 @@ class ReplyNode(DialogueNode):
     def __init__(
         self,
         node_id,
-        speaker="",
+        speaker_id="",
         text="",
         presentation=None,
         x=0.0,
         y=0.0,
     ):
         super().__init__(node_id, x, y)
-        self.speaker = speaker
+
+        # Канон v3: speaker_id (slug). Строка speaker не хранится.
+        self.speaker_id = speaker_id or ""
         self.text = text
 
         # presentation: dict — контейнер для будущих визуальных данных
@@ -114,34 +116,43 @@ class ReplyNode(DialogueNode):
 
     def to_dict(self):
         data = super().to_dict()
-        data["speaker"] = self.speaker
+        data["speaker_id"] = self.speaker_id
         data["text"] = self.text
         data["presentation"] = dict(self.presentation)
         return data
 
     @classmethod
     def _from_dict(cls, data):
+        # v3: speaker_id
+        # v2: speaker (конвертируем через slugify)
+        speaker_id = data.get("speaker_id", "")
+
+        if not speaker_id:
+            old_speaker = data.get("speaker", "")
+            if old_speaker:
+                # Ленивый импорт — обходим цикл model <-> io
+                try:
+                    from ..io.storage import _slugify
+                    speaker_id = _slugify(old_speaker)
+                except Exception:
+                    speaker_id = ""
+
         presentation_raw = data.get("presentation", {})
 
         if presentation_raw is None:
             presentation_raw = {}
         elif not isinstance(presentation_raw, dict):
-            # Некорректный формат — сбрасываем в пустой dict
             presentation_raw = {}
 
         return cls(
             node_id=data["id"],
-            speaker=data.get("speaker", ""),
+            speaker_id=speaker_id,
             text=data.get("text", ""),
             presentation=presentation_raw,
             x=data.get("x", 0.0),
             y=data.get("y", 0.0),
         )
 
-
-# =========================================================
-# CHOICE
-# =========================================================
 
 class ChoiceOption:
     """Один вариант выбора внутри ChoiceNode."""
