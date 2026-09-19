@@ -189,6 +189,9 @@ class VectorEditor(QMainWindow):
         self._parameters_panel.parameters_changed.connect(
             self._on_groups_changed   # тот же обработчик: mark_modified
         )
+        self._parameters_panel.parameter_selected.connect(
+            self._on_parameter_selected
+        )
 
     # ============================================================
     # TITLE / MODIFIED
@@ -252,6 +255,36 @@ class VectorEditor(QMainWindow):
         self._contour_item.highlight_nodes(group.node_ids)
 
     PARAM_UNDO_MERGE_MS = 1500
+
+    def _on_parameter_selected(self, param_id: str) -> None:
+        """Клик по параметру — подсветить узлы всех его таргетов.
+
+        Пустой param_id → снять подсветку.
+        """
+        if self._contour_item is None:
+            return
+
+        if not param_id or self._current_asset is None:
+            self._contour_item.clear_highlight()
+            return
+
+        param = self._current_asset.get_parameter(param_id)
+        if param is None:
+            self._contour_item.clear_highlight()
+            return
+
+        # Собираем объединение node_ids всех таргетов
+        node_ids: set[str] = set()
+        for t in param.targets:
+            group = self._current_asset.get_semantic_group(t.group_id)
+            if group is None:
+                continue
+            node_ids.update(group.node_ids)
+
+        if node_ids:
+            self._contour_item.highlight_nodes(node_ids)
+        else:
+            self._contour_item.clear_highlight()
 
     def _on_parameter_value_changed(
         self, param_id: str, new_value: float, old_value: float,

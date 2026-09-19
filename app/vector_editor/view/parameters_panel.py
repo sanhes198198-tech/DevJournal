@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QWidget,
     QFrame,
     QMessageBox,
+    QToolButton,
 )
 
 from .parameter_dialog import ParameterDialog
@@ -31,6 +32,8 @@ class ParametersPanel(QWidget):
     # param_id, new_value, old_value
     value_changed = Signal(str, float, float)
     parameters_changed = Signal()
+    # Клик по параметру в списке: param_id (или "" при снятии)
+    parameter_selected = Signal(str)
 
     WIDTH = 260
 
@@ -96,7 +99,24 @@ class ParametersPanel(QWidget):
         self._value_spin.valueChanged.connect(self._on_spin_changed)
         value_row.addWidget(self._value_spin, 1)
 
+        self._btn_reset = QToolButton()
+        self._btn_reset.setText("↺")
+        self._btn_reset.setToolTip("Сбросить значение к 0")
+        self._btn_reset.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_reset.setEnabled(False)
+        self._btn_reset.clicked.connect(self._on_reset_value)
+        self._style_button(self._btn_reset)
+        value_row.addWidget(self._btn_reset)
+
         layout.addLayout(value_row)
+
+        # Список таргетов выбранного параметра
+        self._targets_label = QLabel("")
+        self._targets_label.setStyleSheet(
+            "color: #6B7280; font-size: 10px; padding: 2px 0 6px 0;"
+        )
+        self._targets_label.setWordWrap(True)
+        layout.addWidget(self._targets_label)
 
         # Кнопки
         buttons = QHBoxLayout()
@@ -154,6 +174,7 @@ class ParametersPanel(QWidget):
             )
             self._list.addItem(placeholder)
             self._reset_value_spin()
+            self._targets_label.setText("")
             self._update_buttons()
             self._muted = False
             return
@@ -166,6 +187,7 @@ class ParametersPanel(QWidget):
             )
             self._list.addItem(placeholder)
             self._reset_value_spin()
+            self._targets_label.setText("")
             self._update_buttons()
             self._muted = False
             return
@@ -191,6 +213,7 @@ class ParametersPanel(QWidget):
                 self._selected_param_id = None
                 self._reset_value_spin()
 
+        self._refresh_targets_label()
         self._update_buttons()
         self._muted = False
 
@@ -198,11 +221,44 @@ class ParametersPanel(QWidget):
         self._value_spin.setSuffix(f" {unit}")
         self._value_spin.setValue(value)
         self._value_spin.setEnabled(True)
+        self._btn_reset.setEnabled(True)
 
     def _reset_value_spin(self) -> None:
         self._value_spin.setValue(0.0)
         self._value_spin.setSuffix("")
         self._value_spin.setEnabled(False)
+        self._btn_reset.setEnabled(False)
+
+    def _refresh_targets_label(self) -> None:
+        """Показать таргеты выбранного параметра в виде текста."""
+        if (
+            self._asset is None
+            or self._selected_param_id is None
+        ):
+            self._targets_label.setText("")
+            return
+
+        p = self._asset.get_parameter(self._selected_param_id)
+        if p is None or not p.targets:
+            self._targets_label.setText("→ нет привязок")
+            return
+
+        parts = []
+        for t in p.targets:
+            g = self._asset.get_semantic_group(t.group_id)
+            gname = g.label if g else f"?{t.group_id}"
+            # Компактно: знак + ось + коэф
+            kx = t.koef_x
+            ky = t.koef_y
+            kparts = []
+            if abs(kx) > 1e-9:
+                kparts.append(f"{kx:+.2f}X")
+            if abs(ky) > 1e-9:
+                kparts.append(f"{ky:+.2f}Y")
+            koef = " ".join(kparts) if kparts else "0"
+            parts.append(f"{gname} ({koef})")
+
+        self._targets_label.setText("→ " + ", ".join(parts))
 
     def _update_buttons(self) -> None:
         has_asset = self._asset is not None
@@ -219,7 +275,9 @@ class ParametersPanel(QWidget):
         self._list.clearSelection()
         self._selected_param_id = None
         self._reset_value_spin()
+        self._targets_label.setText("")
         self._update_buttons()
+        self.parameter_selected.emit("")
 
     def _current_param_id(self) -> str | None:
         item = self._list.currentItem()
@@ -244,12 +302,30 @@ class ParametersPanel(QWidget):
         self._set_value_spin(p.value, p.unit)
         self._last_value = p.value
         self._muted = False
+        self._refresh_targets_label()
         self._update_buttons()
+
+        self.parameter_selected.emit(pid)
 
     def _on_item_double_clicked(self, item: QListWidgetItem) -> None:
         self._on_edit()
 
     # ------------------------------------------------------------
+
+    def _on_reset_value(self) -> None:
+        """Сбросить значение выбранного параметра к 0."""
+        if self._selected_param_id is None or self._asset is None:
+            return
+        if not self._value_spin.isEnabled():
+            return
+
+        current = self._value_spin.value()
+        if abs(current) < 1e-12:
+            return
+
+        # Программно выставляем — valueChanged сработает через
+        # обычный механизм, применяя delta к геометрии
+        self._value_spin.setValue(0.0)
 
     def _on_spin_changed(self, new_value: float) -> None:
         if self._muted:
@@ -334,4 +410,5 @@ class ParametersPanel(QWidget):
         self._asset.remove_parameter(pid)
         self._selected_param_id = None
         self.refresh()
+        self.parameter_selected.emit("")
         self.parameters_changed.emit()
