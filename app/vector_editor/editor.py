@@ -33,6 +33,7 @@ from .io import (
 from .view.scene import VectorScene
 from .view.canvas import VectorCanvas
 from .view.asset_browser import AssetBrowser
+from .view.semantic_groups_panel import SemanticGroupsPanel
 from .view.save_asset_dialog import SaveAssetDialog
 from .view.items.contour_item import ContourItem
 from .view.items.node_item import NodeItem
@@ -48,7 +49,7 @@ class VectorEditor(QMainWindow):
         super().__init__(parent)
 
         self.setWindowTitle("Vector Architecture Editor — V4")
-        self.resize(1400, 800)
+        self.resize(1700, 800)
 
         self._scene = VectorScene(self)
         self._canvas = VectorCanvas(self._scene, self)
@@ -56,7 +57,8 @@ class VectorEditor(QMainWindow):
         self._counter = 0
         self._undo_stack: list[tuple[ContourItem, list]] = []
 
-        # Текущий Asset
+        # Текущий Asset (объект, не только id — нужен для групп)
+        self._current_asset: Asset | None = None
         self._current_asset_id: str | None = None
         self._current_asset_name: str = "Новый"
         self._current_asset_type: str = "other"
@@ -85,13 +87,18 @@ class VectorEditor(QMainWindow):
         self._browser = AssetBrowser()
         self._browser.refresh()
 
+        self._groups_panel = SemanticGroupsPanel()
+
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.addWidget(self._browser)
         splitter.addWidget(self._canvas)
+        splitter.addWidget(self._groups_panel)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
+        splitter.setStretchFactor(2, 0)
         splitter.setCollapsible(0, False)
         splitter.setCollapsible(1, False)
+        splitter.setCollapsible(2, False)
 
         self.setCentralWidget(splitter)
         self.setStatusBar(QStatusBar(self))
@@ -142,6 +149,16 @@ class VectorEditor(QMainWindow):
         self._canvas.contour_created.connect(self._on_contour_created)
         self._browser.asset_open_requested.connect(self._on_open_asset)
 
+        self._scene.selectionChanged.connect(
+            self._on_scene_selection_changed
+        )
+        self._groups_panel.group_selected.connect(
+            self._on_group_selected
+        )
+        self._groups_panel.groups_changed.connect(
+            self._on_groups_changed
+        )
+
     # ============================================================
     # TITLE / MODIFIED
     # ============================================================
@@ -165,6 +182,46 @@ class VectorEditor(QMainWindow):
     # ============================================================
     # NEW
     # ============================================================
+
+    # ============================================================
+    # SEMANTIC GROUPS
+    # ============================================================
+
+    def _on_scene_selection_changed(self) -> None:
+        """Обновить список выделенных node_ids в панели групп."""
+        node_ids = []
+        for it in self._scene.selectedItems():
+            if isinstance(it, NodeItem):
+                nid = it.node_id
+                if nid:
+                    node_ids.append(nid)
+        self._groups_panel.set_selected_node_ids(node_ids)
+
+    def _on_group_selected(self, group_id: str) -> None:
+        """Подсветить узлы выбранной группы."""
+        if self._contour_item is None or self._current_asset is None:
+            return
+
+        group = self._current_asset.get_semantic_group(group_id)
+        if group is None:
+            self._contour_item.clear_highlight()
+            return
+
+        self._contour_item.highlight_nodes(group.node_ids)
+
+    def _on_groups_changed(self) -> None:
+        """Пользователь изменил группы — отметить Asset как изменённый."""
+        self._mark_modified()
+
+    @staticmethod
+    def _prune_groups(groups: dict, valid_node_ids: list) -> dict:
+        """Удалить группы, ссылающиеся на несуществующие узлы."""
+        valid = set(valid_node_ids)
+        result = {}
+        for gid, g in groups.items():
+            if all(nid in valid for nid in g.node_ids):
+                result[gid] = g
+        return result
 
     def _on_new(self) -> None:
         if not self._confirm_discard():
@@ -206,6 +263,9 @@ class VectorEditor(QMainWindow):
 
         self._contour_item = None
         self._undo_stack.clear()
+
+        self._current_asset = None
+        self._groups_panel.set_asset(None)
 
     # ============================================================
     # DRAW → CONTOUR
@@ -278,9 +338,12 @@ class VectorEditor(QMainWindow):
         self._scene.addItem(item)
         self._contour_item = item
 
+        self._current_asset = asset
         self._current_asset_id = asset.id
         self._current_asset_name = asset.name
         self._current_asset_type = asset.type
+
+        self._groups_panel.set_asset(asset)
 
         self._mark_saved()
 
@@ -315,6 +378,15 @@ class VectorEditor(QMainWindow):
             asset_id=self._current_asset_id,
         )
 
+        # Переносим semantic_groups из текущего asset,
+        # отфильтровав группы с несуществующими узлами
+        if self._current_asset is not None:
+            valid_ids = list(asset.geometry.get("node_ids", []))
+            asset.semantic_groups = self._prune_groups(
+                self._current_asset.semantic_groups,
+                valid_ids,
+            )
+
         try:
             save_asset(asset)
         except StorageError as e:
@@ -323,6 +395,10 @@ class VectorEditor(QMainWindow):
                 f"Не удалось сохранить:\n\n{e}"
             )
             return
+
+        # Обновляем current_asset
+        self._current_asset = asset
+        self._groups_panel.set_asset(asset)
 
         self._mark_saved()
         self._browser.refresh()
@@ -350,6 +426,14 @@ class VectorEditor(QMainWindow):
             type_=dlg.result_type,
         )
 
+        # Save As копирует группы из текущего asset (отфильтрованные)
+        if self._current_asset is not None:
+            valid_ids = list(asset.geometry.get("node_ids", []))
+            asset.semantic_groups = self._prune_groups(
+                self._current_asset.semantic_groups,
+                valid_ids,
+            )
+
         try:
             save_asset(asset)
         except StorageError as e:
@@ -359,9 +443,12 @@ class VectorEditor(QMainWindow):
             )
             return
 
+        self._current_asset = asset
         self._current_asset_id = asset.id
         self._current_asset_name = asset.name
         self._current_asset_type = asset.type
+
+        self._groups_panel.set_asset(asset)
 
         self._mark_saved()
         self._browser.refresh()

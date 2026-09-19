@@ -1,0 +1,293 @@
+"""
+SemanticGroupsPanel — правая панель со списком семантических групп Asset'а.
+
+Возможности:
+  - список групп текущего Asset'а;
+  - Add / Edit / Delete;
+  - клик по группе → сигнал group_selected(group_id);
+  - groups_changed() — после любого изменения.
+
+Panel не знает про сцену. Выделенные node_ids приходят
+через set_selected_node_ids() из editor'а.
+"""
+
+from __future__ import annotations
+
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QPushButton,
+    QVBoxLayout,
+    QHBoxLayout,
+    QWidget,
+    QFrame,
+)
+
+from .semantic_group_dialog import SemanticGroupDialog
+
+
+class SemanticGroupsPanel(QWidget):
+    """Панель семантических групп."""
+
+    group_selected = Signal(str)   # group_id
+    groups_changed = Signal()      # после add/edit/delete
+
+    WIDTH = 260
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.setFixedWidth(self.WIDTH)
+
+        self._asset = None
+        self._selected_node_ids: list[str] = []
+
+        self._build_ui()
+
+    # ------------------------------------------------------------
+
+    def _build_ui(self) -> None:
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
+
+        title = QLabel("Группы")
+        title.setStyleSheet(
+            "font-weight: 600; font-size: 12px; "
+            "color: #E5E5E5; padding-bottom: 4px;"
+        )
+        layout.addWidget(title)
+
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setFrameShadow(QFrame.Shadow.Sunken)
+        line.setStyleSheet("color: #2A2D33;")
+        layout.addWidget(line)
+
+        self._list = QListWidget()
+        self._list.itemClicked.connect(self._on_item_clicked)
+        self._list.itemDoubleClicked.connect(self._on_item_double_clicked)
+        self._list.setStyleSheet(
+            "QListWidget {"
+            "  background: #181A1E;"
+            "  color: #E5E5E5;"
+            "  border: 1px solid #2A2D33;"
+            "  border-radius: 3px;"
+            "  font-size: 11px;"
+            "}"
+            "QListWidget::item {"
+            "  padding: 6px 8px;"
+            "}"
+            "QListWidget::item:selected {"
+            "  background: #2A2D33;"
+            "}"
+            "QListWidget::item:hover {"
+            "  background: #22262C;"
+            "}"
+        )
+        layout.addWidget(self._list, 1)
+
+        # Инфо: сколько узлов выделено
+        self._selection_info = QLabel("Выделено узлов: 0")
+        self._selection_info.setStyleSheet(
+            "color: #858B93; font-size: 10px;"
+        )
+        layout.addWidget(self._selection_info)
+
+        # Кнопки
+        buttons = QHBoxLayout()
+        buttons.setContentsMargins(0, 0, 0, 0)
+        buttons.setSpacing(4)
+
+        self._btn_add = QPushButton("+")
+        self._btn_add.setToolTip("Создать группу из выделенных узлов")
+        self._btn_add.setFixedWidth(32)
+        self._btn_add.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_add.clicked.connect(self._on_add)
+        buttons.addWidget(self._btn_add)
+
+        self._btn_edit = QPushButton("Изменить")
+        self._btn_edit.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_edit.clicked.connect(self._on_edit)
+        buttons.addWidget(self._btn_edit, 1)
+
+        self._btn_del = QPushButton("Удалить")
+        self._btn_del.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_del.clicked.connect(self._on_delete)
+        buttons.addWidget(self._btn_del)
+
+        self._style_button(self._btn_add)
+        self._style_button(self._btn_edit)
+        self._style_button(self._btn_del)
+
+        layout.addLayout(buttons)
+
+    @staticmethod
+    def _style_button(btn: QPushButton) -> None:
+        btn.setStyleSheet(
+            "QPushButton {"
+            "  background: #202328;"
+            "  color: #E5E5E5;"
+            "  border: 1px solid #2A2D33;"
+            "  border-radius: 3px;"
+            "  padding: 5px 8px;"
+            "  font-size: 11px;"
+            "}"
+            "QPushButton:hover {"
+            "  background: #2A2D33;"
+            "}"
+            "QPushButton:disabled {"
+            "  color: #5A5F68;"
+            "}"
+        )
+
+    # ------------------------------------------------------------
+
+    def set_asset(self, asset) -> None:
+        """Установить текущий Asset (или None)."""
+        self._asset = asset
+        self.refresh()
+
+    def set_selected_node_ids(self, node_ids: list[str]) -> None:
+        """Обновить список выделенных узлов (для создания новой группы)."""
+        self._selected_node_ids = list(node_ids or [])
+        n = len(self._selected_node_ids)
+        self._selection_info.setText(f"Выделено узлов: {n}")
+        self._btn_add.setEnabled(n > 0)
+
+    # ------------------------------------------------------------
+
+    def refresh(self) -> None:
+        """Перестроить список групп."""
+        self._list.clear()
+
+        if self._asset is None:
+            placeholder = QListWidgetItem("— нет Asset'а —")
+            placeholder.setFlags(
+                placeholder.flags() & ~Qt.ItemFlag.ItemIsSelectable
+            )
+            self._list.addItem(placeholder)
+            self._update_buttons()
+            return
+
+        groups = list(self._asset.semantic_groups.values())
+        if not groups:
+            placeholder = QListWidgetItem("— нет групп —")
+            placeholder.setFlags(
+                placeholder.flags() & ~Qt.ItemFlag.ItemIsSelectable
+            )
+            self._list.addItem(placeholder)
+            self._update_buttons()
+            return
+
+        for g in sorted(groups, key=lambda x: (x.label or x.name).lower()):
+            text = f"{g.label}  ({len(g.node_ids)} узлов)"
+            item = QListWidgetItem(text)
+            item.setData(Qt.ItemDataRole.UserRole, g.id)
+            self._list.addItem(item)
+
+        self._update_buttons()
+
+    def _update_buttons(self) -> None:
+        has_asset = self._asset is not None
+        has_groups = has_asset and len(self._asset.semantic_groups) > 0
+        has_selection = self._list.currentItem() is not None
+
+        self._btn_add.setEnabled(
+            has_asset and len(self._selected_node_ids) > 0
+        )
+        self._btn_edit.setEnabled(has_groups and has_selection)
+        self._btn_del.setEnabled(has_groups and has_selection)
+
+    # ------------------------------------------------------------
+
+    def _current_group_id(self) -> str | None:
+        item = self._list.currentItem()
+        if item is None:
+            return None
+        return item.data(Qt.ItemDataRole.UserRole)
+
+    def _on_item_clicked(self, item: QListWidgetItem) -> None:
+        gid = item.data(Qt.ItemDataRole.UserRole)
+        if gid:
+            self.group_selected.emit(gid)
+        self._update_buttons()
+
+    def _on_item_double_clicked(self, item: QListWidgetItem) -> None:
+        # Двойной клик = Edit
+        self._on_edit()
+
+    # ------------------------------------------------------------
+
+    def _on_add(self) -> None:
+        if self._asset is None:
+            return
+
+        if not self._selected_node_ids:
+            return
+
+        dlg = SemanticGroupDialog(
+            group=None,
+            default_node_ids=self._selected_node_ids,
+            parent=self,
+        )
+        if dlg.exec() != SemanticGroupDialog.DialogCode.Accepted:
+            return
+
+        if dlg.result_group is None:
+            return
+
+        self._asset.add_semantic_group(dlg.result_group)
+        self.refresh()
+        self.groups_changed.emit()
+
+    def _on_edit(self) -> None:
+        if self._asset is None:
+            return
+
+        gid = self._current_group_id()
+        if gid is None:
+            return
+
+        group = self._asset.get_semantic_group(gid)
+        if group is None:
+            return
+
+        dlg = SemanticGroupDialog(group=group, parent=self)
+        if dlg.exec() != SemanticGroupDialog.DialogCode.Accepted:
+            return
+
+        # group — уже тот же объект, изменения применены внутри диалога
+        self.refresh()
+        self.groups_changed.emit()
+
+    def _on_delete(self) -> None:
+        if self._asset is None:
+            return
+
+        gid = self._current_group_id()
+        if gid is None:
+            return
+
+        group = self._asset.get_semantic_group(gid)
+        if group is None:
+            return
+
+        from PySide6.QtWidgets import QMessageBox
+        reply = QMessageBox.question(
+            self,
+            "Удалить группу",
+            f"Удалить группу «{group.label}»?",
+            QMessageBox.StandardButton.Yes
+            | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        self._asset.remove_semantic_group(gid)
+        self.refresh()
+        self.groups_changed.emit()
