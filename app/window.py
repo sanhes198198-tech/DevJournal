@@ -1,3 +1,4 @@
+from pathlib import Path
 import os
 
 from PySide6.QtCore import Qt
@@ -792,6 +793,56 @@ class DevJournal(QMainWindow):
         self._dialogue_editor.show()
         self._dialogue_editor.raise_()
         self._dialogue_editor.activateWindow()
+
+    # =====================================================
+    # ARCHITECTURE EDITOR
+    # =====================================================
+
+    def open_architecture_editor(self):
+
+        if not self.project_name:
+            QMessageBox.information(
+                self,
+                "Архитектура",
+                "Сначала создайте или откройте проект.",
+            )
+            return
+
+        from .architecture.architecture_editor import ArchitectureEditor
+        from .utils import ensure_project_folder
+
+        project_folder = Path(ensure_project_folder(
+            self.project_name
+        ))
+
+        existing = getattr(self, "_architecture_editor", None)
+
+        same_project = (
+            existing is not None
+            and getattr(existing, "project_folder", None) == project_folder
+        )
+
+        if not same_project:
+            if existing is not None:
+                try:
+                    existing.close()
+                except Exception:
+                    pass
+
+            editor = ArchitectureEditor.open_for_project(
+                project_folder,
+                parent=self,
+            )
+
+            if editor is None:
+                # Ошибка загрузки — диалог уже показан внутри.
+                return
+
+            self._architecture_editor = editor
+
+        self._architecture_editor.show()
+        self._architecture_editor.raise_()
+        self._architecture_editor.activateWindow()
 
     # =====================================================
     # FORMAT TOOLBAR — ACTIVATION

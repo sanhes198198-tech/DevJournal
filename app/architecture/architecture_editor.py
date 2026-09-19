@@ -78,6 +78,9 @@ class ArchitectureEditor(QMainWindow):
         Возвращает None при ошибке загрузки — вызывающий решает,
         что делать.
         """
+        # ensure_project_folder может вернуть str — нормализуем
+        project_folder = Path(project_folder)
+
         arch_path = get_architecture_path(project_folder)
 
         if arch_path.exists():
@@ -98,6 +101,24 @@ class ArchitectureEditor(QMainWindow):
             doc = ArchitectureDocument.create_new(arch_path, name=name)
 
         return cls(doc, parent=parent)
+
+    # ============================================================
+    # PROPERTIES
+    # ============================================================
+
+    @property
+    def document(self) -> ArchitectureDocument:
+        return self._document
+
+    @property
+    def project_folder(self) -> Path | None:
+        """Папка проекта, к которой привязан документ.
+
+        Используется внешним кодом (window.py) для singleton-логики.
+        """
+        if self._document.path is None:
+            return None
+        return self._document.path.parent
 
     # ============================================================
     # UI

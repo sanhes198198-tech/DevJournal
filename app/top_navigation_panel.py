@@ -104,6 +104,13 @@ class TopNavigationPanel(QFrame):
             self.window.open_dialogue_editor
         )
 
+        architecture_action = project_menu.addAction(
+            "Архитектура…"
+        )
+        architecture_action.triggered.connect(
+            self.window.open_architecture_editor
+        )
+
         new_action.triggered.connect(
             self.window.new_project
         )
