@@ -18,7 +18,7 @@ from ..model import Dialogue
 DIALOGUES_DIR_NAME = "dialogues"
 INDEX_FILE_NAME = "index.json"
 
-DIALOGUE_FORMAT_VERSION = 2
+DIALOGUE_FORMAT_VERSION = 3
 
 
 # =========================================================
@@ -322,11 +322,19 @@ def load_dialogue(dialogue_id, project_folder):
     version = data.get("version", 1)
     dialogue_data = data.get("dialogue", {})
 
-    # Явный пайплайн миграций: v1 → v2 → ... → current
+    # Явный пайплайн миграций: v1 → v2 → v3 → ... → current
     # Каждая миграция — отдельная функция. Новые версии — новые шаги.
+    # Всё происходит В ПАМЯТИ. На диск записывается только при save_dialogue.
+
     if version == 1:
         dialogue_data = _migrate_v1_to_v2(dialogue_data)
         version = 2
+
+    if version == 2:
+        # speaker_map пустой — для одного диалога slugify inline.
+        # Полная унификация speakers — через migrate_project_v2_to_v3.
+        dialogue_data = _migrate_v2_to_v3(dialogue_data)
+        version = 3
 
     # Если версия неизвестна (например, новее) — пробуем загрузить как есть.
     # Модель сама подставит дефолты для отсутствующих полей.
