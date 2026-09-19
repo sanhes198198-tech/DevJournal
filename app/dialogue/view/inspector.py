@@ -375,7 +375,16 @@ class DialogueInspector(QWidget):
                 if self._updating:
                     return
                 old = node.speaker_id or ""
-                new = text.strip()
+                new_raw = text.strip()
+                if not new_raw:
+                    new = ""
+                else:
+                    # Slugify — как в модели
+                    try:
+                        from ..io.storage import _slugify
+                        new = _slugify(new_raw)
+                    except Exception:
+                        new = new_raw
                 if new == old:
                     return
                 cmd = ChangePropertyCommand(
