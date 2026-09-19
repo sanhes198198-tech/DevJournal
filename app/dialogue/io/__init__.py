@@ -4,6 +4,14 @@ IO layer для модуля диалогов.
 Сохранение и загрузка JSON-файлов.
 """
 
+from .project_io import (
+    PROJECT_DATA_FILE_NAME,
+    get_project_data_path,
+    project_data_exists,
+    save_project_data,
+    load_project_data,
+)
+
 from .storage import (
     DIALOGUES_DIR_NAME,
     INDEX_FILE_NAME,
@@ -25,6 +33,13 @@ from .storage import (
 
 
 __all__ = [
+    # project_data
+    "PROJECT_DATA_FILE_NAME",
+    "get_project_data_path",
+    "project_data_exists",
+    "save_project_data",
+    "load_project_data",
+    # storage
     "DIALOGUES_DIR_NAME",
     "INDEX_FILE_NAME",
     "DIALOGUE_FORMAT_VERSION",
