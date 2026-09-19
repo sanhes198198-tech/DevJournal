@@ -20,7 +20,7 @@ Undo/redo — через commands.
 
 import os
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QUndoStack, QShortcut, QKeySequence, QAction
 from PySide6.QtWidgets import (
     QMainWindow,

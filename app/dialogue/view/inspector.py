@@ -176,30 +176,56 @@ class DialogueInspector(QWidget):
             self.content_layout.addWidget(hint)
 
     def _add_outcome_block(self, node):
-        """Read-only: outcome у EndNode."""
+        """Read-only: outcome_type / outcome_id у EndNode."""
 
         self._add_section_header("OUTCOME")
 
-        rb_end = QRadioButton("Завершить диалог")
-        rb_end.setChecked(node.outcome == "end")
+        # v3: outcome_type + outcome_id
+        outcome_type = getattr(
+            node, "outcome_type", "return_to_game"
+        )
+        outcome_id = getattr(node, "outcome_id", None)
+        target = getattr(node, "target_dialogue_id", None)
+
+        if outcome_type == "return_to_game":
+            label_text = "Завершить диалог"
+            checked = True
+        else:
+            label_text = "Перейти в диалог..."
+            checked = False
+
+        rb_end = QRadioButton(label_text)
+        rb_end.setChecked(checked)
         rb_end.setEnabled(False)
         self.content_layout.addWidget(rb_end)
 
-        rb_jump = QRadioButton("Перейти в диалог...")
-        rb_jump.setChecked(node.outcome == "dialogue")
-        rb_jump.setEnabled(False)
-        self.content_layout.addWidget(rb_jump)
-
-        if node.outcome == "dialogue" and node.target_dialogue_id:
-            target = QLabel(f"-> {node.target_dialogue_id}")
-            target.setStyleSheet(
-                "color: #aaa; font-size: 10px; padding-left: 24px;"
+        # outcome_id
+        if outcome_id:
+            id_label = QLabel(
+                f"outcome_id: {outcome_id}"
             )
-            self.content_layout.addWidget(target)
+            id_label.setStyleSheet(
+                "color: #858B93; font-size: 10px; "
+                "padding-left: 24px;"
+            )
+            self.content_layout.addWidget(id_label)
 
-        hint = QLabel("Редактирование появится в след. версии.")
+        # target_dialogue_id
+        if outcome_type == "start_dialogue" and target:
+            target_label = QLabel(
+                f"target: {target[:8]}..."
+            )
+            target_label.setStyleSheet(
+                "color: #858B93; font-size: 10px; "
+                "padding-left: 24px;"
+            )
+            self.content_layout.addWidget(target_label)
+
+        hint = QLabel(
+            "Редактирование появится в след. версии."
+        )
         hint.setStyleSheet(
-            "color: #aaa; font-size: 10px; padding-top: 4px;"
+            "color: #5A5F68; font-size: 10px; padding-top: 4px;"
         )
         self.content_layout.addWidget(hint)
 

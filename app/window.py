@@ -768,7 +768,22 @@ class DevJournal(QMainWindow):
             self.project_name
         )
 
-        if getattr(self, "_dialogue_editor", None) is None:
+        existing = getattr(self, "_dialogue_editor", None)
+
+        # Пересоздаём, если проект другой или окно закрыто
+        same_project = (
+            existing is not None
+            and getattr(existing, "project_folder", None) == project_folder
+        )
+
+        if not same_project:
+            # Закрыть старое окно (если открыто)
+            if existing is not None:
+                try:
+                    existing.close()
+                except Exception:
+                    pass
+
             self._dialogue_editor = DialogueEditorWindow(
                 project_folder,
                 parent=self,
