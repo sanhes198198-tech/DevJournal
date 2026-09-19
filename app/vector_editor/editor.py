@@ -1,16 +1,8 @@
 """
-VectorEditor — QMainWindow для V1.
+VectorEditor — QMainWindow для V2.
 
-Режимы:
-  - select  → обычное состояние (узлы можно таскать)
-  - draw    → создание нового контура кликами
-
-Клавиши:
-  - Ctrl+N   → новый контур (вход в draw)
-  - Esc      → отмена рисования / выход в select
-  - Enter    → замкнуть контур (если точек ≥ 3)
-  - Del/Back → удалить выделенный узел
-  - 0        → сброс вида
+V2: extrude грани по нормали (фиксированные 2 м).
+Ctrl+Z — простая отмена (снапшот points перед каждой операцией).
 """
 
 from __future__ import annotations
@@ -30,19 +22,26 @@ from .view.items.contour_item import ContourItem
 from .view.items.node_item import NodeItem
 
 
+# Фиксированное расстояние для тестового Extrude (метры)
+EXTRUDE_TEST_DISTANCE = 2.0
+
+
 class VectorEditor(QMainWindow):
-    """Окно векторного редактора (V1)."""
+    """Окно векторного редактора (V2)."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.setWindowTitle("Vector Architecture Editor — V1")
+        self.setWindowTitle("Vector Architecture Editor — V2")
         self.resize(1200, 800)
 
         self._scene = VectorScene(self)
         self._canvas = VectorCanvas(self._scene, self)
 
         self._counter = 0
+
+        # Стек undo: список (item, points_snapshot)
+        self._undo_stack: list[tuple[ContourItem, list[tuple[float, float]]]] = []
 
         self.setCentralWidget(self._canvas)
         self.setStatusBar(QStatusBar(self))
@@ -51,10 +50,12 @@ class VectorEditor(QMainWindow):
         self._connect_signals()
 
         self.statusBar().showMessage(
-            "Ctrl+N — новый контур · 0 — сброс вида"
+            "Ctrl+N — новый · клик по грани → Ctrl+E — Extrude · Ctrl+Z — отмена"
         )
 
-    # ------------------------------------------------------------
+    # ============================================================
+    # UI
+    # ============================================================
 
     def _build_toolbar(self) -> None:
         tb = QToolBar("Main", self)
@@ -66,10 +67,22 @@ class VectorEditor(QMainWindow):
         act_new.triggered.connect(self._on_new_contour)
         tb.addAction(act_new)
 
-        act_cancel = QAction("Отмена", self)
+        act_cancel = QAction("Отмена действия", self)
         act_cancel.setShortcut(QKeySequence("Esc"))
         act_cancel.triggered.connect(self._on_cancel)
         tb.addAction(act_cancel)
+
+        tb.addSeparator()
+
+        act_extrude = QAction("Extrude (Ctrl+E)", self)
+        act_extrude.setShortcut(QKeySequence("Ctrl+E"))
+        act_extrude.triggered.connect(self._on_extrude)
+        tb.addAction(act_extrude)
+
+        act_undo = QAction("Отменить (Ctrl+Z)", self)
+        act_undo.setShortcut(QKeySequence.StandardKey.Undo)
+        act_undo.triggered.connect(self._on_undo)
+        tb.addAction(act_undo)
 
         tb.addSeparator()
 
@@ -81,13 +94,15 @@ class VectorEditor(QMainWindow):
     def _connect_signals(self) -> None:
         self._canvas.contour_created.connect(self._on_contour_created)
 
-    # ------------------------------------------------------------
+    # ============================================================
+    # DRAW
+    # ============================================================
 
     def _on_new_contour(self) -> None:
         self._canvas.set_tool("draw")
         self.statusBar().showMessage(
-            "ЛКМ — поставить точку · клик по первой точке или Enter — "
-            "замкнуть · Esc — отмена", 8000
+            "ЛКМ — точка · клик по первой точке или Enter — замкнуть · Esc — отмена",
+            8000,
         )
 
     def _on_cancel(self) -> None:
@@ -100,7 +115,6 @@ class VectorEditor(QMainWindow):
         item = ContourItem(contour)
         self._scene.addItem(item)
 
-        # Вернуть в select и выделить новый контур
         self._canvas.set_tool("select")
         self._scene.clearSelection()
         item.setSelected(True)
@@ -109,7 +123,51 @@ class VectorEditor(QMainWindow):
             f"Создан «{contour.name}» ({contour.count()} узлов)", 4000
         )
 
-    # ------------------------------------------------------------
+    # ============================================================
+    # EXTRUDE
+    # ============================================================
+
+    def _on_extrude(self) -> None:
+        item = self._find_contour_with_selected_edge()
+        if item is None:
+            self.statusBar().showMessage(
+                "Сначала кликните по грани контура", 3000
+            )
+            return
+
+        # Снапшот до операции
+        snapshot = list(item.contour.points)
+
+        ok = item.extrude_selected_face(EXTRUDE_TEST_DISTANCE)
+        if not ok:
+            self.statusBar().showMessage("Не удалось вытянуть грань", 3000)
+            return
+
+        self._undo_stack.append((item, snapshot))
+        self.statusBar().showMessage(
+            f"Extrude на {EXTRUDE_TEST_DISTANCE} м", 2000
+        )
+
+    # ============================================================
+    # UNDO
+    # ============================================================
+
+    def _on_undo(self) -> None:
+        if not self._undo_stack:
+            self.statusBar().showMessage("Нечего отменять", 2000)
+            return
+
+        item, snapshot = self._undo_stack.pop()
+        item.contour.points = list(snapshot)
+        item._selected_edge_idx = None
+        item._rebuild_nodes()
+        item._rebuild_path()
+
+        self.statusBar().showMessage("Отменено", 2000)
+
+    # ============================================================
+    # KEYBOARD
+    # ============================================================
 
     def keyPressEvent(self, event) -> None:
         if event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
@@ -119,8 +177,13 @@ class VectorEditor(QMainWindow):
 
         super().keyPressEvent(event)
 
+    def _find_contour_with_selected_edge(self) -> ContourItem | None:
+        for it in self._scene.items():
+            if isinstance(it, ContourItem) and it.has_selected_edge():
+                return it
+        return None
+
     def _delete_selected_node(self) -> bool:
-        """Удалить выделенный узел (если есть)."""
         node: NodeItem | None = None
         for it in self._scene.selectedItems():
             if isinstance(it, NodeItem):
@@ -141,6 +204,8 @@ class VectorEditor(QMainWindow):
             )
             return True
 
+        snapshot = list(pts)
         parent.remove_node(node.idx)
+        self._undo_stack.append((parent, snapshot))
         self.statusBar().showMessage("Узел удалён", 2000)
         return True
