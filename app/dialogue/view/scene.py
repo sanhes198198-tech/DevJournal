@@ -11,6 +11,7 @@ from PySide6.QtCore import QRectF, Qt
 from PySide6.QtWidgets import QGraphicsScene, QMenu
 
 from .node_item import DialogueNodeItem
+from . import theme
 from .connection_item import DialogueConnectionItem
 from .port_item import PortItem
 
@@ -798,7 +799,7 @@ class DialogueScene(QGraphicsScene):
 
     def _bg_brush(self):
         from PySide6.QtGui import QColor, QBrush
-        return QBrush(QColor("#FAFAF8"))
+        return QBrush(QColor(theme.BG_SCENE))
 
     # =========================================================
     # ПОСТРОЕНИЕ ИЗ МОДЕЛИ

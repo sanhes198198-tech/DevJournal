@@ -20,6 +20,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import QGraphicsItem
 
 from .port_item import PortItem
+from . import theme
 
 
 # =========================================================
@@ -35,20 +36,18 @@ BORDER_RADIUS = 6.0
 PORT_MARGIN = 14.0
 CONTENT_PADDING = 10.0
 
-COLOR_BG = QColor("#FFFFFF")
-COLOR_HEADER = QColor("#F0F0F0")
-COLOR_BORDER = QColor("#B0B0B0")
-COLOR_BORDER_SELECTED = QColor("#4F7CFF")
-COLOR_TEXT = QColor("#202020")
-COLOR_TEXT_DIM = QColor("#808080")
+# --- цвета из theme.py ---
+COLOR_BG = QColor(theme.BG_CARD)
+COLOR_BG_HOVER = QColor(theme.BG_CARD_HOVER)
+COLOR_BORDER = QColor(theme.BORDER)
+COLOR_BORDER_SELECTED = QColor(theme.BORDER_SELECT)
 
-# Цвета заголовков по типу узла
-HEADER_COLORS = {
-    "start": QColor("#7ED321"),
-    "reply": QColor("#4A90E2"),
-    "choice": QColor("#F5A623"),
-    "end": QColor("#D0021B"),
-}
+COLOR_TEXT = QColor(theme.TEXT_PRIMARY)
+COLOR_TEXT_DIM = QColor(theme.TEXT_SECONDARY)
+
+# Акцентная точка типа узла (маленький круг в правом верхнем углу)
+ACCENT_DOT_RADIUS = 4.0
+ACCENT_DOT_MARGIN = 10.0
 
 
 # =========================================================
@@ -173,65 +172,65 @@ class DialogueNodeItem(QGraphicsItem):
 
         rect = QRectF(0, 0, self._width, self._height)
 
-        # Тело узла
+        # --- Тело карточки ---
         painter.setBrush(QBrush(COLOR_BG))
 
         if self.isSelected():
             border_color = COLOR_BORDER_SELECTED
-            border_width = 2.0
+            border_width = 1.5
         else:
             border_color = COLOR_BORDER
-            border_width = BORDER_WIDTH
+            border_width = 1.0
 
         painter.setPen(QPen(border_color, border_width))
         painter.drawRoundedRect(rect, BORDER_RADIUS, BORDER_RADIUS)
 
-        # Заголовок
-        header_rect = QRectF(
-            0,
-            0,
-            self._width,
-            NODE_HEADER_HEIGHT,
+        # --- Тонкая линия под заголовком ---
+        line_y = NODE_HEADER_HEIGHT
+        painter.setPen(QPen(COLOR_BORDER, 1.0))
+        painter.drawLine(
+            QPointF(0, line_y),
+            QPointF(self._width, line_y),
         )
 
-        header_color = HEADER_COLORS.get(self.node_type, COLOR_HEADER)
-
-        painter.setBrush(QBrush(header_color))
-        painter.setPen(Qt.PenStyle.NoPen)
-
-        # Рисуем заголовок с закруглением сверху
-        painter.drawRoundedRect(
-            header_rect,
-            BORDER_RADIUS,
-            BORDER_RADIUS,
-        )
-
-        # Прямоугольник, чтобы закрыть нижние закругления заголовка
-        painter.drawRect(
-            QRectF(
-                0,
-                NODE_HEADER_HEIGHT / 2,
-                self._width,
-                NODE_HEADER_HEIGHT / 2,
-            )
-        )
-
-        # Текст заголовка
+        # --- Заголовок — жирный текст, светлый ---
         header_text = self._header_text()
-        painter.setPen(QPen(QColor("#FFFFFF")))
+        painter.setPen(QPen(COLOR_TEXT))
         font = QFont()
         font.setBold(True)
         font.setPointSize(9)
         painter.setFont(font)
 
+        header_rect = QRectF(
+            10,
+            0,
+            self._width - 30,
+            NODE_HEADER_HEIGHT,
+        )
+
         painter.drawText(
-            header_rect.adjusted(10, 0, -10, 0),
+            header_rect,
             Qt.AlignmentFlag.AlignVCenter
             | Qt.AlignmentFlag.AlignLeft,
             header_text,
         )
 
-        # Текст тела
+        # --- Акцентная точка типа узла (справа вверху) ---
+        accent_hex = theme.accent_for(self.node_type)
+        accent_color = QColor(accent_hex)
+
+        dot_cx = self._width - ACCENT_DOT_MARGIN
+        dot_cy = NODE_HEADER_HEIGHT / 2
+
+        painter.setBrush(QBrush(accent_color))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawEllipse(
+            QPointF(dot_cx, dot_cy),
+            ACCENT_DOT_RADIUS,
+            ACCENT_DOT_RADIUS,
+        )
+
+        # --- Тело ---
         body_text = self._body_text()
         if body_text:
             body_rect = QRectF(
@@ -255,7 +254,6 @@ class DialogueNodeItem(QGraphicsItem):
                 | Qt.TextFlag.TextWordWrap,
                 body_text,
             )
-
     # =========================================================
     # ТЕКСТЫ
     # =========================================================

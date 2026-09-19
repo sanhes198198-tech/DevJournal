@@ -17,16 +17,18 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QGraphicsPathItem
 
+from . import theme
+
 
 # =========================================================
 # СТИЛЬ
 # =========================================================
 
-LINE_WIDTH = 2.0
-LINE_WIDTH_SELECTED = 3.0
+LINE_WIDTH = 1.5
+LINE_WIDTH_SELECTED = 2.0
 
-COLOR_NORMAL = QColor("#9E9E9E")
-COLOR_SELECTED = QColor("#4F7CFF")
+COLOR_NORMAL = QColor(theme.CONN_NORMAL)
+COLOR_SELECTED = QColor(theme.CONN_SELECT)
 
 # Отступ для контрольных точек кривой Безье
 CURVE_OFFSET = 60.0
