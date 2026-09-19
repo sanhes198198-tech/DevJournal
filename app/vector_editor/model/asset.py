@@ -15,6 +15,7 @@ from typing import Any
 from .contour import VectorContour
 from .semantic_group import SemanticGroup
 from .parameter import Parameter
+from .reference_image import ReferenceImage
 
 
 # ============================================================
@@ -60,6 +61,7 @@ class Asset:
         self.geometry = geometry or self._empty_geometry()
         self.semantic_groups: dict[str, SemanticGroup] = semantic_groups or {}
         self.parameters = parameters or {}
+        self.reference_image: ReferenceImage | None = None
         self.generation_rules = generation_rules or self._default_rules()
 
     # ------------------------------------------------------------
@@ -152,6 +154,11 @@ class Asset:
                 pid: p.to_dict()
                 for pid, p in self.parameters.items()
             },
+            "reference_image": (
+                self.reference_image.to_dict()
+                if self.reference_image is not None
+                else None
+            ),
             "generation_rules": self.generation_rules,
         }
 
@@ -176,7 +183,15 @@ class Asset:
                 except Exception:
                     continue
 
-        return cls(
+        ref_raw = d.get("reference_image")
+        ref: ReferenceImage | None = None
+        if isinstance(ref_raw, dict):
+            try:
+                ref = ReferenceImage.from_dict(ref_raw)
+            except Exception:
+                ref = None
+
+        asset = cls(
             asset_id=d.get("id"),
             name=d.get("name", "Новый ассет"),
             type_=d.get("type", "other"),
@@ -185,6 +200,8 @@ class Asset:
             parameters=params,
             generation_rules=d.get("generation_rules") or cls._default_rules(),
         )
+        asset.reference_image = ref
+        return asset
 
     # ------------------------------------------------------------
     # ДОСТУП
@@ -266,6 +283,22 @@ class Asset:
             self.parameters.values(),
             key=lambda p: (p.label or p.name).lower(),
         )
+
+    # ------------------------------------------------------------
+    # REFERENCE IMAGE
+    # ------------------------------------------------------------
+
+    def set_reference_image(self, ref: ReferenceImage | None) -> None:
+        self.reference_image = ref
+
+    def has_reference_image(self) -> bool:
+        return (
+            self.reference_image is not None
+            and self.reference_image.is_valid()
+        )
+
+    def clear_reference_image(self) -> None:
+        self.reference_image = None
 
     def prune_parameters(self) -> None:
         """Удалить таргеты, ссылающиеся на несуществующие группы.

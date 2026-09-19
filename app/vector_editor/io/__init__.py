@@ -12,6 +12,11 @@ from .storage import (
     asset_exists,
     StorageError,
 )
+from .reference import (
+    save_reference_image_png,
+    delete_reference_image_file,
+    get_reference_image_path,
+)
 
 __all__ = [
     "ASSETS_DIR",
@@ -22,4 +27,7 @@ __all__ = [
     "delete_asset",
     "asset_exists",
     "StorageError",
+    "save_reference_image_png",
+    "delete_reference_image_file",
+    "get_reference_image_path",
 ]

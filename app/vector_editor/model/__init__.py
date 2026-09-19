@@ -18,6 +18,7 @@ from .parameter import (
     compute_combined_delta,
     apply_delta_to_points,
 )
+from .reference_image import ReferenceImage
 from .analysis import (
     AUTO_GROUP_TYPES,
     generate_auto_group,
@@ -40,6 +41,7 @@ __all__ = [
     "compute_delta_for_parameter",
     "compute_combined_delta",
     "apply_delta_to_points",
+    "ReferenceImage",
     "AUTO_GROUP_TYPES",
     "generate_auto_group",
     "find_horizontal_edge_nodes",
