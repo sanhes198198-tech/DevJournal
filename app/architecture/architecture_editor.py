@@ -43,6 +43,7 @@ from .commands import (
     AddElementCommand,
     DeleteElementCommand,
     ModifyElementCommand,
+    MoveRoomCommand,
 )
 from .view import (
     ArchScene,
@@ -244,6 +245,9 @@ class ArchitectureEditor(QMainWindow):
         self._document.element_changed.connect(
             self._on_element_changed_external
         )
+        self._scene.room_move_finished.connect(
+            self._on_room_move_finished
+        )
         self._mode_tabs.mode_changed.connect(
             self._on_mode_changed
         )
@@ -306,6 +310,30 @@ class ArchitectureEditor(QMainWindow):
 
         self.statusBar().showMessage(
             f"Удалено: {len(to_delete)}", 2000
+        )
+
+    # ============================================================
+    # ROOM MOVE
+    # ============================================================
+
+    def _on_room_move_finished(
+        self,
+        room_id: str,
+        old_x: float,
+        old_y: float,
+        new_x: float,
+        new_y: float,
+    ) -> None:
+        """Scene сообщила о завершении перемещения комнаты."""
+        self._undo_stack.push(
+            MoveRoomCommand(
+                self._document,
+                room_id,
+                old_x,
+                old_y,
+                new_x,
+                new_y,
+            )
         )
 
     # ============================================================

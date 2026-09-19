@@ -10,7 +10,7 @@ ArchScene — QGraphicsScene архитектурного редактора.
 
 from __future__ import annotations
 
-from PySide6.QtCore import QRectF
+from PySide6.QtCore import QRectF, Signal
 from PySide6.QtWidgets import QGraphicsScene
 
 from ..model.room import Room
@@ -24,6 +24,9 @@ SCENE_RECT = QRectF(-SCENE_HALF, -SCENE_HALF, SCENE_HALF * 2, SCENE_HALF * 2)
 
 class ArchScene(QGraphicsScene):
     """Сцена архитектурного редактора."""
+
+    # id, old_x, old_y, new_x, new_y
+    room_move_finished = Signal(str, float, float, float, float)
 
     def __init__(self, document, parent=None):
         super().__init__(parent)
@@ -66,6 +69,7 @@ class ArchScene(QGraphicsScene):
         """Создаёт item по элементу модели."""
         if isinstance(element, Room):
             item = RoomItem(element)
+            item.move_finished.connect(self.room_move_finished.emit)
             self.addItem(item)
             self._items_by_id[element.id] = item
             return item
