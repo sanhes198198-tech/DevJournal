@@ -91,10 +91,12 @@ class Asset:
         contour: VectorContour,
         name: str = "Новый ассет",
         type_: str = "other",
+        asset_id: str | None = None,
     ) -> "Asset":
         """Создать Asset из существующего VectorContour.
 
         Автоматически создаёт node_ids и технические группы рёбер.
+        asset_id — если передан, сохраняется (для Save поверх).
         """
         points = list(contour.points)
         n = len(points)
@@ -118,6 +120,7 @@ class Asset:
         }
 
         return cls(
+            asset_id=asset_id,
             name=name,
             type_=type_,
             geometry=geometry,

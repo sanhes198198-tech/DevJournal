@@ -1,0 +1,49 @@
+{
+  "id": "3ec907f2b564",
+  "name": "Башня",
+  "type": "tower_body",
+  "geometry": {
+    "contour": [
+      [
+        6.052737306860894,
+        5.714640313149173
+      ],
+      [
+        11.58,
+        7.96
+      ],
+      [
+        13.649706220599814,
+        7.8173447367907585
+      ]
+    ],
+    "closed": true,
+    "units": "m",
+    "node_ids": [
+      "n_000",
+      "n_001",
+      "n_002"
+    ],
+    "groups": {
+      "edge_000": [
+        "n_000",
+        "n_001"
+      ],
+      "edge_001": [
+        "n_001",
+        "n_002"
+      ],
+      "edge_002": [
+        "n_002",
+        "n_000"
+      ]
+    }
+  },
+  "parameters": {},
+  "generation_rules": {
+    "allow_width_variation": false,
+    "allow_height_variation": false,
+    "irregularity": 0.0,
+    "repeatable": false
+  }
+}

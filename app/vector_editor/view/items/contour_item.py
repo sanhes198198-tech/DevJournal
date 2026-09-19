@@ -26,6 +26,10 @@ from .node_item import NodeItem
 class ContourItem(QGraphicsObject):
     """Визуализация VectorContour."""
 
+    # Эмитится при любом изменении геометрии:
+    # move узла, insert, remove.
+    changed = Signal()
+
     LINE_WIDTH = 1.2
     LINE_WIDTH_SELECTED = 2.5
     LINE_WIDTH_HOVER = 2.0
@@ -107,6 +111,7 @@ class ContourItem(QGraphicsObject):
 
         self._rebuild_nodes()
         self._rebuild_path()
+        self.changed.emit()
         return True
 
     # ============================================================
@@ -230,6 +235,7 @@ class ContourItem(QGraphicsObject):
     def _on_node_moved(self, idx: int, x: float, y: float) -> None:
         self._contour.set_point(idx, x, y)
         self._rebuild_path()
+        self.changed.emit()
 
     def _find_edge_at(self, scene_x: float, scene_y: float) -> int | None:
         pts = self._contour.points
@@ -355,6 +361,7 @@ class ContourItem(QGraphicsObject):
         self._selected_edge_idx = None
         self._rebuild_nodes()
         self._rebuild_path()
+        self.changed.emit()
 
     def insert_node_after_segment(self, seg_idx: int, t: float) -> int:
         pts = self._contour.points
@@ -374,4 +381,5 @@ class ContourItem(QGraphicsObject):
         self._selected_edge_idx = None
         self._rebuild_nodes()
         self._rebuild_path()
+        self.changed.emit()
         return seg_idx + 1

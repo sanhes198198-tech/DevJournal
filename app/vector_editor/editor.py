@@ -1,10 +1,15 @@
 """
-VectorEditor — QMainWindow для V3.
+VectorEditor — QMainWindow V4.
 
 Возможности:
-  - V1: draw mode (Ctrl+N), add/remove/insert узлов
-  - V2: Extrude грани по нормали (Ctrl+E), Ctrl+Z
-  - V3: Сохранить контур как Asset (Ctrl+S)
+  - Создание контура мышью (Ctrl+N → draw mode)
+  - Move / add / remove узлов
+  - Extrude грани (Ctrl+E)
+  - Asset Browser слева (двойной клик → открыть)
+  - Save (Ctrl+S) — обновить текущий
+  - Save As (Ctrl+Shift+S) — создать новый
+  - New (Ctrl+N) — пустая сцена
+  - Undo (Ctrl+Z) для extrude / remove node
 """
 
 from __future__ import annotations
@@ -13,66 +18,106 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QMainWindow,
+    QMessageBox,
+    QSplitter,
     QToolBar,
     QStatusBar,
 )
 
 from .model.contour import VectorContour
 from .model.asset import Asset
-from .io import save_asset, StorageError
+from .io import (
+    save_asset, load_asset,
+    StorageError, delete_asset,
+)
 from .view.scene import VectorScene
 from .view.canvas import VectorCanvas
+from .view.asset_browser import AssetBrowser
+from .view.save_asset_dialog import SaveAssetDialog
 from .view.items.contour_item import ContourItem
 from .view.items.node_item import NodeItem
-from .view.save_asset_dialog import SaveAssetDialog
 
 
 EXTRUDE_TEST_DISTANCE = 2.0
 
 
 class VectorEditor(QMainWindow):
-    """Окно векторного редактора."""
+    """Окно векторного редактора (V4)."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.setWindowTitle("Vector Architecture Editor — V3")
-        self.resize(1200, 800)
+        self.setWindowTitle("Vector Architecture Editor — V4")
+        self.resize(1400, 800)
 
         self._scene = VectorScene(self)
         self._canvas = VectorCanvas(self._scene, self)
 
         self._counter = 0
-        self._undo_stack: list[tuple[ContourItem, list[tuple[float, float]]]] = []
+        self._undo_stack: list[tuple[ContourItem, list]] = []
 
-        self.setCentralWidget(self._canvas)
-        self.setStatusBar(QStatusBar(self))
+        # Текущий Asset
+        self._current_asset_id: str | None = None
+        self._current_asset_name: str = "Новый"
+        self._current_asset_type: str = "other"
 
+        # Один контур на сцене (1A)
+        self._contour_item: ContourItem | None = None
+
+        # Флаг изменений
+        self._modified = False
+
+        self._build_ui()
         self._build_toolbar()
         self._connect_signals()
+        self._update_title()
 
         self.statusBar().showMessage(
-            "Ctrl+N — новый · Ctrl+E — Extrude · Ctrl+S — сохранить как Asset"
+            "Ctrl+N — новый · Ctrl+S — сохранить · "
+            "Ctrl+Shift+S — сохранить как · Ctrl+E — extrude"
         )
 
     # ============================================================
     # UI
     # ============================================================
 
+    def _build_ui(self) -> None:
+        self._browser = AssetBrowser()
+        self._browser.refresh()
+
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.addWidget(self._browser)
+        splitter.addWidget(self._canvas)
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setCollapsible(0, False)
+        splitter.setCollapsible(1, False)
+
+        self.setCentralWidget(splitter)
+        self.setStatusBar(QStatusBar(self))
+
     def _build_toolbar(self) -> None:
         tb = QToolBar("Main", self)
         tb.setMovable(False)
         self.addToolBar(tb)
 
-        act_new = QAction("Новый контур", self)
-        act_new.setShortcut(QKeySequence("Ctrl+N"))
-        act_new.triggered.connect(self._on_new_contour)
+        act_new = QAction("Новый", self)
+        act_new.setShortcut(QKeySequence.StandardKey.New)
+        act_new.setShortcutContext(
+            Qt.ShortcutContext.ApplicationShortcut
+        )
+        act_new.triggered.connect(self._on_new)
         tb.addAction(act_new)
 
-        act_cancel = QAction("Отмена действия", self)
-        act_cancel.setShortcut(QKeySequence("Esc"))
-        act_cancel.triggered.connect(self._on_cancel)
-        tb.addAction(act_cancel)
+        act_save = QAction("Сохранить", self)
+        act_save.setShortcut(QKeySequence("Ctrl+S"))
+        act_save.triggered.connect(self._on_save)
+        tb.addAction(act_save)
+
+        act_save_as = QAction("Сохранить как…", self)
+        act_save_as.setShortcut(QKeySequence("Ctrl+Shift+S"))
+        act_save_as.triggered.connect(self._on_save_as)
+        tb.addAction(act_save_as)
 
         tb.addSeparator()
 
@@ -88,13 +133,6 @@ class VectorEditor(QMainWindow):
 
         tb.addSeparator()
 
-        act_save = QAction("Сохранить как Asset… (Ctrl+S)", self)
-        act_save.setShortcut(QKeySequence("Ctrl+S"))
-        act_save.triggered.connect(self._on_save_asset)
-        tb.addAction(act_save)
-
-        tb.addSeparator()
-
         act_reset = QAction("Сбросить вид", self)
         act_reset.setShortcut(QKeySequence("Ctrl+0"))
         act_reset.triggered.connect(self._canvas.reset_view)
@@ -102,34 +140,233 @@ class VectorEditor(QMainWindow):
 
     def _connect_signals(self) -> None:
         self._canvas.contour_created.connect(self._on_contour_created)
+        self._browser.asset_open_requested.connect(self._on_open_asset)
 
     # ============================================================
-    # DRAW
+    # TITLE / MODIFIED
     # ============================================================
 
-    def _on_new_contour(self) -> None:
-        self._canvas.set_tool("draw")
-        self.statusBar().showMessage(
-            "ЛКМ — точка · клик по первой или Enter — замкнуть · Esc — отмена",
-            8000,
+    def _update_title(self) -> None:
+        star = " *" if self._modified else ""
+        self.setWindowTitle(
+            f"{self._current_asset_name}{star} — Vector Editor V4"
         )
 
-    def _on_cancel(self) -> None:
-        self._canvas.set_tool("select")
+    def _mark_modified(self) -> None:
+        if not self._modified:
+            self._modified = True
+            self._update_title()
+
+    def _mark_saved(self) -> None:
+        if self._modified:
+            self._modified = False
+            self._update_title()
+
+    # ============================================================
+    # NEW
+    # ============================================================
+
+    def _on_new(self) -> None:
+        if not self._confirm_discard():
+            return
+
+        self._clear_scene()
+
+        self._current_asset_id = None
+        self._current_asset_name = "Новый"
+        self._current_asset_type = "other"
+
+        self._mark_saved()
+        self._browser.clear_selection()
+
+        # Входим в режим рисования — пустая сцена, ждём кликов
+        self._canvas.set_tool("draw")
+        self.statusBar().showMessage(
+            "Нарисуйте контур: ЛКМ — точка · клик по первой или "
+            "Enter — замкнуть · Esc — отмена", 8000
+        )
+
+    def _clear_scene(self) -> None:
+        """Удалить всё со сцены безопасно.
+
+        NodeItem — дочерние для ContourItem, поэтому сначала
+        отцепляем их от родителей, потом удаляем всё.
+        """
+        # 1. Отцепляем NodeItem'ы, чтобы Qt не удалил их дважды
+        for it in list(self._scene.items()):
+            if isinstance(it, NodeItem):
+                if it.scene() is not None:
+                    it.setParentItem(None)
+                    self._scene.removeItem(it)
+
+        # 2. Удаляем оставшиеся (ContourItem и прочее)
+        for it in list(self._scene.items()):
+            if it.scene() is not None:
+                self._scene.removeItem(it)
+
+        self._contour_item = None
+        self._undo_stack.clear()
+
+    # ============================================================
+    # DRAW → CONTOUR
+    # ============================================================
 
     def _on_contour_created(self, contour: VectorContour) -> None:
         self._counter += 1
         contour.name = f"Контур {self._counter}"
 
+        # Удаляем предыдущий (1A)
+        if self._contour_item is not None:
+            if self._contour_item.scene() is not None:
+                self._scene.removeItem(self._contour_item)
+            self._contour_item = None
+
         item = ContourItem(contour)
+        item.changed.connect(self._on_contour_changed)
         self._scene.addItem(item)
+        self._contour_item = item
+
+        self._canvas.set_tool("select")
+        self._scene.clearSelection()
+        item.setSelected(True)
+
+        self._mark_modified()
+
+        self.statusBar().showMessage(
+            f"Создан контур ({contour.count()} узлов). "
+            f"Не забудьте сохранить (Ctrl+S).", 4000
+        )
+
+    def _on_contour_changed(self) -> None:
+        self._mark_modified()
+
+    # ============================================================
+    # OPEN
+    # ============================================================
+
+    def _on_open_asset(self, asset_id: str) -> None:
+        if not self._confirm_discard():
+            return
+
+        try:
+            asset = load_asset(self._browser_asset_path(asset_id))
+        except StorageError as e:
+            QMessageBox.warning(
+                self, "Ошибка загрузки",
+                f"Не удалось загрузить Asset:\n\n{e}"
+            )
+            return
+
+        self._load_asset_into_editor(asset)
+
+    def _browser_asset_path(self, asset_id: str):
+        """Путь к файлу Asset'а по id в глобальной библиотеке."""
+        from .io import ASSETS_DIR
+        return ASSETS_DIR / f"{asset_id}.json"
+
+    def _load_asset_into_editor(self, asset: Asset) -> None:
+        self._clear_scene()
+
+        contour = VectorContour(
+            points=asset.points(),
+            closed=asset.is_closed(),
+            name=asset.name,
+        )
+
+        item = ContourItem(contour)
+        item.changed.connect(self._on_contour_changed)
+        self._scene.addItem(item)
+        self._contour_item = item
+
+        self._current_asset_id = asset.id
+        self._current_asset_name = asset.name
+        self._current_asset_type = asset.type
+
+        self._mark_saved()
 
         self._canvas.set_tool("select")
         self._scene.clearSelection()
         item.setSelected(True)
 
         self.statusBar().showMessage(
-            f"Создан «{contour.name}» ({contour.count()} узлов)", 4000
+            f"Открыт: {asset.name} ({asset.type})", 4000
+        )
+
+    # ============================================================
+    # SAVE
+    # ============================================================
+
+    def _on_save(self) -> None:
+        if self._contour_item is None:
+            self.statusBar().showMessage(
+                "Нечего сохранять — нет контура", 3000
+            )
+            return
+
+        if self._current_asset_id is None:
+            # Нет id → это Save As
+            self._on_save_as()
+            return
+
+        asset = Asset.from_contour(
+            self._contour_item.contour,
+            name=self._current_asset_name,
+            type_=self._current_asset_type,
+            asset_id=self._current_asset_id,
+        )
+
+        try:
+            save_asset(asset)
+        except StorageError as e:
+            QMessageBox.critical(
+                self, "Ошибка сохранения",
+                f"Не удалось сохранить:\n\n{e}"
+            )
+            return
+
+        self._mark_saved()
+        self._browser.refresh()
+        self.statusBar().showMessage(
+            f"Сохранено: {asset.name}", 2000
+        )
+
+    def _on_save_as(self) -> None:
+        if self._contour_item is None:
+            self.statusBar().showMessage(
+                "Нечего сохранять — нет контура", 3000
+            )
+            return
+
+        dlg = SaveAssetDialog(
+            default_name=self._current_asset_name or "Новый ассет",
+            parent=self,
+        )
+        if dlg.exec() != SaveAssetDialog.DialogCode.Accepted:
+            return
+
+        asset = Asset.from_contour(
+            self._contour_item.contour,
+            name=dlg.result_name,
+            type_=dlg.result_type,
+        )
+
+        try:
+            save_asset(asset)
+        except StorageError as e:
+            QMessageBox.critical(
+                self, "Ошибка сохранения",
+                f"Не удалось сохранить:\n\n{e}"
+            )
+            return
+
+        self._current_asset_id = asset.id
+        self._current_asset_name = asset.name
+        self._current_asset_type = asset.type
+
+        self._mark_saved()
+        self._browser.refresh()
+        self.statusBar().showMessage(
+            f"Создан новый Asset: {asset.name}", 3000
         )
 
     # ============================================================
@@ -137,8 +374,8 @@ class VectorEditor(QMainWindow):
     # ============================================================
 
     def _on_extrude(self) -> None:
-        item = self._find_contour_with_selected_edge()
-        if item is None:
+        item = self._contour_item
+        if item is None or not item.has_selected_edge():
             self.statusBar().showMessage(
                 "Сначала кликните по грани контура", 3000
             )
@@ -148,82 +385,16 @@ class VectorEditor(QMainWindow):
 
         ok = item.extrude_selected_face(EXTRUDE_TEST_DISTANCE)
         if not ok:
-            self.statusBar().showMessage("Не удалось вытянуть грань", 3000)
+            self.statusBar().showMessage(
+                "Не удалось вытянуть грань", 3000
+            )
             return
 
         self._undo_stack.append((item, snapshot))
+        self._mark_modified()
         self.statusBar().showMessage(
             f"Extrude на {EXTRUDE_TEST_DISTANCE} м", 2000
         )
-
-    def _find_contour_with_selected_edge(self) -> ContourItem | None:
-        for it in self._scene.items():
-            if isinstance(it, ContourItem) and it.has_selected_edge():
-                return it
-        return None
-
-    # ============================================================
-    # SAVE AS ASSET
-    # ============================================================
-
-    def _on_save_asset(self) -> None:
-        item = self._find_selected_contour()
-        if item is None:
-            self.statusBar().showMessage(
-                "Выделите контур, чтобы сохранить как Asset", 3000
-            )
-            return
-
-        default_name = item.contour.name or f"Контур {self._counter}"
-
-        dlg = SaveAssetDialog(default_name=default_name, parent=self)
-        if dlg.exec() != SaveAssetDialog.DialogCode.Accepted:
-            return
-
-        asset = Asset.from_contour(
-            item.contour,
-            name=dlg.result_name,
-            type_=dlg.result_type,
-        )
-
-        try:
-            path_saved = save_asset(asset)
-        except StorageError as e:
-            self.statusBar().showMessage(
-                f"Ошибка сохранения: {e}", 5000
-            )
-            return
-
-        self.statusBar().showMessage(
-            f"Asset сохранён: {asset.name} → {path_saved.name}", 5000
-        )
-
-    def _find_selected_contour(self) -> ContourItem | None:
-        """Найти ContourItem.
-
-        Приоритет:
-          1. Выделенный ContourItem
-          2. Родитель выделенного NodeItem
-          3. Единственный в сцене
-        """
-        for it in self._scene.selectedItems():
-            if isinstance(it, ContourItem):
-                return it
-
-        for it in self._scene.selectedItems():
-            if isinstance(it, NodeItem):
-                parent = it.parentItem()
-                if isinstance(parent, ContourItem):
-                    return parent
-
-        contours = [
-            it for it in self._scene.items()
-            if isinstance(it, ContourItem)
-        ]
-        if len(contours) == 1:
-            return contours[0]
-
-        return None
 
     # ============================================================
     # UNDO
@@ -239,7 +410,7 @@ class VectorEditor(QMainWindow):
         item._selected_edge_idx = None
         item._rebuild_nodes()
         item._rebuild_path()
-
+        self._mark_modified()
         self.statusBar().showMessage("Отменено", 2000)
 
     # ============================================================
@@ -255,6 +426,10 @@ class VectorEditor(QMainWindow):
         super().keyPressEvent(event)
 
     def _delete_selected_node(self) -> bool:
+        item = self._contour_item
+        if item is None:
+            return False
+
         node: NodeItem | None = None
         for it in self._scene.selectedItems():
             if isinstance(it, NodeItem):
@@ -264,11 +439,7 @@ class VectorEditor(QMainWindow):
         if node is None:
             return False
 
-        parent = node.parentItem()
-        if not isinstance(parent, ContourItem):
-            return False
-
-        pts = parent.contour.points
+        pts = item.contour.points
         if len(pts) <= 3:
             self.statusBar().showMessage(
                 "Нельзя удалить: у контура должно быть ≥ 3 узлов", 3000
@@ -276,7 +447,47 @@ class VectorEditor(QMainWindow):
             return True
 
         snapshot = list(pts)
-        parent.remove_node(node.idx)
-        self._undo_stack.append((parent, snapshot))
+        item.remove_node(node.idx)
+        self._undo_stack.append((item, snapshot))
+        self._mark_modified()
         self.statusBar().showMessage("Узел удалён", 2000)
         return True
+
+    # ============================================================
+    # CLOSE
+    # ============================================================
+
+    def _confirm_discard(self) -> bool:
+        """True — можно продолжать (сохранили или discard).
+        False — пользователь отменил.
+        """
+        if not self._modified:
+            return True
+
+        result = QMessageBox.question(
+            self,
+            "Несохранённые изменения",
+            f"Сохранить изменения в «{self._current_asset_name}»?",
+            QMessageBox.StandardButton.Save
+            | QMessageBox.StandardButton.Discard
+            | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Save,
+        )
+
+        if result == QMessageBox.StandardButton.Save:
+            if self._current_asset_id is None:
+                self._on_save_as()
+                return not self._modified
+            self._on_save()
+            return not self._modified
+
+        if result == QMessageBox.StandardButton.Discard:
+            return True
+
+        return False
+
+    def closeEvent(self, event) -> None:
+        if self._confirm_discard():
+            event.accept()
+        else:
+            event.ignore()
