@@ -274,26 +274,30 @@ class EndNode(DialogueNode):
 
     type = "end"
 
-    # Архитектурный контракт:
-    #   outcome == "end"       → target_dialogue_id = None
-    #   outcome == "dialogue"  → target_dialogue_id = <uuid>
-    # MVP интерпретирует только "end".
-    VALID_OUTCOMES = ("end", "dialogue")
+    # Архитектурный контракт v3:
+    #   outcome_type == "return_to_game" → вернуть управление в игру
+    #   outcome_type == "start_dialogue" → запустить другой диалог
+    #
+    # outcome_id — метка для Unity (vasilisa_left, secret_revealed)
+    # target_dialogue_id — используется только при start_dialogue
+    VALID_OUTCOME_TYPES = ("return_to_game", "start_dialogue")
 
     def __init__(
         self,
         node_id,
-        outcome="end",
+        outcome_type="return_to_game",
+        outcome_id=None,
         target_dialogue_id=None,
         x=0.0,
         y=0.0,
     ):
         super().__init__(node_id, x, y)
 
-        if outcome not in self.VALID_OUTCOMES:
-            outcome = "end"
+        if outcome_type not in self.VALID_OUTCOME_TYPES:
+            outcome_type = "return_to_game"
 
-        self.outcome = outcome
+        self.outcome_type = outcome_type
+        self.outcome_id = outcome_id
         self.target_dialogue_id = target_dialogue_id
 
     def get_input_ports(self):
@@ -304,26 +308,38 @@ class EndNode(DialogueNode):
 
     def to_dict(self):
         data = super().to_dict()
-        data["outcome"] = self.outcome
+        data["outcome_type"] = self.outcome_type
+        data["outcome_id"] = self.outcome_id
         data["target_dialogue_id"] = self.target_dialogue_id
         return data
 
     @classmethod
     def _from_dict(cls, data):
-        outcome = data.get("outcome", "end")
+        # v3: outcome_type
+        # v2: outcome ("end"/"dialogue")
+        outcome_type = data.get("outcome_type", "")
 
-        if outcome not in cls.VALID_OUTCOMES:
-            outcome = "end"
+        if not outcome_type:
+            old_outcome = data.get("outcome", "end")
+            if old_outcome == "dialogue":
+                outcome_type = "start_dialogue"
+            else:
+                outcome_type = "return_to_game"
 
+        if outcome_type not in cls.VALID_OUTCOME_TYPES:
+            outcome_type = "return_to_game"
+
+        outcome_id = data.get("outcome_id")
         target = data.get("target_dialogue_id")
 
-        # Защита от несоответствия
-        if outcome == "end":
+        # Защита от несоответствия: return_to_game не имеет target
+        if outcome_type == "return_to_game":
             target = None
 
         return cls(
             node_id=data["id"],
-            outcome=outcome,
+            outcome_type=outcome_type,
+            outcome_id=outcome_id,
             target_dialogue_id=target,
             x=data.get("x", 0.0),
             y=data.get("y", 0.0),
