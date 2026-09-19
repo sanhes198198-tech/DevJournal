@@ -34,6 +34,11 @@ from .view.scene import VectorScene
 from .view.canvas import VectorCanvas
 from .view.asset_browser import AssetBrowser
 from .view.semantic_groups_panel import SemanticGroupsPanel
+from .view.parameters_panel import ParametersPanel
+from .model.parameter import (
+    compute_delta_for_parameter,
+    apply_delta_to_points,
+)
 from .view.save_asset_dialog import SaveAssetDialog
 from .view.items.contour_item import ContourItem
 from .view.items.node_item import NodeItem
@@ -88,11 +93,21 @@ class VectorEditor(QMainWindow):
         self._browser.refresh()
 
         self._groups_panel = SemanticGroupsPanel()
+        self._parameters_panel = ParametersPanel()
+
+        # Правая колонка: сверху группы, снизу параметры
+        right_splitter = QSplitter(Qt.Orientation.Vertical)
+        right_splitter.addWidget(self._groups_panel)
+        right_splitter.addWidget(self._parameters_panel)
+        right_splitter.setStretchFactor(0, 1)
+        right_splitter.setStretchFactor(1, 1)
+        right_splitter.setCollapsible(0, False)
+        right_splitter.setCollapsible(1, False)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.addWidget(self._browser)
         splitter.addWidget(self._canvas)
-        splitter.addWidget(self._groups_panel)
+        splitter.addWidget(right_splitter)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
         splitter.setStretchFactor(2, 0)
@@ -161,6 +176,12 @@ class VectorEditor(QMainWindow):
         self._groups_panel.groups_changed.connect(
             self._on_groups_changed
         )
+        self._parameters_panel.value_changed.connect(
+            self._on_parameter_value_changed
+        )
+        self._parameters_panel.parameters_changed.connect(
+            self._on_groups_changed   # тот же обработчик: mark_modified
+        )
 
     # ============================================================
     # TITLE / MODIFIED
@@ -223,6 +244,49 @@ class VectorEditor(QMainWindow):
 
         self._contour_item.highlight_nodes(group.node_ids)
 
+    def _on_parameter_value_changed(
+        self, param_id: str, new_value: float, old_value: float,
+    ) -> None:
+        """Пользователь изменил значение параметра — применить delta."""
+        if self._current_asset is None or self._contour_item is None:
+            return
+
+        param = self._current_asset.get_parameter(param_id)
+        if param is None:
+            return
+
+        delta_value = new_value - old_value
+        if abs(delta_value) < 1e-12:
+            return
+
+        # Снимок геометрии для undo
+        snapshot = list(self._contour_item.contour.points)
+
+        # Считаем сдвиг узлов
+        node_delta = compute_delta_for_parameter(
+            param, delta_value, self._current_asset.semantic_groups,
+        )
+
+        if node_delta:
+            new_points = apply_delta_to_points(
+                self._contour_item.contour.points,
+                self._contour_item.contour.node_ids,
+                node_delta,
+            )
+            self._contour_item.contour.points = new_points
+            self._contour_item._rebuild_nodes()
+            self._contour_item._rebuild_path()
+
+            # Undo-запись: (item, snapshot, param_id, old_value)
+            self._undo_stack.append(
+                (self._contour_item, snapshot, param_id, old_value)
+            )
+
+        # Значение параметра в модели
+        param.value = new_value
+
+        self._mark_modified()
+
     def _on_groups_changed(self) -> None:
         """Пользователь изменил группы — отметить Asset как изменённый."""
         self._mark_modified()
@@ -280,6 +344,7 @@ class VectorEditor(QMainWindow):
 
         self._current_asset = None
         self._groups_panel.set_asset(None)
+        self._parameters_panel.set_asset(None)
 
     # ============================================================
     # DRAW → CONTOUR
@@ -358,6 +423,7 @@ class VectorEditor(QMainWindow):
         self._current_asset_type = asset.type
 
         self._groups_panel.set_asset(asset)
+        self._parameters_panel.set_asset(asset)
 
         self._mark_saved()
 
@@ -400,6 +466,10 @@ class VectorEditor(QMainWindow):
                 self._current_asset.semantic_groups,
                 valid_ids,
             )
+            # Копируем параметры целиком + чистим таргеты
+            # на удалённые (после prune_groups) группы
+            asset.parameters = dict(self._current_asset.parameters)
+            asset.prune_parameters()
 
         try:
             save_asset(asset)
@@ -413,6 +483,7 @@ class VectorEditor(QMainWindow):
         # Обновляем current_asset
         self._current_asset = asset
         self._groups_panel.set_asset(asset)
+        self._parameters_panel.set_asset(asset)
 
         self._mark_saved()
         self._browser.refresh()
@@ -447,6 +518,8 @@ class VectorEditor(QMainWindow):
                 self._current_asset.semantic_groups,
                 valid_ids,
             )
+            asset.parameters = dict(self._current_asset.parameters)
+            asset.prune_parameters()
 
         try:
             save_asset(asset)
@@ -463,6 +536,7 @@ class VectorEditor(QMainWindow):
         self._current_asset_type = asset.type
 
         self._groups_panel.set_asset(asset)
+        self._parameters_panel.set_asset(asset)
 
         self._mark_saved()
         self._browser.refresh()
@@ -506,11 +580,25 @@ class VectorEditor(QMainWindow):
             self.statusBar().showMessage("Нечего отменять", 2000)
             return
 
-        item, snapshot = self._undo_stack.pop()
+        entry = self._undo_stack.pop()
+        item = entry[0]
+        snapshot = entry[1]
+
         item.contour.points = list(snapshot)
         item._selected_edge_idx = None
         item._rebuild_nodes()
         item._rebuild_path()
+
+        # Расширенная запись от изменения параметра
+        if len(entry) >= 4:
+            param_id = entry[2]
+            old_value = entry[3]
+            if self._current_asset is not None:
+                p = self._current_asset.get_parameter(param_id)
+                if p is not None:
+                    p.value = old_value
+                    self._parameters_panel.refresh()
+
         self._mark_modified()
         self.statusBar().showMessage("Отменено", 2000)
 
@@ -534,10 +622,13 @@ class VectorEditor(QMainWindow):
         return super().eventFilter(obj, event)
 
     def _on_empty_scene_click(self) -> None:
-        """Клик мимо узлов → снимаем подсветку группы."""
+        """Клик мимо узлов → снимаем подсветку группы
+        и выделение в панелях.
+        """
         if self._contour_item is not None:
             self._contour_item.clear_highlight()
         self._groups_panel.clear_selection()
+        self._parameters_panel.clear_selection()
 
     def keyPressEvent(self, event) -> None:
         if event.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):

@@ -8,6 +8,8 @@ from .asset_browser import AssetBrowser
 from .save_asset_dialog import SaveAssetDialog
 from .semantic_group_dialog import SemanticGroupDialog
 from .semantic_groups_panel import SemanticGroupsPanel
+from .parameter_dialog import ParameterDialog
+from .parameters_panel import ParametersPanel
 from .items.contour_item import ContourItem
 from .items.node_item import NodeItem
 from .items.drawing_preview import DrawingPreviewItem
@@ -19,6 +21,8 @@ __all__ = [
     "SaveAssetDialog",
     "SemanticGroupDialog",
     "SemanticGroupsPanel",
+    "ParameterDialog",
+    "ParametersPanel",
     "ContourItem",
     "NodeItem",
     "DrawingPreviewItem",
