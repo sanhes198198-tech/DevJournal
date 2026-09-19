@@ -203,6 +203,12 @@ class ArchitectureEditor(QMainWindow):
         self._palette.preset_requested.connect(
             self._on_preset_requested
         )
+        self._scene.selectionChanged.connect(
+            self._on_selection_changed
+        )
+        self._properties.field_changed.connect(
+            self._on_field_changed
+        )
         self._mode_tabs.mode_changed.connect(
             self._on_mode_changed
         )
@@ -238,6 +244,45 @@ class ArchitectureEditor(QMainWindow):
             return
 
         self.statusBar().showMessage("Сохранено", 2000)
+
+    # ============================================================
+    # SELECTION → PROPERTIES
+    # ============================================================
+
+    def _on_selection_changed(self) -> None:
+        """Обновить Properties при изменении выделения."""
+        items = self._scene.selectedItems()
+
+        if len(items) == 1:
+            room = getattr(items[0], "room", None)
+            if room is not None:
+                self._properties.show_element(room)
+                return
+
+        self._properties.show_empty()
+
+    # ============================================================
+    # PROPERTIES → DOCUMENT
+    # ============================================================
+
+    def _on_field_changed(self, field: str, value) -> None:
+        """Properties изменил поле — обновляем модель."""
+        items = self._scene.selectedItems()
+        if len(items) != 1:
+            return
+
+        room_id = getattr(items[0], "room_id", None)
+        if room_id is None:
+            return
+
+        try:
+            self._document.update_element(
+                room_id, **{field: value}
+            )
+        except (ValueError, AttributeError) as e:
+            self.statusBar().showMessage(
+                f"Ошибка: {e}", 3000
+            )
 
     # ============================================================
     # PALETTE → CANVAS
