@@ -77,10 +77,28 @@ class DialogueEditorWindow(QMainWindow):
 
         self._build_ui()
         self._connect_signals()
+
+        # ВАЖНО: применяем QSS ПОСЛЕ создания виджетов,
+        # чтобы стиль применился и к тулбару/статусбару/кнопкам.
+        self._apply_theme()
         self._setup_shortcuts()
 
         # Авто-открытие последнего диалога
         self._open_last_dialogue_if_any()
+
+    def _apply_theme(self):
+        import os
+        qss_path = os.path.join(
+            os.path.dirname(__file__),
+            "view",
+            "theme.qss",
+        )
+        try:
+            with open(qss_path, "r", encoding="utf-8") as f:
+                qss = f.read()
+            self.setStyleSheet(qss)
+        except Exception:
+            pass
 
     # =========================================================
     # UI

@@ -1,0 +1,167 @@
+QMainWindow {
+    background: #111214;
+}
+
+QWidget {
+    background: #111214;
+    color: #E5E5E5;
+    font-family: "Roboto", "Segoe UI", sans-serif;
+    font-size: 12px;
+}
+
+QLabel {
+    background: transparent;
+    color: #E5E5E5;
+}
+
+QPushButton {
+    background: #202328;
+    color: #E5E5E5;
+    border: 1px solid #2A2D33;
+    border-radius: 4px;
+    padding: 6px 14px;
+    font-size: 12px;
+}
+
+QPushButton:hover {
+    background: #292D32;
+    border: 1px solid #3A3F48;
+}
+
+QPushButton:pressed {
+    background: #1A1C20;
+}
+
+QPushButton:disabled {
+    color: #5A5F68;
+    background: #17191C;
+}
+
+QLineEdit, QPlainTextEdit, QTextEdit {
+    background: #1A1C20;
+    color: #E5E5E5;
+    border: 1px solid #2A2D33;
+    border-radius: 4px;
+    padding: 6px 8px;
+    selection-background-color: #4A90E2;
+    selection-color: #FFFFFF;
+}
+
+QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus {
+    border: 1px solid #4A90E2;
+}
+
+QListWidget {
+    background: #17191C;
+    color: #E5E5E5;
+    border: 1px solid #2A2D33;
+    border-radius: 4px;
+    outline: none;
+    padding: 4px;
+}
+
+QListWidget::item {
+    padding: 6px 8px;
+    border-radius: 3px;
+}
+
+QListWidget::item:hover {
+    background: #202328;
+}
+
+QListWidget::item:selected {
+    background: #292D32;
+    color: #E5E5E5;
+}
+
+QSplitter::handle {
+    background: #1A1C20;
+    width: 1px;
+}
+
+QScrollBar:vertical {
+    background: #111214;
+    width: 10px;
+    margin: 0;
+}
+
+QScrollBar::handle:vertical {
+    background: #2A2D33;
+    border-radius: 4px;
+    min-height: 30px;
+    margin: 2px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #3A3F48;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0;
+}
+
+QScrollBar:horizontal {
+    background: #111214;
+    height: 10px;
+    margin: 0;
+}
+
+QScrollBar::handle:horizontal {
+    background: #2A2D33;
+    border-radius: 4px;
+    min-width: 30px;
+    margin: 2px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: #3A3F48;
+}
+
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    width: 0;
+}
+
+QToolBar {
+    background: #17191C;
+    border: none;
+    border-bottom: 1px solid #2A2D33;
+    padding: 4px 8px;
+    spacing: 4px;
+}
+
+QToolBar QToolButton {
+    background: transparent;
+    color: #E5E5E5;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 6px 12px;
+}
+
+QToolBar QToolButton:hover {
+    background: #202328;
+    border: 1px solid #2A2D33;
+}
+
+QStatusBar {
+    background: #17191C;
+    color: #858B93;
+    border-top: 1px solid #2A2D33;
+}
+
+QRadioButton {
+    color: #E5E5E5;
+    background: transparent;
+}
+
+QRadioButton:disabled {
+    color: #5A5F68;
+}
+
+QGraphicsView {
+    background: #111214;
+    border: none;
+}
+
+QDialog {
+    background: #17191C;
+}
