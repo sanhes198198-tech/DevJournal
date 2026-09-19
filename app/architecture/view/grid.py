@@ -35,12 +35,12 @@ class GridLayer:
     # MACRO всегда видно
 
     # Цвета
-    COLOR_FINE = QColor("#1F1F1F")
-    COLOR_MID = QColor("#2A2A2A")
-    COLOR_COARSE = QColor("#353535")
-    COLOR_MACRO = QColor("#4A4A4A")
-    COLOR_AXIS_X = QColor("#7A3A3A")   # горизонтальная ось (Y=0)
-    COLOR_AXIS_Y = QColor("#3A7A3A")   # вертикальная ось (X=0)
+    COLOR_FINE = QColor("#F5F5F5")
+    COLOR_MID = QColor("#EAEAEA")
+    COLOR_COARSE = QColor("#D8D8D8")
+    COLOR_MACRO = QColor("#B8B8B8")
+    COLOR_AXIS_X = QColor("#D09090")   # горизонтальная ось (Y=0)
+    COLOR_AXIS_Y = QColor("#90C090")   # вертикальная ось (X=0)
 
     def draw(
         self,

@@ -120,4 +120,4 @@ class ArchScene(QGraphicsScene):
     @staticmethod
     def _make_background_brush():
         from PySide6.QtGui import QBrush, QColor
-        return QBrush(QColor("#181818"))
+        return QBrush(QColor("#FFFFFF"))
