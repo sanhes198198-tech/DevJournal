@@ -28,12 +28,16 @@ class PalettePanel(QWidget):
     # Для создания из пресета
     preset_requested = Signal(str)
 
+    # Для вставки Asset (векторного)
+    asset_requested = Signal(str)
+
     WIDTH = 220
 
     def __init__(self, parent=None):
         super().__init__(parent)
 
         self.setFixedWidth(self.WIDTH)
+        self._asset_registry = None
         self._build_ui()
 
     # ------------------------------------------------------------
@@ -78,10 +82,20 @@ class PalettePanel(QWidget):
             type_name="room",
         )
 
+        # Разделитель
+        sep_asset = QFrame()
+        sep_asset.setFrameShape(QFrame.Shape.HLine)
+        sep_asset.setFrameShadow(QFrame.Shadow.Sunken)
+        sep_asset.setStyleSheet("color: #2A2D33; margin: 4px 0;")
+        layout.addWidget(sep_asset)
+
+        # --- Векторные ассеты ---
+        self._add_asset_dropdown(layout, label="Ассет")
+
         layout.addStretch()
 
         hint = QLabel(
-            "Башни, крыши, купола — в следующих версиях."
+            "Ассеты создаются в векторном редакторе."
         )
         hint.setWordWrap(True)
         hint.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -167,6 +181,93 @@ class PalettePanel(QWidget):
 
         btn.setMenu(menu)
         layout.addWidget(btn)
+
+    def _add_asset_dropdown(self, layout, label: str) -> None:
+        """Кнопка «+ Ассет ▼» — плоский список всех Asset'ов из registry.
+
+        Registry передаётся через set_asset_registry(). Если его нет —
+        кнопка неактивна.
+        """
+        from PySide6.QtWidgets import QToolButton
+
+        btn = QToolButton()
+        btn.setText(f"+ {label}")
+        btn.setToolTip("Вставить векторный ассет в сцену")
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setPopupMode(
+            QToolButton.ToolButtonPopupMode.InstantPopup
+        )
+        btn.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonTextOnly
+        )
+        btn.setStyleSheet(
+            "QToolButton {"
+            "  background: #202328;"
+            "  color: #E5E5E5;"
+            "  border: 1px solid #2A2D33;"
+            "  border-radius: 4px;"
+            "  padding: 8px 12px;"
+            "  text-align: left;"
+            "  font-size: 12px;"
+            "}"
+            "QToolButton:hover {"
+            "  background: #2A2D33;"
+            "  border-color: #3A3F48;"
+            "}"
+        )
+
+        self._asset_button = btn
+        layout.addWidget(btn)
+
+        self._rebuild_asset_menu()
+
+    def _rebuild_asset_menu(self) -> None:
+        """Перестраивает меню ассетов из registry."""
+        from PySide6.QtWidgets import QMenu
+
+        if not hasattr(self, "_asset_button"):
+            return
+
+        menu = QMenu(self._asset_button)
+        menu.setStyleSheet(
+            "QMenu {"
+            "  background: #202328;"
+            "  color: #E5E5E5;"
+            "  border: 1px solid #2A2D33;"
+            "  padding: 4px;"
+            "}"
+            "QMenu::item {"
+            "  padding: 6px 20px;"
+            "  border-radius: 3px;"
+            "}"
+            "QMenu::item:selected {"
+            "  background: #2A2D33;"
+            "}"
+        )
+
+        if self._asset_registry is None or self._asset_registry.count() == 0:
+            no_action = menu.addAction("(нет ассетов)")
+            no_action.setEnabled(False)
+        else:
+            for asset in sorted(
+                self._asset_registry.all(),
+                key=lambda a: (a.name or a.id).lower(),
+            ):
+                action = menu.addAction(
+                    f"{asset.name}  [{asset.type}]"
+                )
+                action.setToolTip(asset.id)
+                action.triggered.connect(
+                    lambda _=False, aid=asset.id:
+                        self.asset_requested.emit(aid)
+                )
+
+        self._asset_button.setMenu(menu)
+
+    def set_asset_registry(self, registry) -> None:
+        """Установить registry и обновить меню."""
+        self._asset_registry = registry
+        self._rebuild_asset_menu()
 
     def _add_custom_button(
         self,

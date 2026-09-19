@@ -16,6 +16,8 @@ from PySide6.QtWidgets import QGraphicsScene
 from ..model.room import Room
 from .grid import GridLayer
 from .items.room_item import RoomItem
+from .items.asset_instance_item import AssetInstanceItem
+from ..model.asset_instance import AssetInstance
 
 
 SCENE_HALF = 1000.0
@@ -28,10 +30,11 @@ class ArchScene(QGraphicsScene):
     # id, old_x, old_y, new_x, new_y
     room_move_finished = Signal(str, float, float, float, float)
 
-    def __init__(self, document, parent=None):
+    def __init__(self, document, asset_registry=None, parent=None):
         super().__init__(parent)
 
         self._document = document
+        self._asset_registry = asset_registry
         self._items_by_id: dict[str, RoomItem] = {}
 
         self.setSceneRect(SCENE_RECT)
@@ -73,6 +76,17 @@ class ArchScene(QGraphicsScene):
             self.addItem(item)
             self._items_by_id[element.id] = item
             return item
+
+        if isinstance(element, AssetInstance):
+            asset = None
+            if self._asset_registry is not None:
+                asset = self._asset_registry.get(element.asset_id)
+            item = AssetInstanceItem(element, asset=asset)
+            item.move_finished.connect(self.room_move_finished.emit)
+            self.addItem(item)
+            self._items_by_id[element.id] = item
+            return item
+
         # Другие типы — в M2+
         return None
 

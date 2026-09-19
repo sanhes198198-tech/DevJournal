@@ -39,6 +39,8 @@ from .io import (
     get_architecture_path,
 )
 from .model.room import Room
+from .model.asset_instance import AssetInstance
+from .asset_registry import AssetRegistry
 from .commands import (
     AddElementCommand,
     DeleteElementCommand,
@@ -183,7 +185,15 @@ class ArchitectureEditor(QMainWindow):
 
     def _build_central(self) -> None:
         # Scene + Canvas
-        self._scene = ArchScene(self._document)
+        self._asset_registry = AssetRegistry(
+            project_folder=self.project_folder
+        )
+        self._asset_registry.load_all()
+
+        self._scene = ArchScene(
+            self._document,
+            asset_registry=self._asset_registry,
+        )
         self._canvas = ArchCanvas(self._scene)
 
         # Центральная колонка: ModeTabs над Canvas
@@ -235,6 +245,10 @@ class ArchitectureEditor(QMainWindow):
         )
         self._palette.preset_requested.connect(
             self._on_preset_requested
+        )
+        self._palette.set_asset_registry(self._asset_registry)
+        self._palette.asset_requested.connect(
+            self._on_asset_requested
         )
         self._scene.selectionChanged.connect(
             self._on_selection_changed
@@ -294,16 +308,16 @@ class ArchitectureEditor(QMainWindow):
         if not items:
             return
 
-        # Удаляем всё, что имеет room
+        # Удаляем всё, что имеет element (Room, AssetInstance, ...)
         to_delete = [
             it for it in items
-            if getattr(it, "room", None) is not None
+            if getattr(it, "element", None) is not None
         ]
         if not to_delete:
             return
 
         for item in to_delete:
-            room = item.room
+            room = item.element
             self._undo_stack.push(
                 DeleteElementCommand(self._document, room)
             )
@@ -364,9 +378,9 @@ class ArchitectureEditor(QMainWindow):
         items = self._scene.selectedItems()
 
         if len(items) == 1:
-            room = getattr(items[0], "room", None)
-            if room is not None:
-                self._properties.show_element(room)
+            el = getattr(items[0], "element", None)
+            if el is not None:
+                self._properties.show_element(el)
                 return
 
         self._properties.show_empty()
@@ -381,16 +395,16 @@ class ArchitectureEditor(QMainWindow):
         if len(items) != 1:
             return
 
-        room_id = getattr(items[0], "room_id", None)
-        if room_id is None:
+        element_id = getattr(items[0], "element_id", None)
+        if element_id is None:
             return
 
         # Текущее значение из модели
-        room = getattr(items[0], "room", None)
-        if room is None:
+        el = getattr(items[0], "element", None)
+        if el is None:
             return
 
-        old_value = getattr(room, field, None)
+        old_value = getattr(el, field, None)
         if old_value == value:
             return
 
@@ -399,7 +413,7 @@ class ArchitectureEditor(QMainWindow):
             self._undo_stack.push(
                 ModifyElementCommand(
                     self._document,
-                    room_id,
+                    element_id,
                     field,
                     old_value,
                     value,
@@ -523,6 +537,56 @@ class ArchitectureEditor(QMainWindow):
             f"Создано: {preset.name}", 2000
         )
 
+    # ============================================================
+    # ASSET INSTANCE CREATION
+    # ============================================================
+
+    def _on_asset_requested(self, asset_id: str) -> None:
+        """Создаёт AssetInstance в центре viewport."""
+        from .view.coords import scene_pos_to_model
+        from .model.asset_instance import AssetInstance
+
+        asset = (
+            self._asset_registry.get(asset_id)
+            if self._asset_registry else None
+        )
+        if asset is None:
+            self.statusBar().showMessage(
+                f"Ассет не найден: {asset_id}", 3000
+            )
+            return
+
+        # Центр viewport
+        vp_center = self._canvas.viewport().rect().center()
+        scene_center = self._canvas.mapToScene(vp_center)
+        mx, my = scene_pos_to_model(
+            scene_center.x(), scene_center.y()
+        )
+
+        mx = round(mx, 1)
+        my = round(my, 1)
+
+        instance = AssetInstance(
+            asset_id=asset.id,
+            x=mx,
+            y=my,
+            rotation=0.0,
+            scale=1.0,
+        )
+
+        self._undo_stack.push(
+            AddElementCommand(self._document, instance)
+        )
+
+        item = self._scene.item_for(instance.id)
+        if item is not None:
+            self._scene.clearSelection()
+            item.setSelected(True)
+
+        self.statusBar().showMessage(
+            f"Вставлен ассет: {asset.name}", 2000
+        )
+
     def _next_room_name(self) -> str:
         """Комната 1, Комната 2, ..."""
         count = sum(
@@ -537,6 +601,23 @@ class ArchitectureEditor(QMainWindow):
     # ============================================================
 
     def closeEvent(self, event) -> None:
+        # Отключаем сигналы — иначе при удалении Qt-объектов
+        # могут прилететь запоздалые selectionChanged
+        import warnings
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                self._scene.selectionChanged.disconnect(
+                    self._on_selection_changed
+                )
+        except (RuntimeError, TypeError):
+            pass
+
+        if not self._document.is_modified():
+            event.accept()
+            return
+
+        # ... остальной код сохранения — если он был — оставляем как есть
         if not self._document.is_modified():
             event.accept()
             return

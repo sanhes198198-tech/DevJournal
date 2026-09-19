@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..model.room import Room
+from ..model.asset_instance import AssetInstance
 
 
 class PropertiesPanel(QWidget):
@@ -41,6 +42,7 @@ class PropertiesPanel(QWidget):
 
         self.setFixedWidth(self.WIDTH)
         self._current_room: Room | None = None
+        self._current_asset_instance: AssetInstance | None = None
         self._build_ui()
 
     # ============================================================
@@ -68,8 +70,10 @@ class PropertiesPanel(QWidget):
         self._stack = QStackedWidget()
         self._empty_page = self._build_empty_page()
         self._room_page = self._build_room_page()
+        self._asset_page = self._build_asset_page()
         self._stack.addWidget(self._empty_page)
         self._stack.addWidget(self._room_page)
+        self._stack.addWidget(self._asset_page)
 
         layout.addWidget(self._stack, 1)
 
@@ -188,11 +192,114 @@ class PropertiesPanel(QWidget):
 
     def show_empty(self) -> None:
         self._current_room = None
+        self._current_asset_instance = None
         self._stack.setCurrentWidget(self._empty_page)
+
+    def _build_asset_page(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+
+        asset_label = QLabel("Ассет")
+        asset_label.setStyleSheet("color: #858B93; font-size: 10px;")
+        layout.addWidget(asset_label)
+
+        self._asset_info = QLabel("—")
+        self._asset_info.setStyleSheet(
+            "color: #E5E5E5; font-size: 11px; "
+            "font-family: Consolas, monospace;"
+        )
+        self._asset_info.setWordWrap(True)
+        layout.addWidget(self._asset_info)
+
+        self._asset_warning = QLabel("")
+        self._asset_warning.setStyleSheet(
+            "color: #D0021B; font-size: 10px; padding-top: 2px;"
+        )
+        self._asset_warning.setWordWrap(True)
+        self._asset_warning.hide()
+        layout.addWidget(self._asset_warning)
+
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setFrameShadow(QFrame.Shadow.Sunken)
+        sep.setStyleSheet("color: #2A2D33; margin: 4px 0;")
+        layout.addWidget(sep)
+
+        form = QFormLayout()
+        form.setSpacing(6)
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+
+        self._ai_x_spin = self._make_float_spin(-10000.0, 10000.0)
+        self._ai_x_spin.valueChanged.connect(
+            lambda v: self._emit("x", float(v))
+        )
+        form.addRow("X, м", self._ai_x_spin)
+
+        self._ai_y_spin = self._make_float_spin(-10000.0, 10000.0)
+        self._ai_y_spin.valueChanged.connect(
+            lambda v: self._emit("y", float(v))
+        )
+        form.addRow("Y, м", self._ai_y_spin)
+
+        self._ai_rot_spin = self._make_float_spin(-360.0, 360.0)
+        self._ai_rot_spin.setSingleStep(5.0)
+        self._ai_rot_spin.setKeyboardTracking(True)
+        self._ai_rot_spin.setKeyboardTracking(True)
+        self._ai_rot_spin.valueChanged.connect(
+            lambda v: self._emit("rotation", float(v))
+        )
+        form.addRow("Поворот, °", self._ai_rot_spin)
+
+        self._ai_scale_spin = self._make_float_spin(0.1, 10.0)
+        self._ai_scale_spin.setDecimals(2)
+        self._ai_scale_spin.setSingleStep(0.1)
+        self._ai_scale_spin.setKeyboardTracking(True)
+        self._ai_scale_spin.setKeyboardTracking(True)
+        self._ai_scale_spin.valueChanged.connect(
+            lambda v: self._emit("scale", float(v))
+        )
+        form.addRow("Масштаб", self._ai_scale_spin)
+
+        self._ai_floor_spin = QSpinBox()
+        self._ai_floor_spin.setRange(-5, 100)
+        self._ai_floor_spin.setStyleSheet(_field_style())
+        self._ai_floor_spin.setKeyboardTracking(False)
+        self._ai_floor_spin.valueChanged.connect(
+            lambda v: self._emit("floor", int(v))
+        )
+        form.addRow("Этаж", self._ai_floor_spin)
+
+        layout.addLayout(form)
+        layout.addStretch()
+        return page
+
+    def _show_asset_instance(self, instance) -> None:
+        self._current_room = None
+        self._current_asset_instance = instance
+
+        self._set_signals_enabled(False)
+        try:
+            self._asset_info.setText(f"ID: {instance.asset_id}")
+            self._asset_warning.hide()
+
+            self._ai_x_spin.setValue(instance.x)
+            self._ai_y_spin.setValue(instance.y)
+            self._ai_rot_spin.setValue(instance.rotation)
+            self._ai_scale_spin.setValue(instance.scale)
+            self._ai_floor_spin.setValue(instance.floor)
+        finally:
+            self._set_signals_enabled(True)
+
+        self._stack.setCurrentWidget(self._asset_page)
 
     def show_element(self, element) -> None:
         if isinstance(element, Room):
             self._show_room(element)
+        elif isinstance(element, AssetInstance):
+            self._show_asset_instance(element)
         else:
             self.show_empty()
 
@@ -220,7 +327,7 @@ class PropertiesPanel(QWidget):
         self._stack.setCurrentWidget(self._room_page)
 
     def _emit(self, field: str, value) -> None:
-        if self._current_room is None:
+        if self._current_room is None and self._current_asset_instance is None:
             return
         self.field_changed.emit(field, value)
 
@@ -254,6 +361,11 @@ class PropertiesPanel(QWidget):
             self._d_spin,
             self._h_spin,
             self._floor_spin,
+            self._ai_x_spin,
+            self._ai_y_spin,
+            self._ai_rot_spin,
+            self._ai_scale_spin,
+            self._ai_floor_spin,
         )
         for w in widgets:
             w.blockSignals(not enabled)
