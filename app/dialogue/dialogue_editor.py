@@ -146,6 +146,12 @@ class DialogueEditorWindow(QMainWindow):
         act_preview.triggered.connect(self.preview_current)
         toolbar.addAction(act_preview)
 
+        toolbar.addSeparator()
+
+        act_chars = QAction("Персонажи…", self)
+        act_chars.triggered.connect(self.open_characters_dialog)
+        toolbar.addAction(act_chars)
+
         # Zoom fit и Найти перенесены в floating toolbar внизу canvas
 
         # Центральный виджет
@@ -433,6 +439,39 @@ class DialogueEditorWindow(QMainWindow):
             parent=self,
         )
         dlg.exec()
+
+    def open_characters_dialog(self):
+        """Открывает диалог управления персонажами проекта."""
+        from .view import CharactersDialog
+
+        dlg = CharactersDialog(
+            project_data=self.project_data,
+            project_folder=self.project_folder,
+            parent=self,
+        )
+
+        dlg.project_data_changed.connect(
+            self._on_project_data_changed
+        )
+
+        dlg.exec()
+
+    def _on_project_data_changed(self):
+        """ProjectData изменился — обновить Inspector."""
+        # Перечитываем с диска (чтобы иметь актуальные данные)
+        try:
+            from .io import load_project_data
+            self.project_data = load_project_data(self.project_folder)
+            self.inspector.set_project_data(self.project_data)
+        except Exception:
+            pass
+
+        # Если выбран REPLY — перерисовать Inspector
+        # (dropdown персонажей обновится)
+        if self.inspector.current_node_id:
+            self.inspector.set_node(
+                self.inspector.current_node_id
+            )
 
     def _on_selection_changed(self):
         """Выделение в сцене → Inspector."""

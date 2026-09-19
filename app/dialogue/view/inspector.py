@@ -135,6 +135,15 @@ class DialogueInspector(QWidget):
     # READ-ONLY БЛОКИ (архитектурный контракт)
     # =========================================================
 
+    def _add_row(self, label_text, widget):
+        """Добавляет строку 'label + widget'."""
+        label = QLabel(label_text)
+        label.setStyleSheet(
+            "color: #858B93; font-size: 11px; padding-top: 4px;"
+        )
+        self.content_layout.addWidget(label)
+        self.content_layout.addWidget(widget)
+
     def _add_section_header(self, text):
         label = QLabel(text)
         label.setStyleSheet(
@@ -195,21 +204,36 @@ class DialogueInspector(QWidget):
         self.content_layout.addWidget(hint)
 
     def _build_option_info(self, opt):
-        """Read-only: condition / effects у ChoiceOption."""
+        """Read-only: conditions / effects у ChoiceOption."""
 
         parts = []
 
-        if opt.condition is not None:
-            parts.append(f"condition: {opt.condition}")
+        # conditions — dict | None
+        if opt.conditions is not None and isinstance(opt.conditions, dict):
+            items = opt.conditions.get("items", [])
+            logic = opt.conditions.get("logic", "AND")
+            if isinstance(items, list) and items:
+                n = len(items)
+                word = "условие" if n == 1 else "условий"
+                parts.append(f"conditions: {logic} · {n} {word}")
+            else:
+                parts.append(f"conditions: {logic} (пусто)")
 
+        # effects — list
         if opt.effects:
-            parts.append(f"effects: {len(opt.effects)}")
+            n = len(opt.effects)
+            word = "эффект" if n == 1 else "эффектов"
+            parts.append(f"effects: {n} {word}")
+
+        # is_default
+        if getattr(opt, "is_default", False):
+            parts.append("default")
 
         if parts:
             text = "  [i] " + " · ".join(parts)
             color = "#666"
         else:
-            text = "  [i] Condition / Effects - скоро"
+            text = "  [i] Condition / Effects — скоро"
             color = "#bbb"
 
         label = QLabel(text)
@@ -217,12 +241,6 @@ class DialogueInspector(QWidget):
             f"color: {color}; font-size: 10px; padding-left: 24px;"
         )
         return label
-
-    def _add_row(self, label_text, widget):
-        label = QLabel(label_text)
-        label.setStyleSheet("color: #666; font-size: 11px;")
-        self.content_layout.addWidget(label)
-        self.content_layout.addWidget(widget)
 
     def _show_placeholder(self):
         self._clear_content()
