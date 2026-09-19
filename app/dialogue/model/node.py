@@ -411,9 +411,99 @@ class EndNode(DialogueNode):
 # Заполняется после определения всех классов.
 # Используется в DialogueNode.from_dict().
 
+# =========================================================
+# JUMP / CALL_DIALOGUE (v3)
+# =========================================================
+#
+# JumpNode — безусловный переход к другому узлу ЭТОГО диалога.
+#   Не имеет output — переход идёт через target_node_id.
+#
+# CallDialogueNode — вызов другого диалога как подпрограммы.
+#   input → вызывает target_dialogue_id
+#   output → точка продолжения после завершения вызванного диалога.
+
+
+class JumpNode(DialogueNode):
+    """Узел безусловного перехода к другому узлу диалога."""
+
+    type = "jump"
+
+    def __init__(
+        self,
+        node_id,
+        target_node_id=None,
+        x=0.0,
+        y=0.0,
+    ):
+        super().__init__(node_id, x, y)
+        self.target_node_id = target_node_id
+
+    def get_input_ports(self):
+        return ["input"]
+
+    def get_output_ports(self):
+        return []
+
+    def to_dict(self):
+        data = super().to_dict()
+        data["target_node_id"] = self.target_node_id
+        return data
+
+    @classmethod
+    def _from_dict(cls, data):
+        return cls(
+            node_id=data["id"],
+            target_node_id=data.get("target_node_id"),
+            x=data.get("x", 0.0),
+            y=data.get("y", 0.0),
+        )
+
+
+class CallDialogueNode(DialogueNode):
+    """Узел вызова другого диалога как подпрограммы.
+
+    input   — управление приходит от предыдущего узла
+    output  — продолжение после того, как вызванный диалог завершится
+    """
+
+    type = "call_dialogue"
+
+    def __init__(
+        self,
+        node_id,
+        target_dialogue_id=None,
+        x=0.0,
+        y=0.0,
+    ):
+        super().__init__(node_id, x, y)
+        self.target_dialogue_id = target_dialogue_id
+
+    def get_input_ports(self):
+        return ["input"]
+
+    def get_output_ports(self):
+        return ["output"]
+
+    def to_dict(self):
+        data = super().to_dict()
+        data["target_dialogue_id"] = self.target_dialogue_id
+        return data
+
+    @classmethod
+    def _from_dict(cls, data):
+        return cls(
+            node_id=data["id"],
+            target_dialogue_id=data.get("target_dialogue_id"),
+            x=data.get("x", 0.0),
+            y=data.get("y", 0.0),
+        )
+
+
 NODE_TYPE_MAP = {
     "start": StartNode,
     "reply": ReplyNode,
     "choice": ChoiceNode,
     "end": EndNode,
+    "jump": JumpNode,
+    "call_dialogue": CallDialogueNode,
 }
