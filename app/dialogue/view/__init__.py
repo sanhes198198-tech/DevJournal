@@ -13,6 +13,7 @@ from .inspector import DialogueInspector
 from .validation_dialog import ValidationDialog
 from .preview_dialog import PreviewDialog
 from .characters_dialog import CharactersDialog
+from .variables_dialog import VariablesDialog
 
 
 __all__ = [

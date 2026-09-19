@@ -163,6 +163,10 @@ class DialogueEditorWindow(QMainWindow):
         act_chars.triggered.connect(self.open_characters_dialog)
         toolbar.addAction(act_chars)
 
+        act_vars = QAction("Переменные…", self)
+        act_vars.triggered.connect(self.open_variables_dialog)
+        toolbar.addAction(act_vars)
+
         act_migrate = QAction("Миграция…", self)
         act_migrate.triggered.connect(self.open_migration_dialog)
         toolbar.addAction(act_migrate)
@@ -664,6 +668,22 @@ class DialogueEditorWindow(QMainWindow):
     # =========================================================
     # ЗАКРЫТИЕ
     # =========================================================
+
+    def open_variables_dialog(self):
+        """Открывает диалог управления переменными и флагами."""
+        from .view import VariablesDialog
+
+        dlg = VariablesDialog(
+            project_data=self.project_data,
+            project_folder=self.project_folder,
+            parent=self,
+        )
+
+        dlg.project_data_changed.connect(
+            self._on_project_data_changed
+        )
+
+        dlg.exec()
 
     def open_migration_dialog(self):
         """Принудительный вызов миграции из тулбара."""
