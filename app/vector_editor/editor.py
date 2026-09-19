@@ -1,8 +1,10 @@
 """
-VectorEditor — QMainWindow для V2.
+VectorEditor — QMainWindow для V3.
 
-V2: extrude грани по нормали (фиксированные 2 м).
-Ctrl+Z — простая отмена (снапшот points перед каждой операцией).
+Возможности:
+  - V1: draw mode (Ctrl+N), add/remove/insert узлов
+  - V2: Extrude грани по нормали (Ctrl+E), Ctrl+Z
+  - V3: Сохранить контур как Asset (Ctrl+S)
 """
 
 from __future__ import annotations
@@ -16,31 +18,31 @@ from PySide6.QtWidgets import (
 )
 
 from .model.contour import VectorContour
+from .model.asset import Asset
+from .io import save_asset, StorageError
 from .view.scene import VectorScene
 from .view.canvas import VectorCanvas
 from .view.items.contour_item import ContourItem
 from .view.items.node_item import NodeItem
+from .view.save_asset_dialog import SaveAssetDialog
 
 
-# Фиксированное расстояние для тестового Extrude (метры)
 EXTRUDE_TEST_DISTANCE = 2.0
 
 
 class VectorEditor(QMainWindow):
-    """Окно векторного редактора (V2)."""
+    """Окно векторного редактора."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.setWindowTitle("Vector Architecture Editor — V2")
+        self.setWindowTitle("Vector Architecture Editor — V3")
         self.resize(1200, 800)
 
         self._scene = VectorScene(self)
         self._canvas = VectorCanvas(self._scene, self)
 
         self._counter = 0
-
-        # Стек undo: список (item, points_snapshot)
         self._undo_stack: list[tuple[ContourItem, list[tuple[float, float]]]] = []
 
         self.setCentralWidget(self._canvas)
@@ -50,7 +52,7 @@ class VectorEditor(QMainWindow):
         self._connect_signals()
 
         self.statusBar().showMessage(
-            "Ctrl+N — новый · клик по грани → Ctrl+E — Extrude · Ctrl+Z — отмена"
+            "Ctrl+N — новый · Ctrl+E — Extrude · Ctrl+S — сохранить как Asset"
         )
 
     # ============================================================
@@ -86,6 +88,13 @@ class VectorEditor(QMainWindow):
 
         tb.addSeparator()
 
+        act_save = QAction("Сохранить как Asset… (Ctrl+S)", self)
+        act_save.setShortcut(QKeySequence("Ctrl+S"))
+        act_save.triggered.connect(self._on_save_asset)
+        tb.addAction(act_save)
+
+        tb.addSeparator()
+
         act_reset = QAction("Сбросить вид", self)
         act_reset.setShortcut(QKeySequence("Ctrl+0"))
         act_reset.triggered.connect(self._canvas.reset_view)
@@ -101,7 +110,7 @@ class VectorEditor(QMainWindow):
     def _on_new_contour(self) -> None:
         self._canvas.set_tool("draw")
         self.statusBar().showMessage(
-            "ЛКМ — точка · клик по первой точке или Enter — замкнуть · Esc — отмена",
+            "ЛКМ — точка · клик по первой или Enter — замкнуть · Esc — отмена",
             8000,
         )
 
@@ -135,7 +144,6 @@ class VectorEditor(QMainWindow):
             )
             return
 
-        # Снапшот до операции
         snapshot = list(item.contour.points)
 
         ok = item.extrude_selected_face(EXTRUDE_TEST_DISTANCE)
@@ -147,6 +155,75 @@ class VectorEditor(QMainWindow):
         self.statusBar().showMessage(
             f"Extrude на {EXTRUDE_TEST_DISTANCE} м", 2000
         )
+
+    def _find_contour_with_selected_edge(self) -> ContourItem | None:
+        for it in self._scene.items():
+            if isinstance(it, ContourItem) and it.has_selected_edge():
+                return it
+        return None
+
+    # ============================================================
+    # SAVE AS ASSET
+    # ============================================================
+
+    def _on_save_asset(self) -> None:
+        item = self._find_selected_contour()
+        if item is None:
+            self.statusBar().showMessage(
+                "Выделите контур, чтобы сохранить как Asset", 3000
+            )
+            return
+
+        default_name = item.contour.name or f"Контур {self._counter}"
+
+        dlg = SaveAssetDialog(default_name=default_name, parent=self)
+        if dlg.exec() != SaveAssetDialog.DialogCode.Accepted:
+            return
+
+        asset = Asset.from_contour(
+            item.contour,
+            name=dlg.result_name,
+            type_=dlg.result_type,
+        )
+
+        try:
+            path_saved = save_asset(asset)
+        except StorageError as e:
+            self.statusBar().showMessage(
+                f"Ошибка сохранения: {e}", 5000
+            )
+            return
+
+        self.statusBar().showMessage(
+            f"Asset сохранён: {asset.name} → {path_saved.name}", 5000
+        )
+
+    def _find_selected_contour(self) -> ContourItem | None:
+        """Найти ContourItem.
+
+        Приоритет:
+          1. Выделенный ContourItem
+          2. Родитель выделенного NodeItem
+          3. Единственный в сцене
+        """
+        for it in self._scene.selectedItems():
+            if isinstance(it, ContourItem):
+                return it
+
+        for it in self._scene.selectedItems():
+            if isinstance(it, NodeItem):
+                parent = it.parentItem()
+                if isinstance(parent, ContourItem):
+                    return parent
+
+        contours = [
+            it for it in self._scene.items()
+            if isinstance(it, ContourItem)
+        ]
+        if len(contours) == 1:
+            return contours[0]
+
+        return None
 
     # ============================================================
     # UNDO
@@ -176,12 +253,6 @@ class VectorEditor(QMainWindow):
                 return
 
         super().keyPressEvent(event)
-
-    def _find_contour_with_selected_edge(self) -> ContourItem | None:
-        for it in self._scene.items():
-            if isinstance(it, ContourItem) and it.has_selected_edge():
-                return it
-        return None
 
     def _delete_selected_node(self) -> bool:
         node: NodeItem | None = None
