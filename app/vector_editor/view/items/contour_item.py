@@ -222,7 +222,8 @@ class ContourItem(QGraphicsObject):
         self._nodes.clear()
 
         for idx, (x, y) in enumerate(self._contour.points):
-            node = NodeItem(idx, x, y)
+            nid = self._contour.get_node_id(idx) or ""
+            node = NodeItem(idx, x, y, node_id=nid)
             node.setParentItem(self)
             node.node_moved.connect(self._on_node_moved)
             node.setVisible(self._editable)
@@ -231,6 +232,20 @@ class ContourItem(QGraphicsObject):
     # ============================================================
     # EVENTS
     # ============================================================
+
+    def highlight_nodes(self, node_ids: set[str] | list[str]) -> None:
+        """Подсветить узлы с указанными node_id.
+
+        Пустое множество → сбросить всю подсветку.
+        """
+        wanted = set(node_ids)
+        for node in self._nodes:
+            node.set_highlight(node.node_id in wanted)
+
+    def clear_highlight(self) -> None:
+        """Сбросить подсветку всех узлов."""
+        for node in self._nodes:
+            node.set_highlight(False)
 
     def _on_node_moved(self, idx: int, x: float, y: float) -> None:
         self._contour.set_point(idx, x, y)
@@ -357,7 +372,7 @@ class ContourItem(QGraphicsObject):
         if len(pts) <= 3:
             return
 
-        pts.pop(idx)
+        self._contour.remove_point(idx)
         self._selected_edge_idx = None
         self._rebuild_nodes()
         self._rebuild_path()
@@ -377,7 +392,7 @@ class ContourItem(QGraphicsObject):
         x = p1[0] + t * (p2[0] - p1[0])
         y = p1[1] + t * (p2[1] - p1[1])
 
-        pts.insert(seg_idx + 1, (x, y))
+        self._contour.insert_point(seg_idx + 1, x, y)
         self._selected_edge_idx = None
         self._rebuild_nodes()
         self._rebuild_path()

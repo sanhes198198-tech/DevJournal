@@ -13,6 +13,7 @@ import uuid
 from typing import Any
 
 from .contour import VectorContour
+from .semantic_group import SemanticGroup
 
 
 # ============================================================
@@ -48,6 +49,7 @@ class Asset:
         name: str = "Новый ассет",
         type_: str = "other",
         geometry: dict | None = None,
+        semantic_groups: dict | None = None,
         parameters: dict | None = None,
         generation_rules: dict | None = None,
     ):
@@ -55,6 +57,7 @@ class Asset:
         self.name = name
         self.type = type_ if type_ in ASSET_TYPE_IDS else "other"
         self.geometry = geometry or self._empty_geometry()
+        self.semantic_groups: dict[str, SemanticGroup] = semantic_groups or {}
         self.parameters = parameters or {}
         self.generation_rules = generation_rules or self._default_rules()
 
@@ -101,7 +104,11 @@ class Asset:
         points = list(contour.points)
         n = len(points)
 
-        node_ids = [f"n_{i:03d}" for i in range(n)]
+        # Используем node_ids из контура, если они есть и совпадают
+        # по длине. Иначе — генерируем заново.
+        node_ids = list(contour.node_ids)
+        if len(node_ids) != n:
+            node_ids = [f"n_{i:03d}" for i in range(n)]
 
         groups: dict[str, list[str]] = {}
         if n >= 2:
@@ -136,17 +143,31 @@ class Asset:
             "name": self.name,
             "type": self.type,
             "geometry": self.geometry,
+            "semantic_groups": {
+                gid: g.to_dict()
+                for gid, g in self.semantic_groups.items()
+            },
             "parameters": self.parameters,
             "generation_rules": self.generation_rules,
         }
 
     @classmethod
     def from_dict(cls, d: dict) -> "Asset":
+        groups_raw = d.get("semantic_groups") or {}
+        groups: dict[str, SemanticGroup] = {}
+        for gid, gdict in groups_raw.items():
+            try:
+                groups[gid] = SemanticGroup.from_dict(gdict)
+            except Exception:
+                # Битая группа — пропускаем, не ломаем весь Asset
+                continue
+
         return cls(
             asset_id=d.get("id"),
             name=d.get("name", "Новый ассет"),
             type_=d.get("type", "other"),
             geometry=d.get("geometry") or cls._empty_geometry(),
+            semantic_groups=groups,
             parameters=d.get("parameters") or {},
             generation_rules=d.get("generation_rules") or cls._default_rules(),
         )
@@ -166,3 +187,45 @@ class Asset:
 
     def group_count(self) -> int:
         return len(self.geometry.get("groups", {}))
+
+    # ------------------------------------------------------------
+    # SEMANTIC GROUPS
+    # ------------------------------------------------------------
+
+    def add_semantic_group(self, group: SemanticGroup) -> None:
+        self.semantic_groups[group.id] = group
+
+    def remove_semantic_group(self, group_id: str) -> SemanticGroup | None:
+        return self.semantic_groups.pop(group_id, None)
+
+    def get_semantic_group(self, group_id: str) -> SemanticGroup | None:
+        return self.semantic_groups.get(group_id)
+
+    def find_groups_by_node(self, node_id: str) -> list[SemanticGroup]:
+        """Все группы, содержащие данный узел."""
+        return [
+            g for g in self.semantic_groups.values()
+            if g.contains(node_id)
+        ]
+
+    def get_group_edges(self, group_id: str) -> list[str]:
+        """id рёбер, оба конца которых лежат в группе.
+
+        Использует geometry.groups (edge_xxx → [n_a, n_b]).
+        """
+        group = self.semantic_groups.get(group_id)
+        if group is None:
+            return []
+
+        edges_map = self.geometry.get("groups", {})
+        result = []
+        for edge_id, edge_nodes in edges_map.items():
+            if len(edge_nodes) != 2:
+                continue
+            a, b = edge_nodes
+            if group.contains(a) and group.contains(b):
+                result.append(edge_id)
+        return result
+
+    def semantic_group_count(self) -> int:
+        return len(self.semantic_groups)

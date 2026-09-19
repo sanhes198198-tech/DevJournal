@@ -10,6 +10,7 @@ from .asset import (
     ASSET_TYPES,
     ASSET_TYPE_IDS,
 )
+from .semantic_group import SemanticGroup
 
 __all__ = [
     "VectorContour",
@@ -18,4 +19,5 @@ __all__ = [
     "Asset",
     "ASSET_TYPES",
     "ASSET_TYPE_IDS",
+    "SemanticGroup",
 ]
