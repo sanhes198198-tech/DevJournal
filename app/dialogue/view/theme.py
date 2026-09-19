@@ -21,20 +21,24 @@ TEXT_PRIMARY   = "#E5E5E5"
 TEXT_SECONDARY = "#858B93"
 TEXT_DIM       = "#5A5F68"
 
-ACCENT_START   = "#7ED321"
-ACCENT_REPLY   = "#4A90E2"
-ACCENT_CHOICE  = "#F5A623"
-ACCENT_END     = "#B85C63"
+ACCENT_START    = "#7ED321"
+ACCENT_REPLY    = "#4A90E2"
+ACCENT_CHOICE   = "#F5A623"
+ACCENT_END      = "#B85C63"
+ACCENT_JUMP     = "#9B59B6"
+ACCENT_CALL     = "#17A2B8"
 
 CONN_NORMAL    = "#3A3F48"
 CONN_HOVER     = "#4A90E2"
 CONN_SELECT    = "#4A90E2"
 
 ACCENT_BY_TYPE = {
-    "start":  ACCENT_START,
-    "reply":  ACCENT_REPLY,
-    "choice": ACCENT_CHOICE,
-    "end":    ACCENT_END,
+    "start":         ACCENT_START,
+    "reply":         ACCENT_REPLY,
+    "choice":        ACCENT_CHOICE,
+    "end":           ACCENT_END,
+    "jump":          ACCENT_JUMP,
+    "call_dialogue": ACCENT_CALL,
 }
 
 

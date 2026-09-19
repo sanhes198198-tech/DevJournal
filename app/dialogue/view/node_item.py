@@ -268,6 +268,8 @@ class DialogueNodeItem(QGraphicsItem):
             "reply": "REPLY",
             "choice": "CHOICE",
             "end": "END",
+            "jump": "JUMP",
+            "call_dialogue": "CALL DIALOGUE",
         }.get(self.node_type, self.node_type.upper())
 
         # Для reply — добавляем имя персонажа
@@ -305,6 +307,20 @@ class DialogueNodeItem(QGraphicsItem):
 
         if self.node_type == "end":
             return "Конец диалога"
+
+
+
+        if self.node_type == "jump":
+            target = getattr(self.model_node, "target_node_id", None)
+            if target:
+                return f"→ узел {target}"
+            return "→ (не задан)"
+
+        if self.node_type == "call_dialogue":
+            target = getattr(self.model_node, "target_dialogue_id", None)
+            if target:
+                return f"→ диалог: {target}"
+            return "→ (не задан)"
 
         return ""
 
