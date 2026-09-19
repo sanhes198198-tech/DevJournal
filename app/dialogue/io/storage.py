@@ -58,6 +58,107 @@ def get_index_path(project_folder):
 # =========================================================
 
 # =========================================================
+# SLUGIFY / SPEAKER MAP (для миграции v2 → v3)
+# =========================================================
+
+# Транслит кириллицы → латиница (lowercase)
+_TRANSLIT = {
+    "а": "a", "б": "b", "в": "v", "г": "g", "д": "d",
+    "е": "e", "ё": "e", "ж": "zh", "з": "z", "и": "i",
+    "й": "y", "к": "k", "л": "l", "м": "m", "н": "n",
+    "о": "o", "п": "p", "р": "r", "с": "s", "т": "t",
+    "у": "u", "ф": "f", "х": "h", "ц": "ts", "ч": "ch",
+    "ш": "sh", "щ": "shch", "ъ": "", "ы": "y", "ь": "",
+    "э": "e", "ю": "yu", "я": "ya",
+}
+
+
+def _slugify(name):
+    """
+    Превращает имя в slug (детерминированно).
+
+    "Василиса"            -> "vasilisa"
+    "Василиса Омутинская" -> "vasilisa_omutinskaya"
+    "Foo Bar"             -> "foo_bar"
+    """
+    if not name:
+        return ""
+
+    name = str(name).strip().lower()
+
+    chars = []
+    for ch in name:
+        if ch in _TRANSLIT:
+            chars.append(_TRANSLIT[ch])
+        elif ch.isalnum() and ord(ch) < 128:
+            chars.append(ch)
+        else:
+            chars.append("_")
+
+    slug = "".join(chars)
+
+    # Схлопнуть множественные underscore
+    while "__" in slug:
+        slug = slug.replace("__", "_")
+
+    slug = slug.strip("_")
+    return slug
+
+
+def build_speaker_map(speaker_names):
+    """
+    Строит детерминированный map {raw_name: slug}.
+
+    Правила:
+      - Регистр НЕ создаёт нового персонажа
+        ("Василиса" и "василиса" → один slug)
+      - Уникализация коллизий: "foo_bar" → "foo_bar_2"
+      - Детерминированный порядок (сортировка)
+
+    Возвращает dict: {raw_name: slug}
+    """
+    if not speaker_names:
+        return {}
+
+    # Группировка по lower() (case-insensitive)
+    groups = {}
+    for name in speaker_names:
+        if not isinstance(name, str):
+            continue
+        key = name.strip().lower()
+        if not key:
+            continue
+        groups.setdefault(key, []).append(name)
+
+    # Сортируем группы для детерминизма
+    sorted_groups = sorted(groups.items())
+
+    result = {}
+    used_slugs = set()
+
+    for key, raws in sorted_groups:
+        # Канонический вид — первая (по алфавиту) в группе
+        canonical = sorted(raws)[0]
+        base_slug = _slugify(canonical)
+
+        if not base_slug:
+            base_slug = "unnamed"
+
+        slug = base_slug
+        counter = 2
+        while slug in used_slugs:
+            slug = f"{base_slug}_{counter}"
+            counter += 1
+
+        used_slugs.add(slug)
+
+        for raw in raws:
+            result[raw] = slug
+
+    return result
+
+
+# =========================================================
 # МИГРАЦИИ ФОРМАТА
 # =========================================================
 
@@ -103,6 +204,82 @@ def _migrate_v1_to_v2(dialogue_data):
         elif ntype == "end":
             node.setdefault("outcome", "end")
             node.setdefault("target_dialogue_id", None)
+
+    return dialogue_data
+
+
+def _migrate_v2_to_v3(dialogue_data, speaker_map=None):
+    """
+    Миграция одного dialogue JSON: v2 -> v3.
+
+    Что меняется:
+      - ReplyNode.speaker -> speaker_id
+      - EndNode.outcome -> outcome_type
+      - EndNode + outcome_id
+      - ChoiceOption.condition -> conditions
+      - ChoiceOption + is_default
+      - Dialogue + tags
+      - Dialogue + entry_conditions
+
+    speaker_map — опциональный {raw_name: slug}.
+    Если имя не найдено — slugify на месте.
+
+    НЕ трогает: id, connections, порты, координаты.
+    Возвращает изменённый dialogue_data (тот же объект).
+    """
+    if not isinstance(dialogue_data, dict):
+        return dialogue_data
+
+    speaker_map = speaker_map or {}
+
+    # --- Dialogue level ---
+    dialogue_data.setdefault("tags", [])
+    dialogue_data.setdefault("entry_conditions", None)
+
+    nodes = dialogue_data.get("nodes", [])
+    if not isinstance(nodes, list):
+        return dialogue_data
+
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+
+        ntype = node.get("type")
+
+        if ntype == "reply":
+            old_speaker = node.pop("speaker", "")
+            if "speaker_id" not in node:
+                if old_speaker in speaker_map:
+                    node["speaker_id"] = speaker_map[old_speaker]
+                elif old_speaker:
+                    node["speaker_id"] = _slugify(old_speaker)
+                else:
+                    node["speaker_id"] = ""
+
+        elif ntype == "choice":
+            options = node.get("options", [])
+            if not isinstance(options, list):
+                continue
+            for opt in options:
+                if not isinstance(opt, dict):
+                    continue
+
+                # condition -> conditions
+                if "conditions" not in opt:
+                    opt.pop("condition", None)
+                    opt["conditions"] = None
+
+                opt.setdefault("is_default", False)
+
+        elif ntype == "end":
+            old_outcome = node.pop("outcome", "end")
+            if "outcome_type" not in node:
+                if old_outcome == "dialogue":
+                    node["outcome_type"] = "start_dialogue"
+                else:
+                    node["outcome_type"] = "return_to_game"
+
+            node.setdefault("outcome_id", None)
 
     return dialogue_data
 
