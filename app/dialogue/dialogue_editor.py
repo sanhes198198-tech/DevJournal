@@ -100,7 +100,10 @@ class DialogueEditorWindow(QMainWindow):
 
         # Проверка миграции v2 -> v3 — отложенно,
         # чтобы окно редактора уже было показано.
-        QTimer.singleShot(100, self._check_migration)
+        QTimer.singleShot(
+            100,
+            lambda: self._run_migration_check(force=False),
+        )
 
     def _apply_theme(self):
         import os
@@ -159,6 +162,10 @@ class DialogueEditorWindow(QMainWindow):
         act_chars = QAction("Персонажи…", self)
         act_chars.triggered.connect(self.open_characters_dialog)
         toolbar.addAction(act_chars)
+
+        act_migrate = QAction("Миграция…", self)
+        act_migrate.triggered.connect(self.open_migration_dialog)
+        toolbar.addAction(act_migrate)
 
         # Zoom fit и Найти перенесены в floating toolbar внизу canvas
 
@@ -658,17 +665,40 @@ class DialogueEditorWindow(QMainWindow):
     # ЗАКРЫТИЕ
     # =========================================================
 
-    def _check_migration(self):
-        """Проверяет, есть ли v2-диалоги. Спрашивает про миграцию."""
+    def open_migration_dialog(self):
+        """Принудительный вызов миграции из тулбара."""
+        self._run_migration_check(force=True)
+
+    def _run_migration_check(self, force=False):
+        """
+        Проверяет, есть ли v2-диалоги. Спрашивает про миграцию.
+
+        force=True — вызвано вручную (показываем даже если всё v3).
+        force=False — автопроверка при открытии.
+        """
         try:
             report = plan_project_v2_to_v3_migration(
                 self.project_folder
             )
-        except Exception:
+        except Exception as e:
+            if force:
+                QMessageBox.warning(
+                    self,
+                    "Миграция",
+                    f"Не удалось проанализировать проект: {e!r}",
+                )
             return
 
         v2_count = len(report.get("v2_dialogues", []))
+
         if v2_count == 0:
+            if force:
+                QMessageBox.information(
+                    self,
+                    "Миграция",
+                    "Все диалоги уже в актуальном формате (v3).\n"
+                    "Миграция не требуется.",
+                )
             return
 
         # Есть ошибки — не мигрируем автоматически, сообщаем
