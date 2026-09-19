@@ -162,46 +162,62 @@ class ChoiceOption:
         option_id,
         text="",
         order=0,
-        condition=None,
+        conditions=None,
         effects=None,
+        is_default=False,
     ):
         self.id = option_id
         self.text = text
         self.order = int(order)
 
-        # Архитектурный контракт:
-        # condition и effects существуют, но MVP их не интерпретирует.
-        # condition: object | None — структура условия (задел)
-        # effects: list — упорядоченный список игровых операций (задел)
-        self.condition = condition
+        # Архитектурный контракт v3:
+        #   conditions = None | {"logic": "AND"|"OR", "items": [Condition...]}
+        #   effects = [Effect...]
+        #   is_default — fallback вариант, если остальные недоступны
+        self.conditions = conditions
         self.effects = list(effects) if effects else []
+        self.is_default = bool(is_default)
 
     def to_dict(self):
         return {
             "id": self.id,
             "text": self.text,
             "order": self.order,
-            "condition": self.condition,
+            "conditions": self.conditions,
             "effects": list(self.effects),
+            "is_default": self.is_default,
         }
 
     @classmethod
     def from_dict(cls, data):
         # Проверка типов для известных полей (forward compat с защитой)
         effects_raw = data.get("effects", [])
-
         if effects_raw is None:
             effects_raw = []
         elif not isinstance(effects_raw, list):
-            # Некорректный формат — сбрасываем в пустой список
             effects_raw = []
+
+        # conditions: приоритет v3, fallback на v2 (condition)
+        conditions = data.get("conditions")
+        if conditions is None and "condition" in data:
+            old_cond = data.get("condition")
+            # v2 condition=None → v3 conditions=None
+            # v2 condition=<dict> → v3 conditions=<dict>
+            conditions = old_cond
+
+        # Защита: если conditions пришёл не dict и не None — сбрасываем
+        if conditions is not None and not isinstance(conditions, dict):
+            conditions = None
+
+        is_default = bool(data.get("is_default", False))
 
         return cls(
             option_id=data["id"],
             text=data.get("text", ""),
             order=data.get("order", 0),
-            condition=data.get("condition"),
+            conditions=conditions,
             effects=effects_raw,
+            is_default=is_default,
         )
 
     def __repr__(self):
