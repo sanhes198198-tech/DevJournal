@@ -7,9 +7,6 @@ Room — комната/помещение.
     width  → вправо (+X)
     depth  → вверх  (+Y)
     height → вверх  (+Z), для будущих проекций
-
-Модель не накладывает жёстких ограничений на размеры.
-Проверка — через validate(). UI может накладывать строже.
 """
 
 from __future__ import annotations
@@ -27,6 +24,7 @@ class Room(ArchElement):
         id: str | None = None,
         floor: int = 1,
         notes: str = "",
+        preset_id: str | None = None,
         name: str = "Комната",
         x: float = 0.0,
         y: float = 0.0,
@@ -34,7 +32,12 @@ class Room(ArchElement):
         depth: float = 5.0,
         height: float = 3.0,
     ):
-        super().__init__(id=id, floor=floor, notes=notes)
+        super().__init__(
+            id=id,
+            floor=floor,
+            notes=notes,
+            preset_id=preset_id,
+        )
 
         self.name = name
         self.x = float(x)
@@ -63,6 +66,7 @@ class Room(ArchElement):
             id=d["id"],
             floor=d.get("floor", 1),
             notes=d.get("notes", ""),
+            preset_id=d.get("preset_id"),
             name=d.get("name", "Комната"),
             x=float(d.get("x", 0.0)),
             y=float(d.get("y", 0.0)),
@@ -74,11 +78,6 @@ class Room(ArchElement):
     # --- валидация ---
 
     def validate(self) -> list[str]:
-        """Список ошибок. Пустой = ОК.
-
-        Модельные ограничения минимальны:
-        положительная геометрия. UI может быть строже.
-        """
         errors: list[str] = []
         if self.width <= 0:
             errors.append("width must be > 0")

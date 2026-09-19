@@ -2,6 +2,10 @@
 ArchElement — базовый архитектурный элемент.
 
 Чистые данные. Без Qt.
+
+preset_id — необязательная ссылка на пресет, из которого создан
+элемент. Используется только для истории создания, не влияет
+на поведение. Все параметры instance хранит сам.
 """
 
 from __future__ import annotations
@@ -20,10 +24,12 @@ class ArchElement:
         id: str | None = None,
         floor: int = 1,
         notes: str = "",
+        preset_id: str | None = None,
     ):
         self.id = id or self._generate_id()
         self.floor = floor
         self.notes = notes
+        self.preset_id = preset_id
 
     # --- helpers ---
 
@@ -34,25 +40,24 @@ class ArchElement:
     # --- сериализация ---
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "id": self.id,
             "type": self.type,
             "floor": self.floor,
             "notes": self.notes,
         }
+        if self.preset_id:
+            d["preset_id"] = self.preset_id
+        return d
 
     @classmethod
     def from_dict(cls, d: dict) -> "ArchElement":
-        """Базовая реализация.
-
-        Наследники переопределяют и вызывают свои поля.
-        """
         return cls(
             id=d["id"],
             floor=d.get("floor", 1),
             notes=d.get("notes", ""),
+            preset_id=d.get("preset_id"),
         )
 
     def copy(self) -> "ArchElement":
-        """Независимая копия. Для undo/redo."""
         return type(self).from_dict(self.to_dict())

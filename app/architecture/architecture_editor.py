@@ -200,6 +200,9 @@ class ArchitectureEditor(QMainWindow):
         self._canvas.create_requested.connect(
             self._on_create_requested
         )
+        self._palette.preset_requested.connect(
+            self._on_preset_requested
+        )
         self._mode_tabs.mode_changed.connect(
             self._on_mode_changed
         )
@@ -281,6 +284,68 @@ class ArchitectureEditor(QMainWindow):
 
         self.statusBar().showMessage(
             f"Создано: {name}", 2000
+        )
+
+    def _on_preset_requested(self, preset_id: str) -> None:
+        """Создание элемента из пресета в центре viewport."""
+        from .presets import get_registry
+        from .view.coords import scene_pos_to_model
+
+        registry = get_registry()
+        preset = registry.get(preset_id)
+        if preset is None:
+            self.statusBar().showMessage(
+                f"Пресет не найден: {preset_id}", 3000
+            )
+            return
+
+        if preset.type != "room":
+            self.statusBar().showMessage(
+                f"Тип «{preset.type}» пока не поддерживается", 3000
+            )
+            return
+
+        # Центр видимой области
+        vp_center = self._canvas.viewport().rect().center()
+        scene_center = self._canvas.mapToScene(vp_center)
+        mx, my = scene_pos_to_model(
+            scene_center.x(), scene_center.y()
+        )
+
+        # Размеры из пресета
+        defaults = preset.defaults
+        w = float(defaults.get("width", 5.0))
+        d = float(defaults.get("depth", 5.0))
+        h = float(defaults.get("height", 3.0))
+
+        # Смещаем, чтобы центр объекта попал в центр viewport
+        mx -= w / 2.0
+        my -= d / 2.0
+
+        # Округление до 0.1
+        mx = round(mx, 1)
+        my = round(my, 1)
+
+        room = Room(
+            name=preset.name,
+            x=mx,
+            y=my,
+            width=w,
+            depth=d,
+            height=h,
+            preset_id=preset.id,
+        )
+
+        self._document.add_element(room)
+
+        # Выделить созданную
+        item = self._scene.item_for(room.id)
+        if item is not None:
+            self._scene.clearSelection()
+            item.setSelected(True)
+
+        self.statusBar().showMessage(
+            f"Создано: {preset.name}", 2000
         )
 
     def _next_room_name(self) -> str:

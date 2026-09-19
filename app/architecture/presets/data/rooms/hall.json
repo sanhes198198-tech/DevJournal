@@ -1,0 +1,11 @@
+{
+  "id": "room_hall",
+  "type": "room",
+  "name": "Тронный зал",
+  "category": "rooms",
+  "defaults": {
+    "width": 12.0,
+    "depth": 18.0,
+    "height": 6.0
+  }
+}

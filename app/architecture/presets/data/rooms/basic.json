@@ -1,0 +1,11 @@
+{
+  "id": "room_basic",
+  "type": "room",
+  "name": "Базовая комната",
+  "category": "rooms",
+  "defaults": {
+    "width": 5.0,
+    "depth": 5.0,
+    "height": 3.0
+  }
+}

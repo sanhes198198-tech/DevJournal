@@ -1,0 +1,11 @@
+{
+  "id": "room_corridor",
+  "type": "room",
+  "name": "Коридор",
+  "category": "rooms",
+  "defaults": {
+    "width": 3.0,
+    "depth": 18.0,
+    "height": 3.0
+  }
+}
