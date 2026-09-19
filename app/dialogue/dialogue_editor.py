@@ -138,19 +138,7 @@ class DialogueEditorWindow(QMainWindow):
         act_preview.triggered.connect(self.preview_current)
         toolbar.addAction(act_preview)
 
-        toolbar.addSeparator()
-
-        act_fit = QAction("Zoom fit", self)
-        act_fit.triggered.connect(
-            lambda: self.view.zoom_to_fit()
-        )
-        toolbar.addAction(act_fit)
-
-        act_find = QAction("Найти", self)
-        act_find.triggered.connect(
-            lambda: self.view.find_node_dialog()
-        )
-        toolbar.addAction(act_find)
+        # Zoom fit и Найти перенесены в floating toolbar внизу canvas
 
         # Центральный виджет
         central = QWidget()

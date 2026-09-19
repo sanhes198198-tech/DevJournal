@@ -13,6 +13,7 @@ from PySide6.QtGui import QPainter, QShortcut, QKeySequence
 from PySide6.QtWidgets import QGraphicsView, QFrame, QInputDialog, QMessageBox
 
 from .scene import DialogueScene
+from .floating_toolbar import FloatingToolbar
 
 
 class DialogueView(QGraphicsView):
@@ -80,6 +81,9 @@ class DialogueView(QGraphicsView):
         # Ctrl+C / Ctrl+X / Ctrl+V — копирование/вырезание/вставка
         self._setup_clipboard_shortcuts()
 
+        # Плавающий toolbar внизу справа
+        self._setup_floating_toolbar()
+
         # Ctrl+0 и Ctrl+F настраиваются в DialogueEditorWindow,
         # чтобы не конфликтовать с QShortcut главного окна DevJournal
 
@@ -106,6 +110,43 @@ class DialogueView(QGraphicsView):
         dup = getattr(scene, "duplicate_selected", None)
         if callable(dup):
             dup()
+
+    def _setup_floating_toolbar(self):
+        """Создаёт плавающий toolbar и подключает кнопки."""
+        self._floating_toolbar = FloatingToolbar(self)
+
+        self._floating_toolbar.btn_zoom_out.clicked.connect(
+            self.zoom_out
+        )
+        self._floating_toolbar.btn_zoom_in.clicked.connect(
+            self.zoom_in
+        )
+        self._floating_toolbar.btn_zoom_fit.clicked.connect(
+            self.zoom_to_fit
+        )
+        self._floating_toolbar.btn_find.clicked.connect(
+            self.find_node_dialog
+        )
+
+        self._floating_toolbar.raise_()
+        self._position_floating_toolbar()
+
+    def _position_floating_toolbar(self):
+        """Ставит toolbar в правый-нижний угол."""
+        tb = getattr(self, "_floating_toolbar", None)
+        if tb is None:
+            return
+
+        tb.adjustSize()
+        margin = 16
+        x = self.width() - tb.width() - margin
+        y = self.height() - tb.height() - margin
+        tb.move(x, y)
+        tb.raise_()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._position_floating_toolbar()
 
     def _setup_clipboard_shortcuts(self):
         """QShortcut для Ctrl+C / Ctrl+X / Ctrl+V."""
