@@ -25,8 +25,24 @@ class PreviewDialog(QDialog):
         self.setWindowTitle("Предпросмотр диалога")
         self.resize(700, 500)
 
+        self._apply_theme()
+
         self._build_ui()
         self._start()
+
+    def _apply_theme(self):
+        """Применяет тёмную тему к окну."""
+        import os
+        qss_path = os.path.join(
+            os.path.dirname(__file__),
+            "theme.qss",
+        )
+        try:
+            with open(qss_path, "r", encoding="utf-8") as f:
+                qss = f.read()
+            self.setStyleSheet(qss)
+        except Exception:
+            pass
 
     def _build_ui(self):
         self.outer = QVBoxLayout(self)
@@ -35,7 +51,7 @@ class PreviewDialog(QDialog):
 
         top = QWidget()
         top.setStyleSheet(
-            "background: #F5F5F0; border-bottom: 1px solid #DCDCD7;"
+            "background: #17191C; border-bottom: 1px solid #2A2D33;"
         )
         top_layout = QHBoxLayout(top)
         top_layout.setContentsMargins(16, 8, 16, 8)
@@ -44,19 +60,21 @@ class PreviewDialog(QDialog):
             "Предпросмотр: " + (self.dialogue.name or "Диалог")
         )
         self.title_label.setStyleSheet(
-            "font-weight: 600; font-size: 13px; color: #333;"
+            "font-weight: 600; font-size: 13px; color: #E5E5E5;"
         )
         top_layout.addWidget(self.title_label)
         top_layout.addStretch()
 
         btn_restart = QPushButton("Сначала")
+        btn_restart.setAutoDefault(False)
+        btn_restart.setDefault(False)
         btn_restart.clicked.connect(self._start)
         top_layout.addWidget(btn_restart)
 
         self.outer.addWidget(top)
 
         center = QWidget()
-        center.setStyleSheet("background: #FFFFFF;")
+        center.setStyleSheet("background: #111214;")
 
         self.center_layout = QVBoxLayout(center)
         self.center_layout.setContentsMargins(40, 30, 40, 30)
@@ -71,7 +89,7 @@ class PreviewDialog(QDialog):
 
         self.body_label = QLabel()
         self.body_label.setStyleSheet(
-            "font-size: 14px; color: #222;"
+            "font-size: 14px; color: #E5E5E5;"
         )
         self.body_label.setWordWrap(True)
         self.center_layout.addWidget(self.body_label)
@@ -88,19 +106,21 @@ class PreviewDialog(QDialog):
 
         bottom = QWidget()
         bottom.setStyleSheet(
-            "background: #F5F5F0; border-top: 1px solid #DCDCD7;"
+            "background: #17191C; border-top: 1px solid #2A2D33;"
         )
         bottom_layout = QHBoxLayout(bottom)
         bottom_layout.setContentsMargins(16, 6, 16, 6)
 
         self.status_label = QLabel("")
         self.status_label.setStyleSheet(
-            "color: #888; font-size: 11px;"
+            "color: #858B93; font-size: 11px;"
         )
         bottom_layout.addWidget(self.status_label)
         bottom_layout.addStretch()
 
         btn_close = QPushButton("Закрыть")
+        btn_close.setAutoDefault(False)
+        btn_close.setDefault(False)
         btn_close.clicked.connect(self.accept)
         bottom_layout.addWidget(btn_close)
 
@@ -161,11 +181,13 @@ class PreviewDialog(QDialog):
         self.speaker_label.setText(speaker)
 
         self.body_label.setStyleSheet(
-            "font-size: 14px; color: #222;"
+            "font-size: 14px; color: #E5E5E5;"
         )
         self.body_label.setText(text)
 
         btn = QPushButton("Далее  ->")
+        btn.setAutoDefault(False)
+        btn.setDefault(False)
         btn.setMinimumHeight(36)
         btn.setStyleSheet(
             "font-weight: 600; background: #4A90E2; "
@@ -242,11 +264,11 @@ class PreviewDialog(QDialog):
 
         if outcome == "dialogue" and target:
             hint = QLabel("-> Переход в диалог: " + target[:8] + "...")
-            hint.setStyleSheet("color: #888; font-size: 12px;")
+            hint.setStyleSheet("color: #858B93; font-size: 12px;")
             self.actions_layout.addWidget(hint)
         else:
             hint = QLabel("(завершение)")
-            hint.setStyleSheet("color: #888; font-size: 12px;")
+            hint.setStyleSheet("color: #858B93; font-size: 12px;")
             self.actions_layout.addWidget(hint)
 
         btn = QPushButton("Сначала")
@@ -287,7 +309,7 @@ class PreviewDialog(QDialog):
         self.speaker_label.setText("[ОШИБКА ПРЕДПРОСМОТРА]")
 
         self.body_label.setStyleSheet(
-            "font-size: 13px; color: #444;"
+            "font-size: 13px; color: #E5E5E5;"
         )
         self.body_label.setText(message)
 

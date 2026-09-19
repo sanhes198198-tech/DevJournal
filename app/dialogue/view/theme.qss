@@ -165,3 +165,81 @@ QGraphicsView {
 QDialog {
     background: #17191C;
 }
+
+/* ============================================================
+   ДИАЛОГИ (QDialog, QInputDialog, QMessageBox)
+   ============================================================ */
+
+QDialog {
+    background: #17191C;
+    color: #E5E5E5;
+}
+
+QDialog QLabel {
+    color: #E5E5E5;
+    background: transparent;
+}
+
+QDialog QPushButton {
+    background: #202328;
+    color: #E5E5E5;
+    border: 1px solid #2A2D33;
+    border-radius: 4px;
+    padding: 6px 16px;
+    min-width: 60px;
+}
+
+QDialog QPushButton:hover {
+    background: #292D32;
+    border: 1px solid #3A3F48;
+}
+
+QDialog QPushButton:pressed {
+    background: #1A1C20;
+}
+
+/* :default — только тонкая обводка, без заливки */
+QDialog QPushButton:default {
+    border: 1px solid #2A2D33;
+}
+
+QDialog QPushButton:focus {
+    outline: none;
+}
+
+/* QInputDialog — поле ввода внутри */
+QInputDialog QLineEdit {
+    background: #1A1C20;
+    color: #E5E5E5;
+    border: 1px solid #2A2D33;
+    border-radius: 4px;
+    padding: 6px 8px;
+    selection-background-color: #4A90E2;
+}
+
+QInputDialog QLineEdit:focus {
+    border: 1px solid #4A90E2;
+}
+
+/* QMessageBox */
+QMessageBox {
+    background: #17191C;
+}
+
+QMessageBox QLabel {
+    color: #E5E5E5;
+    background: transparent;
+}
+
+QMessageBox QPushButton {
+    background: #202328;
+    color: #E5E5E5;
+    border: 1px solid #2A2D33;
+    border-radius: 4px;
+    padding: 6px 16px;
+    min-width: 70px;
+}
+
+QMessageBox QPushButton:hover {
+    background: #292D32;
+}

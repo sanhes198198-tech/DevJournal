@@ -40,7 +40,23 @@ class ValidationDialog(QDialog):
         self.setWindowTitle("Проверка диалога")
         self.resize(560, 420)
 
+        self._apply_theme()
+
         self._build_ui()
+
+    def _apply_theme(self):
+        """Применяет тёмную тему к окну."""
+        import os
+        qss_path = os.path.join(
+            os.path.dirname(__file__),
+            "theme.qss",
+        )
+        try:
+            with open(qss_path, "r", encoding="utf-8") as f:
+                qss = f.read()
+            self.setStyleSheet(qss)
+        except Exception:
+            pass
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
