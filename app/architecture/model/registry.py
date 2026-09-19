@@ -1,20 +1,17 @@
 """
 Registry — соответствие type_name → класс элемента.
-
-Используется при загрузке JSON:
-    element_from_dict(d)  →  Room(...) / Wall(...) / ...
-
-При добавлении новых типов — расширить ELEMENT_TYPES.
 """
 
 from __future__ import annotations
 
 from .element import ArchElement
 from .room import Room
+from .asset_instance import AssetInstance
 
 
 ELEMENT_TYPES: dict[str, type[ArchElement]] = {
     "room": Room,
+    "asset_instance": AssetInstance,
 }
 
 
@@ -24,11 +21,7 @@ class UnknownElementType(Exception):
 
 
 def element_from_dict(d: dict) -> ArchElement:
-    """Создаёт элемент по словарю.
-
-    Кидает UnknownElementType, если type не зарегистрирован
-    или отсутствует.
-    """
+    """Создаёт элемент по словарю."""
     t = d.get("type")
     if not t:
         raise UnknownElementType("Element missing 'type' field")

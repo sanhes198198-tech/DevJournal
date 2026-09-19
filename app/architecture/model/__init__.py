@@ -5,6 +5,7 @@
 from .architecture import ArchitectureModel, SCHEMA_VERSION
 from .element import ArchElement
 from .room import Room
+from .asset_instance import AssetInstance
 from .registry import (
     ELEMENT_TYPES,
     UnknownElementType,
@@ -16,6 +17,7 @@ __all__ = [
     "SCHEMA_VERSION",
     "ArchElement",
     "Room",
+    "AssetInstance",
     "ELEMENT_TYPES",
     "UnknownElementType",
     "element_from_dict",
