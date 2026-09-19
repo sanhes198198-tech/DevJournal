@@ -247,15 +247,16 @@ class DialogueInspector(QWidget):
         info_parts = []
         if opt.conditions is not None and len(opt.conditions) > 0:
             logic = opt.conditions.logic
+            logic_ru = "И" if logic == "AND" else "ИЛИ"
             n = len(opt.conditions)
             word = "условие" if n == 1 else "условий"
-            info_parts.append(f"conditions: {logic} \u00b7 {n} {word}")
+            info_parts.append(f"Условия ({logic_ru}) \u00b7 {n} {word}")
         if opt.effects:
             n = len(opt.effects)
             word = "эффект" if n == 1 else "эффектов"
-            info_parts.append(f"effects: {n} {word}")
+            info_parts.append(f"Эффекты \u00b7 {n} {word}")
         if getattr(opt, "is_default", False):
-            info_parts.append("default")
+            info_parts.append("По умолчанию")
 
         if info_parts:
             info_text = "  [i] " + " \u00b7 ".join(info_parts)
@@ -352,13 +353,9 @@ class DialogueInspector(QWidget):
         return section
 
     def _build_condition_row(self, opt, idx, condition):
-        """Одна строка условия."""
-        row = QWidget()
-        h = QHBoxLayout(row)
-        h.setContentsMargins(0, 0, 0, 0)
-        h.setSpacing(4)
+        """Одна строка условия. Клик по строке — редактировать."""
 
-        # Описание
+        # Формируем человекочитаемое описание
         if condition.kind == "variable":
             desc = (
                 f"{condition.target} "
@@ -369,32 +366,35 @@ class DialogueInspector(QWidget):
             val = "true" if condition.value else "false"
             desc = f"{condition.target} {condition.operator} {val}"
 
-        label = QLabel(desc)
-        label.setStyleSheet(
-            "color: #E5E5E5; font-size: 10px;"
-        )
-        h.addWidget(label, 1)
+        row = QWidget()
+        h = QHBoxLayout(row)
+        h.setContentsMargins(0, 0, 0, 0)
+        h.setSpacing(4)
 
-        # Edit
-        btn_edit = QPushButton("\u270e")
-        btn_edit.setFixedSize(20, 20)
-        btn_edit.setToolTip("Редактировать")
-        btn_edit.setStyleSheet(
-            "background: transparent; color: #858B93; "
-            "border: none; font-size: 11px;"
+        # Кликабельная кнопка вместо label
+        btn_main = QPushButton(desc)
+        btn_main.setFixedHeight(20)
+        btn_main.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_main.setToolTip("Клик — редактировать")
+        btn_main.setStyleSheet(
+            "background: #202328; color: #E5E5E5; "
+            "border: 1px solid #2A2D33; border-radius: 3px; "
+            "font-size: 10px; text-align: left; padding: 0 6px;"
         )
-        btn_edit.clicked.connect(
+        btn_main.clicked.connect(
             lambda _=False, o=opt, i=idx: self._on_edit_condition(o, i)
         )
-        h.addWidget(btn_edit)
+        h.addWidget(btn_main, 1)
 
         # Delete
-        btn_del = QPushButton("\u00d7")
+        btn_del = QPushButton("X")
         btn_del.setFixedSize(20, 20)
-        btn_del.setToolTip("Удалить")
+        btn_del.setToolTip("Удалить условие")
+        btn_del.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_del.setStyleSheet(
-            "background: transparent; color: #858B93; "
-            "border: none; font-size: 13px;"
+            "background: #202328; color: #858B93; "
+            "border: 1px solid #2A2D33; border-radius: 3px; "
+            "font-size: 10px;"
         )
         btn_del.clicked.connect(
             lambda _=False, o=opt, i=idx: self._on_remove_condition(o, i)
@@ -532,46 +532,47 @@ class DialogueInspector(QWidget):
         return section
 
     def _build_effect_row(self, opt, idx, effect):
-        """Одна строка эффекта."""
-        row = QWidget()
-        h = QHBoxLayout(row)
-        h.setContentsMargins(0, 0, 0, 0)
-        h.setSpacing(4)
+        """Одна строка эффекта. Клик по строке — редактировать."""
 
-        # Описание
         if effect.kind == "variable":
             desc = (
-                f"{effect.target} {effect.operation} "
+                f"{effect.target} "
+                f"{effect.operation} "
                 f"{effect.value}"
             )
         else:
             val = "true" if effect.value else "false"
             desc = f"{effect.target} {effect.operation} {val}"
 
-        label = QLabel(desc)
-        label.setStyleSheet("color: #E5E5E5; font-size: 10px;")
-        h.addWidget(label, 1)
+        row = QWidget()
+        h = QHBoxLayout(row)
+        h.setContentsMargins(0, 0, 0, 0)
+        h.setSpacing(4)
 
-        # Edit
-        btn_edit = QPushButton("\u270e")
-        btn_edit.setFixedSize(20, 20)
-        btn_edit.setToolTip("Редактировать")
-        btn_edit.setStyleSheet(
-            "background: transparent; color: #858B93; "
-            "border: none; font-size: 11px;"
+        # Кликабельная кнопка
+        btn_main = QPushButton(desc)
+        btn_main.setFixedHeight(20)
+        btn_main.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_main.setToolTip("Клик — редактировать")
+        btn_main.setStyleSheet(
+            "background: #202328; color: #E5E5E5; "
+            "border: 1px solid #2A2D33; border-radius: 3px; "
+            "font-size: 10px; text-align: left; padding: 0 6px;"
         )
-        btn_edit.clicked.connect(
+        btn_main.clicked.connect(
             lambda _=False, o=opt, i=idx: self._on_edit_effect(o, i)
         )
-        h.addWidget(btn_edit)
+        h.addWidget(btn_main, 1)
 
         # Delete
-        btn_del = QPushButton("\u00d7")
+        btn_del = QPushButton("X")
         btn_del.setFixedSize(20, 20)
-        btn_del.setToolTip("Удалить")
+        btn_del.setToolTip("Удалить эффект")
+        btn_del.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_del.setStyleSheet(
-            "background: transparent; color: #858B93; "
-            "border: none; font-size: 13px;"
+            "background: #202328; color: #858B93; "
+            "border: 1px solid #2A2D33; border-radius: 3px; "
+            "font-size: 10px;"
         )
         btn_del.clicked.connect(
             lambda _=False, o=opt, i=idx: self._on_remove_effect(o, i)
