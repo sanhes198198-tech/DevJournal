@@ -39,6 +39,9 @@ from ..commands import (
 )
 from ..ids import generate_option_id
 from ..model.node import ChoiceOption
+from ..model.condition import Condition, ConditionGroup
+from .condition_dialog import ConditionDialog
+from .effect_dialog import EffectDialog
 
 
 # =========================================================
@@ -230,39 +233,423 @@ class DialogueInspector(QWidget):
         self.content_layout.addWidget(hint)
 
     def _build_option_info(self, opt):
-        """Read-only: conditions / effects у ChoiceOption (объекты)."""
+        """
+        Read-only info + inline conditions editor.
 
-        parts = []
+        Возвращает QWidget-контейнер.
+        """
+        container = QWidget()
+        v = QVBoxLayout(container)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(4)
 
-        # conditions — ConditionGroup | None
+        # --- info-строка ---
+        info_parts = []
         if opt.conditions is not None and len(opt.conditions) > 0:
             logic = opt.conditions.logic
             n = len(opt.conditions)
             word = "условие" if n == 1 else "условий"
-            parts.append(f"conditions: {logic} · {n} {word}")
-
-        # effects — list[Effect]
+            info_parts.append(f"conditions: {logic} \u00b7 {n} {word}")
         if opt.effects:
             n = len(opt.effects)
             word = "эффект" if n == 1 else "эффектов"
-            parts.append(f"effects: {n} {word}")
-
-        # is_default
+            info_parts.append(f"effects: {n} {word}")
         if getattr(opt, "is_default", False):
-            parts.append("default")
+            info_parts.append("default")
 
-        if parts:
-            text = "  [i] " + " · ".join(parts)
-            color = "#666"
+        if info_parts:
+            info_text = "  [i] " + " \u00b7 ".join(info_parts)
+            info_color = "#858B93"
         else:
-            text = "  [i] Condition / Effects — скоро"
-            color = "#bbb"
+            info_text = "  [i] Без условий и эффектов"
+            info_color = "#5A5F68"
 
-        label = QLabel(text)
-        label.setStyleSheet(
-            f"color: {color}; font-size: 10px; padding-left: 24px;"
+        info_label = QLabel(info_text)
+        info_label.setStyleSheet(
+            f"color: {info_color}; font-size: 10px; "
+            f"padding-left: 24px;"
         )
-        return label
+        v.addWidget(info_label)
+
+        # --- секция Conditions ---
+        v.addWidget(self._build_conditions_section(opt))
+
+        # --- секция Effects ---
+        v.addWidget(self._build_effects_section(opt))
+
+        return container
+
+    # =========================================================
+    # CONDITIONS SECTION
+    # =========================================================
+
+    def _build_conditions_section(self, opt):
+        """Строит секцию Conditions для одного option."""
+        section = QWidget()
+        v = QVBoxLayout(section)
+        v.setContentsMargins(24, 0, 0, 0)
+        v.setSpacing(3)
+
+        # --- Заголовок + управление ---
+        header = QHBoxLayout()
+        header.setContentsMargins(0, 0, 0, 0)
+        header.setSpacing(4)
+
+        cond = opt.conditions
+        has_conditions = cond is not None and len(cond) > 0
+
+        # Logic toggle (AND/OR) — только если есть 2+ условий
+        if has_conditions and len(cond) >= 2:
+            logic = cond.logic
+            btn_logic = QPushButton(logic)
+            btn_logic.setFixedHeight(20)
+            btn_logic.setFixedWidth(48)
+            btn_logic.setToolTip("Переключить AND/OR")
+            btn_logic.setStyleSheet(
+                "background: #202328; color: #858B93; "
+                "border: 1px solid #2A2D33; border-radius: 3px; "
+                "font-size: 9px; font-weight: 700;"
+            )
+            btn_logic.clicked.connect(
+                lambda _=False, o=opt: self._on_toggle_logic(o)
+            )
+            header.addWidget(btn_logic)
+
+        header_label = QLabel("Условия:" if has_conditions else "Условия:")
+        header_label.setStyleSheet(
+            "color: #5A5F68; font-size: 10px; font-weight: 600;"
+        )
+        header.addWidget(header_label)
+
+        header.addStretch()
+
+        btn_add = QPushButton("+ Добавить")
+        btn_add.setFixedHeight(20)
+        btn_add.setStyleSheet(
+            "background: #202328; color: #858B93; "
+            "border: 1px solid #2A2D33; border-radius: 3px; "
+            "font-size: 9px; padding: 0 6px;"
+        )
+        btn_add.clicked.connect(
+            lambda _=False, o=opt: self._on_add_condition(o)
+        )
+        header.addWidget(btn_add)
+
+        v.addLayout(header)
+
+        # --- Список условий ---
+        if not has_conditions:
+            empty = QLabel("  (нет условий \u2014 опция доступна всегда)")
+            empty.setStyleSheet(
+                "color: #5A5F68; font-size: 9px;"
+            )
+            v.addWidget(empty)
+            return section
+
+        for idx, c in enumerate(cond.items):
+            v.addWidget(self._build_condition_row(opt, idx, c))
+
+        return section
+
+    def _build_condition_row(self, opt, idx, condition):
+        """Одна строка условия."""
+        row = QWidget()
+        h = QHBoxLayout(row)
+        h.setContentsMargins(0, 0, 0, 0)
+        h.setSpacing(4)
+
+        # Описание
+        if condition.kind == "variable":
+            desc = (
+                f"{condition.target} "
+                f"{condition.operator} "
+                f"{condition.value}"
+            )
+        else:
+            val = "true" if condition.value else "false"
+            desc = f"{condition.target} {condition.operator} {val}"
+
+        label = QLabel(desc)
+        label.setStyleSheet(
+            "color: #E5E5E5; font-size: 10px;"
+        )
+        h.addWidget(label, 1)
+
+        # Edit
+        btn_edit = QPushButton("\u270e")
+        btn_edit.setFixedSize(20, 20)
+        btn_edit.setToolTip("Редактировать")
+        btn_edit.setStyleSheet(
+            "background: transparent; color: #858B93; "
+            "border: none; font-size: 11px;"
+        )
+        btn_edit.clicked.connect(
+            lambda _=False, o=opt, i=idx: self._on_edit_condition(o, i)
+        )
+        h.addWidget(btn_edit)
+
+        # Delete
+        btn_del = QPushButton("\u00d7")
+        btn_del.setFixedSize(20, 20)
+        btn_del.setToolTip("Удалить")
+        btn_del.setStyleSheet(
+            "background: transparent; color: #858B93; "
+            "border: none; font-size: 13px;"
+        )
+        btn_del.clicked.connect(
+            lambda _=False, o=opt, i=idx: self._on_remove_condition(o, i)
+        )
+        h.addWidget(btn_del)
+
+        return row
+
+    # =========================================================
+    # CONDITIONS HANDLERS
+    # =========================================================
+
+    def _clone_group(self, group):
+        """Возвращает копию ConditionGroup (или новый пустой)."""
+        if group is None:
+            return ConditionGroup(logic="AND")
+        # Восстанавливаем через to_dict → from_dict (безопасно)
+        d = group.to_dict()
+        if d is None:
+            return ConditionGroup(logic=group.logic)
+        new = ConditionGroup.from_dict(d)
+        return new if new is not None else ConditionGroup(logic=group.logic)
+
+    def _push_conditions(self, opt, new_group):
+        """Пушит ChangePropertyCommand на opt.conditions."""
+        old_group = opt.conditions
+        cmd = ChangePropertyCommand(
+            target=opt,
+            prop_name="conditions",
+            old_value=old_group,
+            new_value=new_group,
+            notify=lambda: self._refresh_current_option_ui(),
+        )
+        self._push(cmd)
+
+    def _refresh_current_option_ui(self):
+        """Полная перерисовка Inspector (для обновления UI option)."""
+        if self.current_node_id:
+            # Сохраняем фокус: перерисовываем через set_node
+            self.set_node(self.current_node_id)
+
+    def _on_add_condition(self, opt):
+        dlg = ConditionDialog(
+            project_data=self.project_data,
+            condition=None,
+            parent=self,
+        )
+        dlg.exec()
+
+        if dlg.result_condition is None:
+            return
+
+        new_group = self._clone_group(opt.conditions)
+        new_group.add(dlg.result_condition)
+        self._push_conditions(opt, new_group)
+
+    def _on_edit_condition(self, opt, idx):
+        old_cond = opt.conditions.get(idx)
+        if old_cond is None:
+            return
+
+        dlg = ConditionDialog(
+            project_data=self.project_data,
+            condition=old_cond,
+            parent=self,
+        )
+        dlg.exec()
+
+        if dlg.result_condition is None:
+            return
+
+        new_group = self._clone_group(opt.conditions)
+        new_group.items[idx] = dlg.result_condition
+        self._push_conditions(opt, new_group)
+
+    def _on_remove_condition(self, opt, idx):
+        new_group = self._clone_group(opt.conditions)
+        new_group.remove(idx)
+        self._push_conditions(opt, new_group)
+
+    def _on_toggle_logic(self, opt):
+        new_group = self._clone_group(opt.conditions)
+        new_group.logic = "OR" if new_group.logic == "AND" else "AND"
+        self._push_conditions(opt, new_group)
+
+    # =========================================================
+    # EFFECTS SECTION
+    # =========================================================
+
+    def _build_effects_section(self, opt):
+        """Строит секцию Effects для одного option."""
+        section = QWidget()
+        v = QVBoxLayout(section)
+        v.setContentsMargins(24, 0, 0, 0)
+        v.setSpacing(3)
+
+        has_effects = bool(opt.effects)
+
+        # --- Заголовок ---
+        header = QHBoxLayout()
+        header.setContentsMargins(0, 0, 0, 0)
+        header.setSpacing(4)
+
+        header_label = QLabel("Эффекты:")
+        header_label.setStyleSheet(
+            "color: #5A5F68; font-size: 10px; font-weight: 600;"
+        )
+        header.addWidget(header_label)
+        header.addStretch()
+
+        btn_add = QPushButton("+ Добавить")
+        btn_add.setFixedHeight(20)
+        btn_add.setStyleSheet(
+            "background: #202328; color: #858B93; "
+            "border: 1px solid #2A2D33; border-radius: 3px; "
+            "font-size: 9px; padding: 0 6px;"
+        )
+        btn_add.clicked.connect(
+            lambda _=False, o=opt: self._on_add_effect(o)
+        )
+        header.addWidget(btn_add)
+
+        v.addLayout(header)
+
+        # --- Список ---
+        if not has_effects:
+            empty = QLabel("  (нет эффектов \u2014 выбор ничего не изменит)")
+            empty.setStyleSheet("color: #5A5F68; font-size: 9px;")
+            v.addWidget(empty)
+            return section
+
+        for idx, e in enumerate(opt.effects):
+            v.addWidget(self._build_effect_row(opt, idx, e))
+
+        return section
+
+    def _build_effect_row(self, opt, idx, effect):
+        """Одна строка эффекта."""
+        row = QWidget()
+        h = QHBoxLayout(row)
+        h.setContentsMargins(0, 0, 0, 0)
+        h.setSpacing(4)
+
+        # Описание
+        if effect.kind == "variable":
+            desc = (
+                f"{effect.target} {effect.operation} "
+                f"{effect.value}"
+            )
+        else:
+            val = "true" if effect.value else "false"
+            desc = f"{effect.target} {effect.operation} {val}"
+
+        label = QLabel(desc)
+        label.setStyleSheet("color: #E5E5E5; font-size: 10px;")
+        h.addWidget(label, 1)
+
+        # Edit
+        btn_edit = QPushButton("\u270e")
+        btn_edit.setFixedSize(20, 20)
+        btn_edit.setToolTip("Редактировать")
+        btn_edit.setStyleSheet(
+            "background: transparent; color: #858B93; "
+            "border: none; font-size: 11px;"
+        )
+        btn_edit.clicked.connect(
+            lambda _=False, o=opt, i=idx: self._on_edit_effect(o, i)
+        )
+        h.addWidget(btn_edit)
+
+        # Delete
+        btn_del = QPushButton("\u00d7")
+        btn_del.setFixedSize(20, 20)
+        btn_del.setToolTip("Удалить")
+        btn_del.setStyleSheet(
+            "background: transparent; color: #858B93; "
+            "border: none; font-size: 13px;"
+        )
+        btn_del.clicked.connect(
+            lambda _=False, o=opt, i=idx: self._on_remove_effect(o, i)
+        )
+        h.addWidget(btn_del)
+
+        return row
+
+    # =========================================================
+    # EFFECTS HANDLERS
+    # =========================================================
+
+    def _clone_effects(self, effects):
+        """Возвращает новый list[Effect] из существующего."""
+        if not effects:
+            return []
+        result = []
+        for e in effects:
+            d = e.to_dict()
+            new_e = Effect.from_dict(d)
+            if new_e is not None:
+                result.append(new_e)
+        return result
+
+    def _push_effects(self, opt, new_effects):
+        """Пушит ChangePropertyCommand на opt.effects."""
+        old_effects = list(opt.effects) if opt.effects else []
+        cmd = ChangePropertyCommand(
+            target=opt,
+            prop_name="effects",
+            old_value=old_effects,
+            new_value=new_effects,
+            notify=lambda: self._refresh_current_option_ui(),
+        )
+        self._push(cmd)
+
+    def _on_add_effect(self, opt):
+        dlg = EffectDialog(
+            project_data=self.project_data,
+            effect=None,
+            parent=self,
+        )
+        dlg.exec()
+
+        if dlg.result_effect is None:
+            return
+
+        new_effects = self._clone_effects(opt.effects)
+        new_effects.append(dlg.result_effect)
+        self._push_effects(opt, new_effects)
+
+    def _on_edit_effect(self, opt, idx):
+        if idx < 0 or idx >= len(opt.effects):
+            return
+
+        old_effect = opt.effects[idx]
+
+        dlg = EffectDialog(
+            project_data=self.project_data,
+            effect=old_effect,
+            parent=self,
+        )
+        dlg.exec()
+
+        if dlg.result_effect is None:
+            return
+
+        new_effects = self._clone_effects(opt.effects)
+        new_effects[idx] = dlg.result_effect
+        self._push_effects(opt, new_effects)
+
+    def _on_remove_effect(self, opt, idx):
+        if idx < 0 or idx >= len(opt.effects):
+            return
+
+        new_effects = self._clone_effects(opt.effects)
+        new_effects.pop(idx)
+        self._push_effects(opt, new_effects)
 
     def _show_placeholder(self):
         self._clear_content()
