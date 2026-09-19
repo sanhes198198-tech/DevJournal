@@ -16,10 +16,11 @@ from PySide6.QtWidgets import (
 class PreviewDialog(QDialog):
     """Окно предпросмотра диалога."""
 
-    def __init__(self, dialogue, parent=None):
+    def __init__(self, dialogue, project_data=None, parent=None):
         super().__init__(parent)
 
         self.dialogue = dialogue
+        self.project_data = project_data
         self.current_node_id = None
 
         self.setWindowTitle("Предпросмотр диалога")
@@ -172,7 +173,16 @@ class PreviewDialog(QDialog):
     def _handle_reply(self, node):
         self._clear_actions()
 
-        speaker = getattr(node, "speaker", "") or "???"
+        speaker_id = getattr(node, "speaker_id", "") or ""
+
+        # Резолвим slug -> имя
+        if speaker_id and self.project_data is not None:
+            speaker = self.project_data.resolve_speaker_name(speaker_id)
+        elif speaker_id:
+            speaker = speaker_id
+        else:
+            speaker = "???"
+
         text = getattr(node, "text", "") or "(пустая реплика)"
 
         self.speaker_label.setStyleSheet(

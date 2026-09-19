@@ -57,12 +57,15 @@ ACCENT_DOT_MARGIN = 10.0
 class DialogueNodeItem(QGraphicsItem):
     """Визуальный узел диалога."""
 
-    def __init__(self, model_node, parent=None):
+    def __init__(self, model_node, project_data=None, parent=None):
         super().__init__(parent)
 
         self.model_node = model_node
         self.node_id = model_node.id
         self.node_type = model_node.type
+
+        # ProjectData — для резолвинга speaker_id -> name
+        self.project_data = project_data
 
         # Размеры (высота будет уточнена в _recalc_height)
         self._width = NODE_WIDTH
@@ -269,9 +272,17 @@ class DialogueNodeItem(QGraphicsItem):
 
         # Для reply — добавляем имя персонажа
         if self.node_type == "reply":
-            speaker = getattr(self.model_node, "speaker", "")
-            if speaker:
-                return f"{type_label}  —  {speaker}"
+            speaker_id = getattr(self.model_node, "speaker_id", "")
+            if speaker_id:
+                # Резолвим slug -> человекочитаемое имя
+                if self.project_data is not None:
+                    name = self.project_data.resolve_speaker_name(
+                        speaker_id
+                    )
+                else:
+                    name = speaker_id
+
+                return f"{type_label}  —  {name}"
 
         return type_label
 
@@ -358,6 +369,11 @@ class DialogueNodeItem(QGraphicsItem):
     # =========================================================
     # УТИЛИТЫ
     # =========================================================
+
+    def set_project_data(self, project_data):
+        """Обновляет справочник и перерисовывает узел."""
+        self.project_data = project_data
+        self.update()
 
     def get_port(self, port_name, is_input):
         """Возвращает PortItem по имени и типу."""

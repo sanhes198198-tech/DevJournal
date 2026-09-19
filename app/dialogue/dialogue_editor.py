@@ -213,6 +213,9 @@ class DialogueEditorWindow(QMainWindow):
         # Inspector command sink
         self.inspector.set_command_sink(self.undo_stack.push)
 
+        # ProjectData — в scene (для резолвинга speaker_id -> name)
+        self.view.dialogue_scene.set_project_data(self.project_data)
+
         # Scene command sink (для ПКМ-создания узлов, макросов и т.д.)
         self.view.dialogue_scene.set_command_sink(
             self.undo_stack.push,
@@ -436,6 +439,7 @@ class DialogueEditorWindow(QMainWindow):
 
         dlg = PreviewDialog(
             dialogue=self.current_dialogue,
+            project_data=self.project_data,
             parent=self,
         )
         dlg.exec()
@@ -457,17 +461,31 @@ class DialogueEditorWindow(QMainWindow):
         dlg.exec()
 
     def _on_project_data_changed(self):
-        """ProjectData изменился — обновить Inspector."""
-        # Перечитываем с диска (чтобы иметь актуальные данные)
+        """ProjectData изменился — обновить Inspector и сцену."""
+        # Перечитываем с диска
         try:
             from .io import load_project_data
             self.project_data = load_project_data(self.project_folder)
-            self.inspector.set_project_data(self.project_data)
+        except Exception:
+            pass
+
+        # Inspector
+        self.inspector.set_project_data(self.project_data)
+
+        # Scene — обновить все узлы (для резолвинга имён)
+        try:
+            self.view.dialogue_scene.set_project_data(self.project_data)
+        except Exception:
+            pass
+
+        # Перерисовать
+        try:
+            self.view.dialogue_scene.refresh_all_nodes()
+            self.view.viewport().update()
         except Exception:
             pass
 
         # Если выбран REPLY — перерисовать Inspector
-        # (dropdown персонажей обновится)
         if self.inspector.current_node_id:
             self.inspector.set_node(
                 self.inspector.current_node_id

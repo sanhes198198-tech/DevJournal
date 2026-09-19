@@ -44,6 +44,9 @@ class DialogueScene(QGraphicsScene):
         # Command sink — callable(command) или None
         self._command_sink = None
 
+        # ProjectData — для резолвинга speaker_id -> name
+        self.project_data = None
+
         # Состояние drag-создания связи
         self._drag_source_port = None
         self._temp_line = None
@@ -67,6 +70,18 @@ class DialogueScene(QGraphicsScene):
     # =========================================================
     # COMMAND SINK
     # =========================================================
+
+    def set_project_data(self, project_data):
+        """Устанавливает ProjectData и обновляет все существующие узлы."""
+        self.project_data = project_data
+
+        # Обновить все node_items
+        for item in self.node_items.values():
+            if hasattr(item, "set_project_data"):
+                try:
+                    item.set_project_data(project_data)
+                except Exception:
+                    pass
 
     def set_command_sink(self, sink, undo_stack=None):
         """sink — callable(command) или None. undo_stack — для макросов."""
@@ -854,7 +869,10 @@ class DialogueScene(QGraphicsScene):
 
     def _add_node_item(self, model_node):
         """Создаёт DialogueNodeItem и добавляет в сцену."""
-        item = DialogueNodeItem(model_node)
+        item = DialogueNodeItem(
+            model_node,
+            project_data=self.project_data,
+        )
         self.addItem(item)
         self.node_items[model_node.id] = item
         return item
@@ -931,6 +949,14 @@ class DialogueScene(QGraphicsScene):
     # =========================================================
     # УДАЛЕНИЕ
     # =========================================================
+
+    def refresh_all_nodes(self):
+        """Перерисовывает все узлы (для смены project_data)."""
+        for item in self.node_items.values():
+            try:
+                item.update()
+            except Exception:
+                pass
 
     def remove_node_item(self, node_id):
         """Удаляет визуальный узел и все его связи."""

@@ -227,6 +227,25 @@ class ProjectData:
 
         return pd
 
+    # --- resolve ---
+
+    def resolve_speaker_name(self, speaker_id):
+        """
+        Возвращает человекочитаемое имя персонажа по его ID.
+
+        Fallback:
+          - пустой id → "???"
+          - нет в справочнике → сам id (slug)
+        """
+        if not speaker_id:
+            return "???"
+
+        char = self.characters.get(speaker_id)
+        if char is not None and char.name:
+            return char.name
+
+        return speaker_id
+
     def __repr__(self):
         return (
             f"<ProjectData "
