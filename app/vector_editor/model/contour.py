@@ -77,6 +77,36 @@ class VectorContour:
             return self.node_ids[idx]
         return None
 
+    def _next_node_id(self) -> str:
+        """Следующий свободный n_NNN. Не конфликтует с existing."""
+        max_n = -1
+        for nid in self.node_ids:
+            if nid.startswith("n_") and nid[2:].isdigit():
+                max_n = max(max_n, int(nid[2:]))
+        return f"n_{max_n + 1:03d}"
+
+    def insert_point_after(
+        self,
+        idx: int,
+        x: float,
+        y: float,
+        node_id: str | None = None,
+    ) -> str | None:
+        """Вставить точку СРАЗУ ПОСЛЕ узла idx.
+
+        Возвращает node_id нового узла или None при ошибке.
+        """
+        if idx < 0 or idx >= len(self.points):
+            return None
+
+        if node_id is None:
+            node_id = self._next_node_id()
+
+        insert_at = idx + 1
+        self.points.insert(insert_at, (float(x), float(y)))
+        self.node_ids.insert(insert_at, node_id)
+        return node_id
+
     def count(self) -> int:
         return len(self.points)
 

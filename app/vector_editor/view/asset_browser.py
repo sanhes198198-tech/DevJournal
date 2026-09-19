@@ -22,6 +22,7 @@ class AssetBrowser(QWidget):
     """Список Asset'ов из библиотеки."""
 
     asset_open_requested = Signal(str)
+    asset_delete_requested = Signal(str)
 
     WIDTH = 260
 
@@ -54,6 +55,12 @@ class AssetBrowser(QWidget):
         self._list = QListWidget()
         self._list.itemDoubleClicked.connect(
             self._on_item_double_clicked
+        )
+        self._list.setContextMenuPolicy(
+            Qt.ContextMenuPolicy.CustomContextMenu
+        )
+        self._list.customContextMenuRequested.connect(
+            self._on_context_menu
         )
         self._list.setStyleSheet(
             "QListWidget {"
@@ -133,6 +140,26 @@ class AssetBrowser(QWidget):
         self._list.clearSelection()
 
     # ------------------------------------------------------------
+
+    def _on_context_menu(self, pos) -> None:
+        from PySide6.QtWidgets import QMenu
+
+        item = self._list.itemAt(pos)
+        if item is None:
+            return
+        asset_id = item.data(Qt.ItemDataRole.UserRole)
+        if not asset_id:
+            return
+
+        menu = QMenu(self)
+        act_open = menu.addAction("Открыть")
+        act_del = menu.addAction("Удалить")
+
+        chosen = menu.exec(self._list.mapToGlobal(pos))
+        if chosen is act_open:
+            self.asset_open_requested.emit(asset_id)
+        elif chosen is act_del:
+            self.asset_delete_requested.emit(asset_id)
 
     def _on_item_double_clicked(self, item: QListWidgetItem) -> None:
         asset_id = item.data(Qt.ItemDataRole.UserRole)

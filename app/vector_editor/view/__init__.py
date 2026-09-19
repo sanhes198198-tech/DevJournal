@@ -10,9 +10,11 @@ from .semantic_group_dialog import SemanticGroupDialog
 from .semantic_groups_panel import SemanticGroupsPanel
 from .parameter_dialog import ParameterDialog
 from .parameters_panel import ParametersPanel
+from .reference_properties_dialog import ReferencePropertiesDialog
 from .items.contour_item import ContourItem
 from .items.node_item import NodeItem
 from .items.drawing_preview import DrawingPreviewItem
+from .items.reference_item import ReferenceImageItem
 
 __all__ = [
     "VectorCanvas",
@@ -23,7 +25,9 @@ __all__ = [
     "SemanticGroupsPanel",
     "ParameterDialog",
     "ParametersPanel",
+    "ReferencePropertiesDialog",
     "ContourItem",
     "NodeItem",
     "DrawingPreviewItem",
+    "ReferenceImageItem",
 ]

@@ -1,8 +1,10 @@
 """
 NodeItem — маркер одной вершины контура.
 
-Хранит node_id (стабильный идентификатор для semantic_groups).
-Умеет подсвечиваться (highlight) — когда выбрана группа.
+ItemIgnoresTransformations: узел всегда ~10x10 ПИКСЕЛЕЙ на экране,
+независимо от zoom. boundingRect в пикселях (не в метрах) —
+это даёт ТОЧНЫЙ захват клика (раньше был 1x1 метр, соседи
+перехватывали).
 """
 
 from __future__ import annotations
@@ -13,8 +15,8 @@ from PySide6.QtWidgets import QGraphicsItem, QGraphicsObject
 
 
 NODE_PIXELS = 10.0
-
-HIGHLIGHT_BORDER = QColor("#FF6B00")   # оранжевый
+HALF_PIXELS = NODE_PIXELS / 2.0     # 5.0
+HIGHLIGHT_BORDER = QColor("#FF6B00")
 
 
 class NodeItem(QGraphicsObject):
@@ -38,15 +40,18 @@ class NodeItem(QGraphicsObject):
         self._node_id = node_id
 
         self.setFlag(
-            QGraphicsItem.GraphicsItemFlag.ItemIsMovable,
-            True,
+            QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True,
         )
         self.setFlag(
-            QGraphicsItem.GraphicsItemFlag.ItemIsSelectable,
-            True,
+            QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True,
         )
         self.setFlag(
-            QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges,
+            QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True,
+        )
+        # Ключ: игнорируем view transform (zoom). Узел всегда
+        # одинакового размера на экране, hit-test в пикселях.
+        self.setFlag(
+            QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations,
             True,
         )
 
@@ -76,23 +81,24 @@ class NodeItem(QGraphicsObject):
         return self._highlight
 
     # ------------------------------------------------------------
-
-    def _half_size_m(self, painter) -> float:
-        ppm = abs(painter.transform().m11()) or 50.0
-        return (NODE_PIXELS / 2.0) / ppm
+    # GEOMETRY — в ПИКСЕЛЯХ (благодаря ItemIgnoresTransformations)
+    # ------------------------------------------------------------
 
     def boundingRect(self) -> QRectF:
-        pad = 0.5
-        return QRectF(-pad, -pad, pad * 2, pad * 2)
+        return QRectF(
+            -HALF_PIXELS, -HALF_PIXELS,
+            NODE_PIXELS, NODE_PIXELS,
+        )
+
+    def shape(self):
+        """Точная область захвата — квадрат NODE_PIXELS x NODE_PIXELS."""
+        from PySide6.QtGui import QPainterPath
+        path = QPainterPath()
+        path.addRect(self.boundingRect())
+        return path
 
     def paint(self, painter, option, widget=None) -> None:
-        half = self._half_size_m(painter)
-
-        # Приоритет отображения:
-        # 1) selected (синяя заливка)
-        # 2) highlight (оранжевая обводка, белая заливка)
-        # 3) hover (светлая заливка)
-        # 4) обычный (белая заливка)
+        # Приоритет: selected > highlight > hover > обычный
         if self.isSelected():
             fill = QColor("#0055CC")
             border = QColor("#003399")
@@ -115,7 +121,12 @@ class NodeItem(QGraphicsObject):
         pen.setCosmetic(True)
         painter.setPen(pen)
 
-        painter.drawRect(QRectF(-half, -half, half * 2, half * 2))
+        painter.drawRect(
+            QRectF(
+                -HALF_PIXELS, -HALF_PIXELS,
+                NODE_PIXELS, NODE_PIXELS,
+            )
+        )
 
     # ------------------------------------------------------------
 

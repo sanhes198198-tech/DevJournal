@@ -240,6 +240,17 @@ class ContourItem(QGraphicsObject):
     # EVENTS
     # ============================================================
 
+    def are_nodes_visible(self) -> bool:
+        """Возвращает True, если квадратики узлов видны."""
+        if not self._nodes:
+            return self._editable
+        return self._nodes[0].isVisible()
+
+    def set_nodes_visible(self, visible: bool) -> None:
+        """Скрыть / показать квадратики узлов."""
+        for node in self._nodes:
+            node.setVisible(visible)
+
     def highlight_nodes(self, node_ids: set[str] | list[str]) -> None:
         """Подсветить узлы с указанными node_id.
 

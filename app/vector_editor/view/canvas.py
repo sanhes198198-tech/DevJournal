@@ -38,6 +38,12 @@ class VectorCanvas(QGraphicsView):
 
     # Готовый новый контур (замкнутый)
     contour_created = Signal(object)
+    # Клик по сцене, не попавший ни в узел, ни в ребро
+    empty_click = Signal()
+    # Extrude-режим: клик в сцене — создать новую точку
+    extrude_click = Signal(float, float)
+    # Extrude-режим отменён (Esc) или завершён
+    extrude_finished = Signal()
 
     def __init__(self, scene: VectorScene, parent=None):
         super().__init__(scene, parent)
@@ -49,6 +55,8 @@ class VectorCanvas(QGraphicsView):
 
         # Preview для режима draw
         self._preview: DrawingPreviewItem | None = None
+        # Anchor для preview в extrude-режиме (scene coords в метрах)
+        self._extrude_anchor: tuple[float, float] | None = None
 
         self.setDragMode(QGraphicsView.DragMode.NoDrag)
         self.setTransformationAnchor(
@@ -78,7 +86,7 @@ class VectorCanvas(QGraphicsView):
         return self._tool
 
     def set_tool(self, tool: str) -> None:
-        if tool not in ("select", "draw"):
+        if tool not in ("select", "draw", "extrude"):
             return
 
         if tool != "draw":
@@ -86,10 +94,19 @@ class VectorCanvas(QGraphicsView):
 
         self._tool = tool
 
-        if tool == "draw":
+        if tool in ("draw", "extrude"):
+            self.setFocus()
             self.setCursor(QCursor(Qt.CursorShape.CrossCursor))
         else:
             self.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
+            # Уходя из extrude — убрать preview
+            if self._extrude_anchor is not None:
+                self._extrude_anchor = None
+                self.viewport().update()
+
+        # Уходя из extrude — сообщить наружу
+        if tool != "extrude":
+            pass   # editor сам знает про смену режима
 
     # ============================================================
     # ZOOM
@@ -130,6 +147,22 @@ class VectorCanvas(QGraphicsView):
             self._start_pan(event)
             return
 
+        # ЛКМ в select-режиме без Shift: если клик не попал ни в узел,
+        # ни в ребро — сигналим наружу и НЕ пропускаем в scene.
+        if (
+            self._tool == "select"
+            and event.button() == Qt.MouseButton.LeftButton
+            and not (
+                event.modifiers()
+                & Qt.KeyboardModifier.ShiftModifier
+            )
+        ):
+            scene_pos = self.mapToScene(event.position().toPoint())
+            if not self._hit_test_node_or_edge(scene_pos):
+                self.empty_click.emit()
+                event.accept()
+                return
+
         # Shift + ЛКМ → pan всегда
         if (
             event.button() == Qt.MouseButton.LeftButton
@@ -146,6 +179,18 @@ class VectorCanvas(QGraphicsView):
             self._on_draw_click(event)
             return
 
+        # extrude → клик создаёт новую точку
+        if (
+            self._tool == "extrude"
+            and event.button() == Qt.MouseButton.LeftButton
+        ):
+            scene_pos = self.mapToScene(
+                event.position().toPoint()
+            )
+            self.extrude_click.emit(scene_pos.x(), scene_pos.y())
+            event.accept()
+            return
+
         # select → обычная логика QGraphicsView (drag узлов)
         super().mousePressEvent(event)
 
@@ -158,6 +203,12 @@ class VectorCanvas(QGraphicsView):
         if self._tool == "draw" and self._preview is not None:
             scene_pos = self.mapToScene(event.position().toPoint())
             self._preview.set_cursor(scene_pos.x(), scene_pos.y())
+            event.accept()
+            return
+
+        # extrude → просто перерисовать (для preview-линии)
+        if self._tool == "extrude" and self._extrude_anchor is not None:
+            self.viewport().update()
             event.accept()
             return
 
@@ -204,7 +255,42 @@ class VectorCanvas(QGraphicsView):
     # DRAW MODE
     # ============================================================
 
+    def _hit_test_node_or_edge(self, scene_pos) -> bool:
+        """True, если клик попал в NodeItem или в ребро ContourItem."""
+        from .items.node_item import NodeItem
+        from .items.contour_item import ContourItem
+
+        items = self.scene().items(scene_pos)
+
+        for it in items:
+            if isinstance(it, NodeItem):
+                return True
+
+        for it in items:
+            if isinstance(it, ContourItem):
+                try:
+                    idx = it._find_edge_at(
+                        scene_pos.x(), scene_pos.y(),
+                    )
+                except Exception:
+                    idx = None
+                if idx is not None:
+                    return True
+
+        return False
+
+    def set_extrude_anchor(self, x: float, y: float) -> None:
+        """Запомнить точку старта вытягивания для preview-линии."""
+        self._extrude_anchor = (float(x), float(y))
+        self.viewport().update()
+
+    def clear_extrude_anchor(self) -> None:
+        self._extrude_anchor = None
+        self.viewport().update()
+
     def _on_draw_click(self, event) -> None:
+        # Гарантируем фокус, чтобы клавиши (Esc / Backspace) шли сюда
+        self.setFocus()
         scene_pos = self.mapToScene(event.position().toPoint())
 
         # Первый клик — создаём preview
@@ -233,16 +319,25 @@ class VectorCanvas(QGraphicsView):
 
         event.accept()
 
-    def _finish_drawing(self) -> None:
-        """Замкнуть контур и отправить его наружу."""
-        if self._preview is None or self._preview.count() < 3:
+    def _finish_drawing(self, closed: bool = True) -> None:
+        """Завершить черновик.
+
+        closed=True  → замкнутый контур
+        closed=False → разомкнутая полилиния (Shift+Enter)
+        """
+        if self._preview is None or self._preview.count() < 2:
+            self._cancel_preview()
+            return
+
+        # Для замкнутого нужно ≥ 3 точек
+        if closed and self._preview.count() < 3:
             self._cancel_preview()
             return
 
         points = list(self._preview._points)
         contour = VectorContour(
             points=points,
-            closed=True,
+            closed=closed,
             name="Контур",
         )
 
@@ -267,10 +362,15 @@ class VectorCanvas(QGraphicsView):
             event.accept()
             return
 
-        # Esc → отмена текущего контура в draw, иначе выход в select
+        # Esc → отмена текущего контура в draw, выход в select
         if event.key() == Qt.Key.Key_Escape:
             if self._preview is not None:
                 self._cancel_preview()
+                event.accept()
+                return
+            if self._tool == "extrude":
+                self.extrude_finished.emit()
+                self.set_tool("select")
                 event.accept()
                 return
             if self._tool != "select":
@@ -278,18 +378,68 @@ class VectorCanvas(QGraphicsView):
                 event.accept()
                 return
 
-        # Enter → замкнуть контур (если точек >= 3)
+        # Enter → завершить extrude (если ничего не строим)
         if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
-            if self._preview is not None and self._preview.count() >= 3:
-                self._finish_drawing()
+            if self._tool == "extrude":
+                self.extrude_finished.emit()
+                self.set_tool("select")
                 event.accept()
                 return
+
+        # Enter → замкнуть контур (≥3 точки)
+        # Shift+Enter → завершить разомкнутым (≥2 точки)
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            if self._preview is not None:
+                shift = bool(
+                    event.modifiers()
+                    & Qt.KeyboardModifier.ShiftModifier
+                )
+                if shift and self._preview.count() >= 2:
+                    self._finish_drawing(closed=False)
+                    event.accept()
+                    return
+                if (
+                    not shift
+                    and self._preview.count() >= 3
+                ):
+                    self._finish_drawing(closed=True)
+                    event.accept()
+                    return
 
         super().keyPressEvent(event)
 
     # ============================================================
     # RESET
     # ============================================================
+
+    def drawForeground(self, painter, rect) -> None:
+        """Preview-линия в extrude-режиме: от anchor к курсору."""
+        super().drawForeground(painter, rect)
+
+        if (
+            self._tool != "extrude"
+            or self._extrude_anchor is None
+        ):
+            return
+
+        cursor_scene = self.mapToScene(
+            self.viewport().mapFromGlobal(QCursor.pos())
+        )
+
+        from PySide6.QtGui import QPen, QColor
+        from PySide6.QtCore import QPointF
+
+        pen = QPen(QColor("#0078D4"), 0)
+        pen.setCosmetic(True)
+        pen.setStyle(__import__("PySide6.QtCore", fromlist=["Qt"])
+                     .Qt.PenStyle.DashLine)
+        painter.setPen(pen)
+
+        ax, ay = self._extrude_anchor
+        painter.drawLine(
+            QPointF(ax, ay),
+            QPointF(cursor_scene.x(), cursor_scene.y()),
+        )
 
     def reset_view(self) -> None:
         self.resetTransform()
