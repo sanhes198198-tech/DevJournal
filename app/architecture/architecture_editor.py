@@ -38,6 +38,7 @@ from .io import (
     StorageError,
     get_architecture_path,
 )
+from .model.room import Room
 from .view import (
     ArchScene,
     ArchCanvas,
@@ -193,6 +194,12 @@ class ArchitectureEditor(QMainWindow):
         self._document.modified_changed.connect(
             self._on_modified_changed
         )
+        self._palette.element_requested.connect(
+            self._on_palette_request
+        )
+        self._canvas.create_requested.connect(
+            self._on_create_requested
+        )
         self._mode_tabs.mode_changed.connect(
             self._on_mode_changed
         )
@@ -228,6 +235,62 @@ class ArchitectureEditor(QMainWindow):
             return
 
         self.statusBar().showMessage("Сохранено", 2000)
+
+    # ============================================================
+    # PALETTE → CANVAS
+    # ============================================================
+
+    def _on_palette_request(self, type_name: str) -> None:
+        """Клик по элементу в палитре."""
+        if type_name == "room":
+            self._canvas.set_tool("room")
+            self.statusBar().showMessage(
+                "Нарисуйте прямоугольник на canvas", 3000
+            )
+
+    # ============================================================
+    # CANVAS → DOCUMENT
+    # ============================================================
+
+    def _on_create_requested(
+        self,
+        x: float,
+        y: float,
+        w: float,
+        d: float,
+    ) -> None:
+        """Canvas попросил создать комнату."""
+        name = self._next_room_name()
+
+        room = Room(
+            name=name,
+            x=x,
+            y=y,
+            width=w,
+            depth=d,
+            height=3.0,
+        )
+
+        self._document.add_element(room)
+
+        # Выделить созданную
+        item = self._scene.item_for(room.id)
+        if item is not None:
+            self._scene.clearSelection()
+            item.setSelected(True)
+
+        self.statusBar().showMessage(
+            f"Создано: {name}", 2000
+        )
+
+    def _next_room_name(self) -> str:
+        """Комната 1, Комната 2, ..."""
+        count = sum(
+            1
+            for el in self._document.model.elements.values()
+            if getattr(el, "type", None) == "room"
+        )
+        return f"Комната {count + 1}"
 
     # ============================================================
     # CLOSE
