@@ -23,7 +23,11 @@ from ..commands import (
     MoveNodeCommand,
 )
 from ..ids import generate_node_id, generate_connection_id, generate_option_id
-from ..model import StartNode, ReplyNode, ChoiceNode, EndNode, DialogueConnection, DialogueNode
+from ..model import (
+    StartNode, ReplyNode, ChoiceNode, EndNode,
+    JumpNode, CallDialogueNode,
+    DialogueConnection, DialogueNode,
+)
 
 
 class DialogueScene(QGraphicsScene):
@@ -128,6 +132,10 @@ class DialogueScene(QGraphicsScene):
             node = ChoiceNode(node_id, x=x, y=y)
         elif node_type == "end":
             node = EndNode(node_id, x=x, y=y)
+        elif node_type == "jump":
+            node = JumpNode(node_id, x=x, y=y)
+        elif node_type == "call_dialogue":
+            node = CallDialogueNode(node_id, x=x, y=y)
         else:
             return None
 
@@ -757,6 +765,8 @@ class DialogueScene(QGraphicsScene):
             act_reply = create_menu.addAction("REPLY")
             act_choice = create_menu.addAction("CHOICE")
             act_end = create_menu.addAction("END")
+            act_jump = create_menu.addAction("JUMP")
+            act_call = create_menu.addAction("CALL DIALOGUE")
 
             chosen = menu.exec(event.screenPos())
             if chosen is None:
@@ -772,6 +782,10 @@ class DialogueScene(QGraphicsScene):
                 self._create_node_near("choice", node_item.pos())
             elif chosen == act_end:
                 self._create_node_near("end", node_item.pos())
+            elif chosen == act_jump:
+                self._create_node_near("jump", node_item.pos())
+            elif chosen == act_call:
+                self._create_node_near("call_dialogue", node_item.pos())
 
             event.accept()
             return
@@ -792,6 +806,8 @@ class DialogueScene(QGraphicsScene):
         act_reply = menu.addAction("Создать REPLY")
         act_choice = menu.addAction("Создать CHOICE")
         act_end = menu.addAction("Создать END")
+        act_jump = menu.addAction("Создать JUMP")
+        act_call = menu.addAction("Создать CALL DIALOGUE")
 
         chosen = menu.exec(event.screenPos())
         if chosen is None:
@@ -805,6 +821,10 @@ class DialogueScene(QGraphicsScene):
             self._create_node_at("choice", scene_pos)
         elif chosen == act_end:
             self._create_node_at("end", scene_pos)
+        elif chosen == act_jump:
+            self._create_node_at("jump", scene_pos)
+        elif chosen == act_call:
+            self._create_node_at("call_dialogue", scene_pos)
 
         event.accept()
 

@@ -12,6 +12,8 @@ from .node import (
     ChoiceOption,
     EndNode,
     NODE_TYPE_MAP,
+    JumpNode,
+    CallDialogueNode,
 )
 
 from .connection import DialogueConnection
@@ -29,4 +31,6 @@ __all__ = [
     "NODE_TYPE_MAP",
     "DialogueConnection",
     "Dialogue",
+    "JumpNode",
+    "CallDialogueNode",
 ]
