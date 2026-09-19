@@ -108,6 +108,31 @@ class ReplyNode(DialogueNode):
             dict(presentation) if presentation else {}
         )
 
+    # --- Legacy alias для v2 API ---
+    # Весь существующий UI читает/пишет node.speaker.
+    # В v3 это property → speaker_id (slug).
+    # Ничего в UI менять не нужно.
+
+    @property
+    def speaker(self):
+        """Legacy alias на speaker_id. Возвращает slug."""
+        return self.speaker_id
+
+    @speaker.setter
+    def speaker(self, value):
+        """Legacy setter. Принимает raw name, конвертирует в slug."""
+        if not value:
+            self.speaker_id = ""
+            return
+
+        # Пробуем slugify через storage (ленивый импорт)
+        try:
+            from ..io.storage import _slugify
+            self.speaker_id = _slugify(value)
+        except Exception:
+            # Fallback — сохранить как есть
+            self.speaker_id = str(value).strip()
+
     def get_input_ports(self):
         return ["input"]
 
