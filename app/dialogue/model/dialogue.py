@@ -17,10 +17,17 @@ class Dialogue:
         dialogue_id,
         name="",
         description="",
+        tags=None,
+        entry_conditions=None,
     ):
         self.id = dialogue_id
         self.name = name
         self.description = description
+
+        # v3: метаданные проекта диалога
+        self.tags = list(tags) if tags else []
+        # entry_conditions = None | {"logic": "AND"|"OR", "items": [...]}
+        self.entry_conditions = entry_conditions
 
         # Узлы хранятся по ID для быстрого доступа O(1)
         self.nodes = {}          # dict[node_id, DialogueNode]
@@ -105,16 +112,31 @@ class Dialogue:
             "id": self.id,
             "name": self.name,
             "description": self.description,
+            "tags": list(self.tags),
+            "entry_conditions": self.entry_conditions,
             "nodes": [n.to_dict() for n in self.nodes.values()],
             "connections": [c.to_dict() for c in self.connections],
         }
 
     @classmethod
     def from_dict(cls, data):
+        # v3: tags, entry_conditions
+        tags_raw = data.get("tags", [])
+        if not isinstance(tags_raw, list):
+            tags_raw = []
+
+        entry_conditions = data.get("entry_conditions")
+        if entry_conditions is not None and not isinstance(
+            entry_conditions, dict
+        ):
+            entry_conditions = None
+
         dialogue = cls(
             dialogue_id=data["id"],
             name=data.get("name", ""),
             description=data.get("description", ""),
+            tags=tags_raw,
+            entry_conditions=entry_conditions,
         )
         for node_data in data.get("nodes", []):
             node = DialogueNode.from_dict(node_data)
