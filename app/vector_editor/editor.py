@@ -299,6 +299,9 @@ class VectorEditor(QMainWindow):
         self._browser.asset_delete_requested.connect(
             self._on_delete_asset
         )
+        self._browser.asset_rename_requested.connect(
+            self._on_rename_asset
+        )
 
         # Клик по пустому месту сцены — снимаем подсветку группы
         self._scene.installEventFilter(self)
@@ -1171,6 +1174,53 @@ class VectorEditor(QMainWindow):
     # ============================================================
     # OPEN
     # ============================================================
+
+    def _on_rename_asset(self, asset_id: str) -> None:
+        """Переименовать Asset через диалог."""
+        # Загружаем asset
+        try:
+            asset = load_asset(self._browser_asset_path(asset_id))
+        except StorageError as e:
+            QMessageBox.warning(
+                self, "Ошибка загрузки",
+                f"Не удалось загрузить Asset:\n\n{e}"
+            )
+            return
+
+        # Диалог ввода
+        from PySide6.QtWidgets import QInputDialog
+        new_name, ok = QInputDialog.getText(
+            self, "Переименовать",
+            f"Новое имя для «{asset.name}»:",
+            text=asset.name,
+        )
+        if not ok:
+            return
+        new_name = new_name.strip()
+        if not new_name or new_name == asset.name:
+            return
+
+        # Сохраняем с новым именем
+        asset.name = new_name
+        try:
+            save_asset(asset)
+        except StorageError as e:
+            QMessageBox.critical(
+                self, "Ошибка сохранения",
+                f"Не удалось сохранить:\n\n{e}"
+            )
+            return
+
+        # Если это текущий открытый Asset — обновляем заголовок
+        if asset_id == self._current_asset_id:
+            self._current_asset_name = new_name
+            self._mark_saved()
+            self._update_title()
+
+        self._browser.refresh()
+        self.statusBar().showMessage(
+            f"Asset переименован: {new_name}", 2000,
+        )
 
     def _on_delete_asset(self, asset_id: str) -> None:
         """Удалить Asset из библиотеки."""

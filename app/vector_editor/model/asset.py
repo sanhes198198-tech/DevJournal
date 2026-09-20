@@ -16,6 +16,7 @@ from .contour import VectorContour
 from .semantic_group import SemanticGroup
 from .parameter import Parameter
 from .reference_image import ReferenceImage
+from .component import Component
 
 
 # ============================================================
@@ -51,6 +52,7 @@ class Asset:
         name: str = "Новый ассет",
         type_: str = "other",
         geometry: dict | None = None,
+        components: dict | None = None,
         semantic_groups: dict | None = None,
         parameters: dict | None = None,
         generation_rules: dict | None = None,
@@ -59,6 +61,9 @@ class Asset:
         self.name = name
         self.type = type_ if type_ in ASSET_TYPE_IDS else "other"
         self.geometry = geometry or self._empty_geometry()
+        # Ссылки на другие Asset'ы (составной Asset).
+        # Либо geometry с контуром, либо components — но не оба.
+        self.components: dict[str, Component] = components or {}
         self.semantic_groups: dict[str, SemanticGroup] = semantic_groups or {}
         self.parameters = parameters or {}
         self.reference_image: ReferenceImage | None = None
@@ -173,6 +178,10 @@ class Asset:
             "name": self.name,
             "type": self.type,
             "geometry": self.geometry,
+            "components": {
+                cid: c.to_dict()
+                for cid, c in self.components.items()
+            },
             "semantic_groups": {
                 gid: g.to_dict()
                 for gid, g in self.semantic_groups.items()
@@ -210,6 +219,17 @@ class Asset:
                 except Exception:
                     continue
 
+        comp_raw = d.get("components") or {}
+        comps: dict[str, Component] = {}
+        if isinstance(comp_raw, dict):
+            for cid, cdict in comp_raw.items():
+                if not isinstance(cdict, dict):
+                    continue
+                try:
+                    comps[cid] = Component.from_dict(cdict)
+                except Exception:
+                    continue
+
         ref_raw = d.get("reference_image")
         ref: ReferenceImage | None = None
         if isinstance(ref_raw, dict):
@@ -223,6 +243,7 @@ class Asset:
             name=d.get("name", "Новый ассет"),
             type_=d.get("type", "other"),
             geometry=d.get("geometry") or cls._empty_geometry(),
+            components=comps,
             semantic_groups=groups,
             parameters=params,
             generation_rules=d.get("generation_rules") or cls._default_rules(),
@@ -306,6 +327,60 @@ class Asset:
         ]
 
         return result
+
+    # ------------------------------------------------------------
+    # COMPONENTS (V8a)
+    # ------------------------------------------------------------
+
+    def is_composite(self) -> bool:
+        """True, если Asset состоит из ссылок на другие Asset'ы."""
+        return len(self.components) > 0
+
+    def component_count(self) -> int:
+        return len(self.components)
+
+    def add_component(self, comp: Component) -> bool:
+        """Добавить компонент. False, если self-ref или дубликат."""
+        if not comp.is_valid():
+            return False
+
+        # Запрет self-reference
+        if comp.asset_id == self.id:
+            return False
+
+        if comp.id in self.components:
+            return False
+
+        self.components[comp.id] = comp
+        return True
+
+    def remove_component(self, comp_id: str) -> Component | None:
+        return self.components.pop(comp_id, None)
+
+    def get_component(self, comp_id: str) -> Component | None:
+        return self.components.get(comp_id)
+
+    def components_list(self) -> list[Component]:
+        return sorted(
+            self.components.values(),
+            key=lambda c: (c.name or c.id).lower(),
+        )
+
+    def validate_components(self) -> list[str]:
+        """Проверка: self-ref, дубликаты, пустые ссылки."""
+        problems: list[str] = []
+        seen_ids = set()
+
+        for cid, comp in self.components.items():
+            if not comp.asset_id:
+                problems.append(f"{cid}: пустой asset_id")
+            if comp.asset_id == self.id:
+                problems.append(f"{cid}: self-reference")
+            if comp.id in seen_ids:
+                problems.append(f"{cid}: дубликат id")
+            seen_ids.add(comp.id)
+
+        return problems
 
     # ------------------------------------------------------------
     # SEMANTIC GROUPS

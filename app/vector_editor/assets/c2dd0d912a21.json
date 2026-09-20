@@ -1,6 +1,6 @@
 {
   "id": "c2dd0d912a21",
-  "name": "Новый",
+  "name": "Сторожевая башня",
   "type": "tower_body",
   "geometry": {
     "contour": [
@@ -555,7 +555,7 @@
   "semantic_groups": {
     "g_45cfe29b": {
       "id": "g_45cfe29b",
-      "name": "korniz",
+      "name": "top",
       "label": "корниз",
       "node_ids": [
         "n_023",
@@ -603,7 +603,7 @@
     },
     "g_00b0f76f": {
       "id": "g_00b0f76f",
-      "name": "fundament",
+      "name": "foundation",
       "label": "фундамент",
       "node_ids": [
         "n_046",

@@ -23,6 +23,7 @@ class AssetBrowser(QWidget):
 
     asset_open_requested = Signal(str)
     asset_delete_requested = Signal(str)
+    asset_rename_requested = Signal(str)
 
     WIDTH = 260
 
@@ -153,11 +154,14 @@ class AssetBrowser(QWidget):
 
         menu = QMenu(self)
         act_open = menu.addAction("Открыть")
+        act_rename = menu.addAction("Переименовать")
         act_del = menu.addAction("Удалить")
 
         chosen = menu.exec(self._list.mapToGlobal(pos))
         if chosen is act_open:
             self.asset_open_requested.emit(asset_id)
+        elif chosen is act_rename:
+            self.asset_rename_requested.emit(asset_id)
         elif chosen is act_del:
             self.asset_delete_requested.emit(asset_id)
 
