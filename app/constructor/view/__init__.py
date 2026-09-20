@@ -7,9 +7,10 @@ from .palette import AssetPalette
 from .grid import GridLayer
 from .items.component_item import ComponentItem
 from .properties_panel import PropertiesPanel
+from .asset_open_dialog import AssetOpenDialog
 
 __all__ = [
     "ConstructorCanvas", "ConstructorScene",
     "AssetPalette", "GridLayer", "ComponentItem",
-    "PropertiesPanel",
+    "PropertiesPanel", "AssetOpenDialog",
 ]

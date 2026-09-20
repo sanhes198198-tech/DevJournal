@@ -8,14 +8,20 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QLabel, QMainWindow, QSplitter, QStatusBar, QVBoxLayout, QWidget,
+    QToolBar, QMessageBox, QInputDialog,
 )
+from PySide6.QtGui import QAction, QKeySequence
 
 from .view.canvas import ConstructorCanvas
 from .view.scene import ConstructorScene
 from .view.palette import AssetPalette
 from .view.properties_panel import PropertiesPanel
+from .view.asset_open_dialog import AssetOpenDialog
 from .view.items.component_item import ComponentItem
 from app.vector_editor.model import Asset, Component
+from app.vector_editor.io import (
+    save_asset, load_asset, list_assets, StorageError,
+)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "architecture"))
 try:
@@ -36,6 +42,8 @@ class ConstructorWindow(QMainWindow):
 
         self._registry = None
         self._current_composite = Asset(name="Новый замок", type_="tower_body")
+        self._current_asset_id: str | None = None
+        self._current_asset_name: str = "Новый замок"
         self._items_by_comp_id: dict = {}
         self._init_registry()
         self._build_ui()
@@ -53,7 +61,36 @@ class ConstructorWindow(QMainWindow):
             print(f"[Constructor] AssetRegistry error: {e}")
             self._registry = None
 
+    def _build_toolbar(self) -> None:
+        tb = QToolBar("Main", self)
+        tb.setMovable(False)
+        self.addToolBar(tb)
+
+        act_new = QAction("Новый", self)
+        act_new.setShortcut(QKeySequence("Ctrl+N"))
+        act_new.triggered.connect(self._on_new)
+        tb.addAction(act_new)
+
+        act_save = QAction("Сохранить", self)
+        act_save.setShortcut(QKeySequence("Ctrl+S"))
+        act_save.triggered.connect(self._on_save)
+        tb.addAction(act_save)
+
+        act_save_as = QAction("Сохранить как…", self)
+        act_save_as.setShortcut(QKeySequence("Ctrl+Shift+S"))
+        act_save_as.triggered.connect(self._on_save_as)
+        tb.addAction(act_save_as)
+
+        tb.addSeparator()
+
+        act_open = QAction("Открыть", self)
+        act_open.setShortcut(QKeySequence("Ctrl+O"))
+        act_open.triggered.connect(self._on_open)
+        tb.addAction(act_open)
+
     def _build_ui(self) -> None:
+        self._build_toolbar()
+
         self._properties = PropertiesPanel()
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -132,6 +169,147 @@ class ConstructorWindow(QMainWindow):
             f"Всего: {self._current_composite.component_count()}",
             4000,
         )
+
+    # ============================================================
+    # SAVE / OPEN / NEW
+    # ============================================================
+
+    def _reset_scene(self) -> None:
+        """Очистить сцену и модель."""
+        for item in list(self._scene.items()):
+            self._scene.removeItem(item)
+        self._items_by_comp_id.clear()
+        self._current_composite = Asset(name="Новый замок", type_="tower_body")
+        self._current_asset_id = None
+        self._current_asset_name = "Новый замок"
+        self._properties.clear()
+        self._update_title()
+
+    def _update_title(self) -> None:
+        self.setWindowTitle(
+            f"Constructor — {self._current_asset_name}"
+        )
+
+    def _on_new(self) -> None:
+        self._reset_scene()
+        self.statusBar().showMessage("Новый замок", 3000)
+
+    def _on_save(self) -> None:
+        if self._current_asset_id is None:
+            self._on_save_as()
+            return
+
+        # Обновляем имя и сохраняем
+        self._current_composite.name = self._current_asset_name
+        try:
+            save_asset(self._current_composite)
+        except StorageError as e:
+            QMessageBox.critical(
+                self, "Ошибка сохранения",
+                f"Не удалось сохранить:\n\n{e}",
+            )
+            return
+
+        self.statusBar().showMessage(
+            f"Сохранено: {self._current_asset_name}", 3000,
+        )
+
+    def _on_save_as(self) -> None:
+        name, ok = QInputDialog.getText(
+            self, "Сохранить как",
+            "Имя композитного ассета:",
+            text=self._current_asset_name,
+        )
+        if not ok:
+            return
+        name = name.strip()
+        if not name:
+            return
+
+        # Новый Asset — с новым uuid, копируем содержимое
+        new_asset = Asset(name=name, type_="tower_body")
+        new_asset.components = dict(self._current_composite.components)
+
+        try:
+            save_asset(new_asset)
+        except StorageError as e:
+            QMessageBox.critical(
+                self, "Ошибка сохранения",
+                f"Не удалось сохранить:\n\n{e}",
+            )
+            return
+
+        self._current_composite = new_asset
+        self._current_asset_id = new_asset.id
+        self._current_asset_name = name
+        self._update_title()
+
+        self.statusBar().showMessage(
+            f"Создан: {name} (id={new_asset.id[:8]})", 3000,
+        )
+
+    def _on_open(self) -> None:
+        # Загружаем все ассеты, фильтруем композитные
+        try:
+            all_assets = list_assets()
+        except Exception as e:
+            QMessageBox.warning(
+                self, "Ошибка", f"Не удалось загрузить:\n\n{e}")
+            return
+
+        composites = [a for a in all_assets if a.components]
+        if not composites:
+            QMessageBox.information(
+                self, "Нет композитных ассетов",
+                "Сначала создай и сохрани замок через "
+                "«Сохранить как».",
+            )
+            return
+
+        dlg = AssetOpenDialog(composites, self)
+        if dlg.exec() != AssetOpenDialog.DialogCode.Accepted:
+            return
+
+        aid = dlg.selected_id()
+        if not aid:
+            return
+
+        # Загружаем
+        target = next(
+            (a for a in all_assets if a.id == aid), None
+        )
+        if target is None:
+            return
+
+        self._load_composite(target)
+
+    def _load_composite(self, asset: Asset) -> None:
+        """Загрузить композитный Asset в сцену."""
+        self._reset_scene()
+
+        self._current_composite = asset
+        self._current_asset_id = asset.id
+        self._current_asset_name = asset.name
+        self._update_title()
+
+        # Отрисовываем компоненты
+        n_orphan = 0
+        for comp in asset.components.values():
+            ref_asset = None
+            if self._registry is not None:
+                ref_asset = self._registry.get(comp.asset_id)
+            if ref_asset is None:
+                n_orphan += 1
+
+            item = ComponentItem(comp, asset=ref_asset)
+            item.moved.connect(self._on_item_moved)
+            self._items_by_comp_id[comp.id] = item
+            self._scene.addItem(item)
+
+        msg = f"Загружено: {asset.name} · {len(asset.components)} компонентов"
+        if n_orphan:
+            msg += f" · {n_orphan} битых ссылок"
+        self.statusBar().showMessage(msg, 5000)
 
     def _on_scene_selection_changed(self) -> None:
         """Обновить панель свойств по выделенному компоненту."""

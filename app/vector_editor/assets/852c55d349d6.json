@@ -1,0 +1,35 @@
+{
+  "id": "852c55d349d6",
+  "name": "Башня",
+  "type": "tower_body",
+  "geometry": {
+    "contour": [],
+    "closed": true,
+    "units": "m",
+    "node_ids": [],
+    "groups": {},
+    "extra_edges": [],
+    "extra_points": [],
+    "extra_node_ids": []
+  },
+  "components": {
+    "c_13c6154e": {
+      "id": "c_13c6154e",
+      "asset_id": "c2dd0d912a21",
+      "x": 0.0,
+      "y": 0.0,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "Сторожевая башня"
+    }
+  },
+  "semantic_groups": {},
+  "parameters": {},
+  "reference_image": null,
+  "generation_rules": {
+    "allow_width_variation": false,
+    "allow_height_variation": false,
+    "irregularity": 0.0,
+    "repeatable": false
+  }
+}
