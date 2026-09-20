@@ -1,6 +1,6 @@
 {
-  "id": "852c55d349d6",
-  "name": "Башня",
+  "id": "a370edb742db",
+  "name": "башня тест 4",
   "type": "tower_body",
   "geometry": {
     "contour": [],
@@ -33,7 +33,7 @@
       "scale": 1.0,
       "name": "Луковичная крыша",
       "layer": 0,
-      "filled": false
+      "filled": true
     }
   },
   "semantic_groups": {},

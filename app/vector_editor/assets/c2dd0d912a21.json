@@ -552,6 +552,7 @@
       "e_007"
     ]
   },
+  "components": {},
   "semantic_groups": {
     "g_45cfe29b": {
       "id": "g_45cfe29b",
@@ -619,6 +620,24 @@
         "e_007",
         "n_034",
         "n_042"
+      ]
+    },
+    "g_e1d7c276": {
+      "id": "g_e1d7c276",
+      "name": "anchor_top",
+      "label": "Якорь низ",
+      "node_ids": [
+        "e_004",
+        "e_005"
+      ]
+    },
+    "g_0c5c632b": {
+      "id": "g_0c5c632b",
+      "name": "anchor_bottom",
+      "label": "Якорь низ",
+      "node_ids": [
+        "n_034",
+        "n_035"
       ]
     }
   },

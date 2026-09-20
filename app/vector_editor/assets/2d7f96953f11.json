@@ -485,6 +485,7 @@
       "e_008"
     ]
   },
+  "components": {},
   "semantic_groups": {
     "g_012a26ce": {
       "id": "g_012a26ce",
@@ -556,6 +557,15 @@
         "e_005",
         "n_004",
         "n_036"
+      ]
+    },
+    "g_3f5b682a": {
+      "id": "g_3f5b682a",
+      "name": "anchor_bottom",
+      "label": "Якорь низ",
+      "node_ids": [
+        "n_040",
+        "n_001"
       ]
     }
   },

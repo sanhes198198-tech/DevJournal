@@ -1,6 +1,6 @@
 {
-  "id": "852c55d349d6",
-  "name": "Башня",
+  "id": "03ac7b534281",
+  "name": "Новый замок",
   "type": "tower_body",
   "geometry": {
     "contour": [],
@@ -13,25 +13,14 @@
     "extra_node_ids": []
   },
   "components": {
-    "c_13c6154e": {
-      "id": "c_13c6154e",
-      "asset_id": "c2dd0d912a21",
+    "c_0aa1757e": {
+      "id": "c_0aa1757e",
+      "asset_id": "852c55d349d6",
       "x": 0.0,
       "y": 0.0,
       "rotation": 0.0,
       "scale": 1.0,
-      "name": "Сторожевая башня",
-      "layer": 1,
-      "filled": true
-    },
-    "c_91e4f30d": {
-      "id": "c_91e4f30d",
-      "asset_id": "2d7f96953f11",
-      "x": 0.0,
-      "y": -4.7,
-      "rotation": 0.0,
-      "scale": 1.0,
-      "name": "Луковичная крыша",
+      "name": "Башня",
       "layer": 0,
       "filled": false
     }

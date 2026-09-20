@@ -329,6 +329,80 @@ class Asset:
         return result
 
     # ------------------------------------------------------------
+    # ANCHORS (V8c)
+    # ------------------------------------------------------------
+
+    def anchors(self) -> dict[str, tuple[float, float]]:
+        """Точки крепления из групп с префиксом `anchor_`.
+
+        Position = центроид узлов группы. Если узлы не найдены
+        (или группа пуста) — anchor пропускается.
+
+        Возвращает {tag: (x, y)}. tag — имя без префикса.
+        """
+        result: dict[str, tuple[float, float]] = {}
+
+        # Все точки по node_id
+        pts_by_id: dict[str, tuple[float, float]] = {}
+        g = self.geometry
+        contour = g.get("contour", [])
+        node_ids = g.get("node_ids", [])
+        for i, nid in enumerate(node_ids):
+            if i < len(contour):
+                x, y = contour[i]
+                pts_by_id[nid] = (float(x), float(y))
+
+        extra_pts = g.get("extra_points", [])
+        extra_ids = g.get("extra_node_ids", [])
+        for i, nid in enumerate(extra_ids):
+            if i < len(extra_pts):
+                x, y = extra_pts[i]
+                pts_by_id[nid] = (float(x), float(y))
+
+        # Маппинг имён групп в теги anchor'ов.
+        # Один и тот же смысл у стены и у крыши может называться
+        # по-разному — приводим к единому tag.
+        _ALIASES = {
+            "anchor_top": "top",
+            "top": "top",
+            "anchor_bottom": "bottom",
+            "bottom": "bottom",
+            "foundation": "bottom",
+            "anchor_foundation": "bottom",
+            "anchor_face": "face",
+            "facade": "face",
+            "anchor_facade": "face",
+            "anchor_left": "left",
+            "side_left": "left",
+            "anchor_right": "right",
+            "side_right": "right",
+        }
+
+        for group in self.semantic_groups.values():
+            gname = getattr(group, "name", "")
+            tag = _ALIASES.get(gname)
+            if tag is None:
+                continue
+
+            xs, ys = [], []
+            for nid in group.node_ids:
+                p = pts_by_id.get(nid)
+                if p is not None:
+                    xs.append(p[0])
+                    ys.append(p[1])
+
+            if not xs:
+                continue
+
+            cx = sum(xs) / len(xs)
+            cy = sum(ys) / len(ys)
+            # Если tag уже есть — не перезаписываем (первая группа побеждает)
+            if tag not in result:
+                result[tag] = (cx, cy)
+
+        return result
+
+    # ------------------------------------------------------------
     # COMPONENTS (V8a)
     # ------------------------------------------------------------
 
