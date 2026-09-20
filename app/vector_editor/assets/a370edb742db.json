@@ -24,20 +24,26 @@
       "layer": 1,
       "filled": true,
       "param_overrides": {
-        "height": 5.0
-      }
+        "height": -0.1
+      },
+      "attach_to": "",
+      "attach_anchor": "",
+      "parent_anchor": ""
     },
     "c_91e4f30d": {
       "id": "c_91e4f30d",
       "asset_id": "2d7f96953f11",
-      "x": 0.0,
-      "y": -4.7,
+      "x": -0.04722823752428518,
+      "y": -4.293690731840329,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Луковичная крыша",
       "layer": 0,
       "filled": true,
-      "param_overrides": {}
+      "param_overrides": {},
+      "attach_to": "c_13c6154e",
+      "attach_anchor": "bottom",
+      "parent_anchor": "top"
     }
   },
   "visibility_rules": {},

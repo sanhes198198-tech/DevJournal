@@ -359,6 +359,10 @@ class ConstructorWindow(QMainWindow):
         # Применить правила сразу при загрузке
         self._apply_visibility_rules()
 
+        # V11d: применить reflow ко всем привязанным после загрузки
+        for cid in list(self._items_by_comp_id.keys()):
+            self._reflow_children(cid)
+
     # ============================================================
     # NAVIGATION (вход в composite)
     # ============================================================
@@ -508,6 +512,9 @@ class ConstructorWindow(QMainWindow):
             item._rebuild_paths()
             item.update()
 
+        # V11d: пересчитать позиции привязанных детей
+        self._reflow_children(comp_id)
+
         # Правила — отложенно (setVisible вложенно рвёт Qt)
         from PySide6.QtCore import QTimer
         QTimer.singleShot(0, self._apply_visibility_rules)
@@ -535,6 +542,57 @@ class ConstructorWindow(QMainWindow):
                     c.x, c.y, c.rotation, c.scale,
                 )
                 break
+
+    def _reflow_children(self, parent_id: str) -> None:
+        """Пересчитать позиции детей, привязанных к parent_id.
+
+        Ребёнок сдвигается так, чтобы его attach_anchor совпал
+        с parent_anchor родителя (в scene-координатах).
+        """
+        if self._current_composite is None:
+            return
+
+        parent_item = self._items_by_comp_id.get(parent_id)
+        if parent_item is None:
+            return
+
+        parent_comp = self._current_composite.get_component(parent_id)
+        if parent_comp is None:
+            return
+
+        for child_id, child_item in self._items_by_comp_id.items():
+            child_comp = self._current_composite.get_component(child_id)
+            if child_comp is None:
+                continue
+            if child_comp.attach_to != parent_id:
+                continue
+            if not child_comp.attach_anchor or not child_comp.parent_anchor:
+                continue
+
+            # Локальные anchors (уже с учётом override родителя)
+            parent_anchors = parent_item.anchors_local()
+            child_anchors = child_item.anchors_local()
+
+            p_local = parent_anchors.get(child_comp.parent_anchor)
+            c_local = child_anchors.get(child_comp.attach_anchor)
+            if p_local is None or c_local is None:
+                continue
+
+            # Scene-позиция anchor родителя
+            from PySide6.QtCore import QPointF
+            parent_scene = parent_item.mapToScene(
+                QPointF(p_local[0], p_local[1])
+            )
+
+            # Хотим: child.pos() = parent_scene - c_local
+            # (предполагаем, что у ребёнка нет rotation/scale)
+            new_x = parent_scene.x() - c_local[0]
+            new_y = parent_scene.y() - c_local[1]
+
+            child_comp.x = new_x
+            child_comp.y = new_y
+            child_item.setPos(new_x, new_y)
+            child_item.update()
 
     def _apply_visibility_rules(self) -> None:
         """Применить все visibility-правила к items.

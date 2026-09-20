@@ -341,17 +341,68 @@ class ComponentItem(QGraphicsObject):
         self.moved.emit()
 
     def anchors_local(self) -> dict[str, tuple[float, float]]:
-        """Anchor'ы ссылочного asset'а в ЛОКАЛЬНЫХ координатах item."""
+        """Anchor'ы ссылочного asset'а в ЛОКАЛЬНЫХ координатах item.
+
+        V11b: учитывает param_overrides — anchor-точки тоже сдвигаются,
+        когда контур растянут через параметры.
+        """
         if self._asset is None:
-            print("[ANCHORS-LOCAL] asset is None")
             return {}
+
         raw = self._asset.anchors()
-        # anchor'ы в asset.anchors() в сырых координатах.
-        # Контур уже отцентрирован → вычитаем тот же центр.
-        return {
-            tag: (x - self._center_x, y - self._center_y)
-            for tag, (x, y) in raw.items()
-        }
+        if not raw:
+            return {}
+
+        # Собрать суммарную дельту по узлам от override-параметров
+        overrides = getattr(self._component, "param_overrides", None) or {}
+        deltas_per_node: dict[str, tuple[float, float]] = {}
+
+        if overrides:
+            params = getattr(self._asset, "parameters", None) or {}
+            sg_all = getattr(self._asset, "semantic_groups", None) or {}
+            for p in params.values():
+                ov = overrides.get(p.name)
+                if ov is None:
+                    continue
+                shift = float(ov) - float(p.value)
+                if abs(shift) < 1e-12:
+                    continue
+                nd = compute_delta_for_parameter(p, shift, sg_all)
+                for nid, (dx, dy) in nd.items():
+                    px, py = deltas_per_node.get(nid, (0.0, 0.0))
+                    deltas_per_node[nid] = (px + dx, py + dy)
+
+        sg = getattr(self._asset, "semantic_groups", None) or {}
+
+        result = {}
+        for tag, (x, y) in raw.items():
+            avg_dx = 0.0
+            avg_dy = 0.0
+
+            # Группа с именем == tag содержит узлы этого anchor'а
+            group = None
+            for g in sg.values():
+                if g.name == tag:
+                    group = g
+                    break
+
+            if group is not None and group.node_ids:
+                dxs, dys = [], []
+                for nid in group.node_ids:
+                    d = deltas_per_node.get(nid)
+                    if d is not None:
+                        dxs.append(d[0])
+                        dys.append(d[1])
+                if dxs:
+                    avg_dx = sum(dxs) / len(dxs)
+                    avg_dy = sum(dys) / len(dys)
+
+            result[tag] = (
+                x + avg_dx - self._center_x,
+                y + avg_dy - self._center_y,
+            )
+
+        return result
 
     def set_highlighted_anchor(self, tag: str | None) -> None:
         if self._highlighted_anchor != tag:
@@ -383,6 +434,7 @@ class ComponentItem(QGraphicsObject):
         my_world = self.anchors_world()
         if not my_world:
             self.clear_snap_highlight()
+            self._component.clear_attachment()
             return
 
         views = scene.views()
@@ -400,6 +452,13 @@ class ComponentItem(QGraphicsObject):
                 continue
             their_world = other.anchors_world()
             if not their_world:
+                continue
+
+            # Пропустить, если этот other уже привязан к НАМ (иначе цикл)
+            other_comp_check = getattr(other, "_component", None)
+            if (other_comp_check is not None
+                    and other_comp_check.attach_to
+                    == self._component.id):
                 continue
 
             for my_tag, (mx, my) in my_world.items():
@@ -429,6 +488,21 @@ class ComponentItem(QGraphicsObject):
         # Подсветка
         self.set_highlighted_anchor(my_tag)
         other.set_highlighted_anchor(their_tag)
+
+        # V11c: сохранить привязку в модель
+        other_comp = getattr(other, "_component", None)
+        if other_comp is not None:
+            already = (
+                self._component.attach_to == other_comp.id
+                and self._component.attach_anchor == my_tag
+                and self._component.parent_anchor == their_tag
+            )
+            if not already:
+                self._component.set_attachment(
+                    other_comp.id, my_tag, their_tag,
+                )
+                print(f"[SNAP] attach_to={other_comp.id} "
+                      f"my={my_tag} their={their_tag}")
         self._snap_partner = other
 
     def mouseDoubleClickEvent(self, event) -> None:

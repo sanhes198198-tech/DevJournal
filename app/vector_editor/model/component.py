@@ -27,6 +27,9 @@ class Component:
         layer: int = 0,
         filled: bool = False,
         param_overrides: dict | None = None,
+        attach_to: str = "",
+        attach_anchor: str = "",
+        parent_anchor: str = "",
     ):
         self.id = id or self._generate_id()
         self.asset_id = asset_id
@@ -42,6 +45,13 @@ class Component:
         self.param_overrides: dict[str, float] = dict(
             param_overrides or {}
         )
+        # V11: привязка через anchors
+        # attach_to — id родителя в композите
+        # attach_anchor — наш якорь (anchor_bottom)
+        # parent_anchor — якорь родителя (anchor_top)
+        self.attach_to: str = str(attach_to or "")
+        self.attach_anchor: str = str(attach_anchor or "")
+        self.parent_anchor: str = str(parent_anchor or "")
 
     @staticmethod
     def _generate_id() -> str:
@@ -69,6 +79,31 @@ class Component:
     def clear_all_overrides(self) -> None:
         self.param_overrides.clear()
 
+    # ------------------------------------------------------------
+    # ATTACH (V11)
+    # ------------------------------------------------------------
+
+    def set_attachment(
+        self, parent_id: str,
+        attach_anchor: str, parent_anchor: str,
+    ) -> None:
+        """Прикрепить этот компонент к родителю."""
+        self.attach_to = str(parent_id)
+        self.attach_anchor = str(attach_anchor)
+        self.parent_anchor = str(parent_anchor)
+
+    def clear_attachment(self) -> None:
+        self.attach_to = ""
+        self.attach_anchor = ""
+        self.parent_anchor = ""
+
+    def is_attached(self) -> bool:
+        return bool(
+            self.attach_to
+            and self.attach_anchor
+            and self.parent_anchor
+        )
+
     def to_dict(self) -> dict:
         return {
             "id": self.id,
@@ -81,6 +116,9 @@ class Component:
             "layer": self.layer,
             "filled": self.filled,
             "param_overrides": dict(self.param_overrides),
+            "attach_to": self.attach_to,
+            "attach_anchor": self.attach_anchor,
+            "parent_anchor": self.parent_anchor,
         }
 
     @classmethod
@@ -100,4 +138,7 @@ class Component:
                 for k, v in (d.get("param_overrides") or {}).items()
                 if isinstance(v, (int, float))
             },
+            attach_to=str(d.get("attach_to", "")),
+            attach_anchor=str(d.get("attach_anchor", "")),
+            parent_anchor=str(d.get("parent_anchor", "")),
         )
