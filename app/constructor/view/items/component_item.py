@@ -8,7 +8,7 @@ ComponentItem — QGraphicsObject для одного Component.
 """
 from __future__ import annotations
 
-from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QPainterPath, QPen
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsObject
 
@@ -23,6 +23,9 @@ ORPHAN_SIZE_M = 1.0
 
 class ComponentItem(QGraphicsObject):
     """QGraphicsObject-обёртка для Component."""
+
+    # Эмитится после завершения drag или после apply_from_component
+    moved = Signal()
 
     def __init__(self, component, asset=None, parent=None):
         super().__init__(parent)
@@ -210,6 +213,15 @@ class ComponentItem(QGraphicsObject):
 
     # ------------------------------------------------------------
 
+    def apply_from_component(self) -> None:
+        """Пересобрать transform из компонента (после правки в панели)."""
+        c = self._component
+        self.setPos(c.x, c.y)
+        self.setRotation(-c.rotation)
+        self.setScale(c.scale)
+        self.update()
+        self.moved.emit()
+
     def mouseReleaseEvent(self, event) -> None:
         super().mouseReleaseEvent(event)
 
@@ -225,6 +237,7 @@ class ComponentItem(QGraphicsObject):
         # Записываем в компонент
         self._component.x = sx
         self._component.y = sy
+        self.moved.emit()
 
     def itemChange(self, change, value):
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
