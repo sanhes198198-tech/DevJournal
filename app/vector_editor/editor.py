@@ -352,10 +352,13 @@ class VectorEditor(QMainWindow):
     # ============================================================
 
     def _on_scene_selection_changed(self) -> None:
-        """Обновить список выделенных node_ids в панели групп."""
+        """Обновить список выделенных node_ids в панели групп.
+
+        Учитывает и main (NodeItem), и extra (ExtraNodeItem).
+        """
         node_ids = []
         for it in self._scene.selectedItems():
-            if isinstance(it, NodeItem):
+            if isinstance(it, (NodeItem, ExtraNodeItem)):
                 nid = it.node_id
                 if nid:
                     node_ids.append(nid)
@@ -1638,13 +1641,15 @@ class VectorEditor(QMainWindow):
         if self._contour_item is None:
             return
 
-        # Очистить старое выделение? — да, чтобы не смешивать.
-        # Если нужен режим «добавить к текущему» — Ctrl+drag.
         self._scene.clearSelection()
 
         n = 0
-        for item in self._scene.items(rect):
-            if isinstance(item, (NodeItem, ExtraNodeItem)):
+        for item in self._scene.items():
+            if not isinstance(item, (NodeItem, ExtraNodeItem)):
+                continue
+            # У узлов флаг ItemIgnoresTransformations, поэтому
+            # sceneBoundingRect неточен. Проверяем центр узла.
+            if rect.contains(item.scenePos()):
                 item.setSelected(True)
                 n += 1
 

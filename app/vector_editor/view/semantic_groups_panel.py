@@ -121,6 +121,14 @@ class SemanticGroupsPanel(QWidget):
         self._btn_edit.clicked.connect(self._on_edit)
         buttons.addWidget(self._btn_edit, 1)
 
+        self._btn_add_sel = QPushButton("Дополнить")
+        self._btn_add_sel.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_add_sel.setToolTip(
+            "Добавить выделенные в сцене узлы к выбранной группе"
+        )
+        self._btn_add_sel.clicked.connect(self._on_add_selected)
+        buttons.addWidget(self._btn_add_sel)
+
         self._btn_del = QPushButton("Удалить")
         self._btn_del.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_del.clicked.connect(self._on_delete)
@@ -128,6 +136,7 @@ class SemanticGroupsPanel(QWidget):
 
         self._style_button(self._btn_add)
         self._style_button(self._btn_edit)
+        self._style_button(self._btn_add_sel)
         self._style_button(self._btn_del)
 
         layout.addLayout(buttons)
@@ -239,6 +248,11 @@ class SemanticGroupsPanel(QWidget):
         )
         self._btn_edit.setEnabled(has_groups and has_selection)
         self._btn_del.setEnabled(has_groups and has_selection)
+        self._btn_add_sel.setEnabled(
+            has_groups
+            and has_selection
+            and len(self._selected_node_ids) > 0
+        )
 
     # ------------------------------------------------------------
 
@@ -343,6 +357,30 @@ class SemanticGroupsPanel(QWidget):
                     node_ids=list(generated),
                 )
             )
+
+        self.refresh()
+        self.groups_changed.emit()
+
+    def _on_add_selected(self) -> None:
+        """Добавить выделенные узлы (main + extra) к выбранной группе."""
+        if self._asset is None:
+            return
+        gid = self._current_group_id()
+        if gid is None:
+            return
+        group = self._asset.get_semantic_group(gid)
+        if group is None:
+            return
+        if not self._selected_node_ids:
+            return
+
+        added = 0
+        for nid in self._selected_node_ids:
+            if group.add_node(nid):
+                added += 1
+
+        if added == 0:
+            return
 
         self.refresh()
         self.groups_changed.emit()

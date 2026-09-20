@@ -375,9 +375,13 @@ class ContourItem(QGraphicsObject):
         wanted = set(node_ids)
         for node in self._nodes:
             node.set_highlight(node.node_id in wanted)
+        for node in self._extra_nodes:
+            node.set_highlight(node.node_id in wanted)
 
     def clear_highlight(self) -> None:
         for node in self._nodes:
+            node.set_highlight(False)
+        for node in self._extra_nodes:
             node.set_highlight(False)
 
     def _on_node_moved(self, idx: int, x: float, y: float) -> None:
