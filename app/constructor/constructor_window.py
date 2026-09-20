@@ -134,6 +134,12 @@ class ConstructorWindow(QMainWindow):
         self._properties.delete_requested.connect(
             self._on_prop_delete
         )
+        self._properties.layer_shift.connect(
+            self._on_prop_layer_shift
+        )
+        self._properties.filled_changed.connect(
+            self._on_prop_filled_changed
+        )
 
     def _load_assets(self) -> None:
         if self._registry is None:
@@ -434,8 +440,37 @@ class ConstructorWindow(QMainWindow):
             comp.rotation = value
         elif field == "scale":
             comp.scale = value
+        elif field == "layer":
+            comp.layer = int(value)
 
         item.apply_from_component()
+
+    def _on_prop_layer_shift(
+        self, comp_id: str, direction: int,
+    ) -> None:
+        """Сдвинуть слой на +1 / -1."""
+        comp = self._current_composite.get_component(comp_id)
+        item = self._items_by_comp_id.get(comp_id)
+        if comp is None or item is None:
+            return
+
+        comp.layer = int(getattr(comp, "layer", 0)) + direction
+        item.apply_from_component()
+
+        if hasattr(self._properties, "_layer_spin"):
+            self._properties._muted = True
+            self._properties._layer_spin.setValue(int(comp.layer))
+            self._properties._muted = False
+
+    def _on_prop_filled_changed(
+        self, comp_id: str, filled: bool,
+    ) -> None:
+        comp = self._current_composite.get_component(comp_id)
+        item = self._items_by_comp_id.get(comp_id)
+        if comp is None or item is None:
+            return
+        comp.filled = bool(filled)
+        item.update()
 
     def _on_prop_delete(self, comp_id: str) -> None:
         """Удалить компонент."""

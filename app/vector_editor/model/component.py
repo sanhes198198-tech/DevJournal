@@ -24,6 +24,8 @@ class Component:
         rotation: float = 0.0,
         scale: float = 1.0,
         name: str = "",
+        layer: int = 0,
+        filled: bool = False,
     ):
         self.id = id or self._generate_id()
         self.asset_id = asset_id
@@ -32,6 +34,8 @@ class Component:
         self.rotation = float(rotation)
         self.scale = float(scale) if scale > 0 else 1.0
         self.name = name
+        self.layer = int(layer)
+        self.filled = bool(filled)
 
     @staticmethod
     def _generate_id() -> str:
@@ -52,6 +56,8 @@ class Component:
             "rotation": self.rotation,
             "scale": self.scale,
             "name": self.name,
+            "layer": self.layer,
+            "filled": self.filled,
         }
 
     @classmethod
@@ -64,4 +70,6 @@ class Component:
             rotation=float(d.get("rotation", 0.0)),
             scale=float(d.get("scale", 1.0)),
             name=str(d.get("name", "")),
+            layer=int(d.get("layer", 0)),
+            filled=bool(d.get("filled", False)),
         )

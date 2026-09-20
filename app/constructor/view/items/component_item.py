@@ -9,7 +9,7 @@ ComponentItem — QGraphicsObject для одного Component.
 from __future__ import annotations
 
 from PySide6.QtCore import QPointF, QRectF, Qt, Signal
-from PySide6.QtGui import QColor, QPainterPath, QPen
+from PySide6.QtGui import QBrush, QColor, QPainterPath, QPen
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsObject
 
 
@@ -76,14 +76,13 @@ class ComponentItem(QGraphicsObject):
     # ------------------------------------------------------------
 
     def _apply_transform(self) -> None:
-        """Позиция/поворот/масштаб из Component.
-
-        Y↑ в сцене → rotation инвертируем.
-        """
+        """Позиция/поворот/масштаб/layer из Component."""
         c = self._component
         self.setPos(c.x, c.y)
         self.setRotation(-c.rotation)
         self.setScale(c.scale)
+        # Z от слоя: 100 + layer, чтобы не пересекаться с UI
+        self.setZValue(100.0 + float(getattr(c, "layer", 0)))
 
     # ------------------------------------------------------------
 
@@ -248,7 +247,13 @@ class ComponentItem(QGraphicsObject):
         pen = QPen(color, width)
         pen.setCosmetic(True)
         painter.setPen(pen)
-        painter.setBrush(Qt.BrushStyle.NoBrush)
+
+        # Заливка белым, если включено — перекрывает линии за собой
+        filled = bool(getattr(self._component, "filled", False))
+        if filled:
+            painter.setBrush(QBrush(QColor("#FFFFFF")))
+        else:
+            painter.setBrush(Qt.BrushStyle.NoBrush)
 
         if not self._path.isEmpty():
             painter.drawPath(self._path)
@@ -263,6 +268,7 @@ class ComponentItem(QGraphicsObject):
         self.setPos(c.x, c.y)
         self.setRotation(-c.rotation)
         self.setScale(c.scale)
+        self.setZValue(100.0 + float(getattr(c, "layer", 0)))
         self.update()
         self.moved.emit()
 

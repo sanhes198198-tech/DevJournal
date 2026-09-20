@@ -9,10 +9,13 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QDoubleSpinBox,
+    QSpinBox,
+    QCheckBox,
     QFormLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QToolButton,
     QVBoxLayout,
     QWidget,
     QFrame,
@@ -22,10 +25,14 @@ from PySide6.QtWidgets import (
 class PropertiesPanel(QWidget):
     """Правая панель свойств."""
 
-    # (comp_id, field, value) — field: "x" / "y" / "rotation" / "scale"
+    # (comp_id, field, value) — field: "x" / "y" / "rotation" / "scale" / "layer"
     value_changed = Signal(str, str, float)
     # comp_id — удалить компонент
     delete_requested = Signal(str)
+    # (comp_id, direction) — direction: +1 / -1
+    layer_shift = Signal(str, int)
+    # (comp_id, filled)
+    filled_changed = Signal(str, bool)
 
     WIDTH = 260
 
@@ -105,6 +112,42 @@ class PropertiesPanel(QWidget):
         )
         form.addRow("Масштаб:", self._scale_spin)
 
+        # Слой — со стрелками вверх/вниз
+        layer_row = QHBoxLayout()
+        self._layer_spin = QSpinBox()
+        self._layer_spin.setRange(-100, 100)
+        self._layer_spin.setValue(0)
+        self._layer_spin.valueChanged.connect(
+            lambda v: self._emit("layer", float(v))
+        )
+        layer_row.addWidget(self._layer_spin, 1)
+
+        btn_up = QToolButton()
+        btn_up.setText("▲")
+        btn_up.setToolTip("Выше")
+        btn_up.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_up.clicked.connect(
+            lambda: self._shift_layer(+1)
+        )
+        layer_row.addWidget(btn_up)
+
+        btn_down = QToolButton()
+        btn_down.setText("▼")
+        btn_down.setToolTip("Ниже")
+        btn_down.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_down.clicked.connect(
+            lambda: self._shift_layer(-1)
+        )
+        layer_row.addWidget(btn_down)
+
+        self._btn_up = btn_up
+        self._btn_down = btn_down
+        form.addRow("Слой:", layer_row)
+
+        self._filled_check = QCheckBox("Залить белым (перекрывать)")
+        self._filled_check.toggled.connect(self._on_filled_toggled)
+        form.addRow("", self._filled_check)
+
         layout.addLayout(form)
         layout.addStretch()
 
@@ -125,6 +168,8 @@ class PropertiesPanel(QWidget):
         self._y_spin.setValue(0.0)
         self._rot_spin.setValue(0.0)
         self._scale_spin.setValue(1.0)
+        self._layer_spin.setValue(0)
+        self._filled_check.setChecked(False)
         self._muted = False
         self._set_enabled(False)
 
@@ -137,6 +182,10 @@ class PropertiesPanel(QWidget):
         self._y_spin.setValue(comp.y)
         self._rot_spin.setValue(comp.rotation)
         self._scale_spin.setValue(comp.scale)
+        self._layer_spin.setValue(int(getattr(comp, "layer", 0)))
+        self._filled_check.setChecked(
+            bool(getattr(comp, "filled", False))
+        )
         self._muted = False
         self._set_enabled(True)
 
@@ -157,9 +206,23 @@ class PropertiesPanel(QWidget):
         self._y_spin.setEnabled(enabled)
         self._rot_spin.setEnabled(enabled)
         self._scale_spin.setEnabled(enabled)
+        self._layer_spin.setEnabled(enabled)
+        self._filled_check.setEnabled(enabled)
+        self._btn_up.setEnabled(enabled)
+        self._btn_down.setEnabled(enabled)
         self._btn_delete.setEnabled(enabled)
 
     # ------------------------------------------------------------
+
+    def _on_filled_toggled(self, checked: bool) -> None:
+        if self._muted or self._current_comp is None:
+            return
+        self.filled_changed.emit(self._current_comp.id, checked)
+
+    def _shift_layer(self, direction: int) -> None:
+        if self._current_comp is None:
+            return
+        self.layer_shift.emit(self._current_comp.id, direction)
 
     def _emit(self, field: str, value: float) -> None:
         if self._muted or self._current_comp is None:
