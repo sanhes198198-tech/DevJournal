@@ -17,6 +17,7 @@ from .semantic_group import SemanticGroup
 from .parameter import Parameter
 from .reference_image import ReferenceImage
 from .component import Component
+from .visibility_rule import VisibilityRule
 
 
 # ============================================================
@@ -64,6 +65,7 @@ class Asset:
         # Ссылки на другие Asset'ы (составной Asset).
         # Либо geometry с контуром, либо components — но не оба.
         self.components: dict[str, Component] = components or {}
+        self.visibility_rules: dict[str, VisibilityRule] = {}
         self.semantic_groups: dict[str, SemanticGroup] = semantic_groups or {}
         self.parameters = parameters or {}
         self.reference_image: ReferenceImage | None = None
@@ -182,6 +184,10 @@ class Asset:
                 cid: c.to_dict()
                 for cid, c in self.components.items()
             },
+            "visibility_rules": {
+                rid: r.to_dict()
+                for rid, r in self.visibility_rules.items()
+            },
             "semantic_groups": {
                 gid: g.to_dict()
                 for gid, g in self.semantic_groups.items()
@@ -219,6 +225,17 @@ class Asset:
                 except Exception:
                     continue
 
+        rules_raw = d.get("visibility_rules") or {}
+        rules: dict[str, VisibilityRule] = {}
+        if isinstance(rules_raw, dict):
+            for rid, rdict in rules_raw.items():
+                if not isinstance(rdict, dict):
+                    continue
+                try:
+                    rules[rid] = VisibilityRule.from_dict(rdict)
+                except Exception:
+                    continue
+
         comp_raw = d.get("components") or {}
         comps: dict[str, Component] = {}
         if isinstance(comp_raw, dict):
@@ -249,6 +266,7 @@ class Asset:
             generation_rules=d.get("generation_rules") or cls._default_rules(),
         )
         asset.reference_image = ref
+        asset.visibility_rules = rules
         return asset
 
     # ------------------------------------------------------------
@@ -455,6 +473,37 @@ class Asset:
             seen_ids.add(comp.id)
 
         return problems
+
+    # ------------------------------------------------------------
+    # VISIBILITY RULES (V9b)
+    # ------------------------------------------------------------
+
+    def add_visibility_rule(self, rule: VisibilityRule) -> bool:
+        if not rule.is_valid():
+            return False
+        if rule.id in self.visibility_rules:
+            return False
+        self.visibility_rules[rule.id] = rule
+        return True
+
+    def remove_visibility_rule(
+        self, rule_id: str,
+    ) -> VisibilityRule | None:
+        return self.visibility_rules.pop(rule_id, None)
+
+    def get_visibility_rule(
+        self, rule_id: str,
+    ) -> VisibilityRule | None:
+        return self.visibility_rules.get(rule_id)
+
+    def visibility_rules_list(self) -> list[VisibilityRule]:
+        return sorted(
+            self.visibility_rules.values(),
+            key=lambda r: (r.label or r.name).lower(),
+        )
+
+    def visibility_rule_count(self) -> int:
+        return len(self.visibility_rules)
 
     # ------------------------------------------------------------
     # SEMANTIC GROUPS

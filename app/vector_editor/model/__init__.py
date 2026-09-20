@@ -20,6 +20,7 @@ from .parameter import (
 )
 from .reference_image import ReferenceImage
 from .component import Component
+from .visibility_rule import VisibilityRule
 from .analysis import (
     AUTO_GROUP_TYPES,
     generate_auto_group,
@@ -44,6 +45,7 @@ __all__ = [
     "apply_delta_to_points",
     "ReferenceImage",
     "Component",
+    "VisibilityRule",
     "AUTO_GROUP_TYPES",
     "generate_auto_group",
     "find_horizontal_edge_nodes",
