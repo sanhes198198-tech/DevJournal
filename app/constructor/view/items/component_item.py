@@ -27,10 +27,15 @@ class ComponentItem(QGraphicsObject):
     # Эмитится после завершения drag или после apply_from_component
     moved = Signal()
 
-    def __init__(self, component, asset=None, parent=None):
+    MAX_DEPTH = 8
+
+    def __init__(
+        self, component, asset=None, registry=None, parent=None,
+    ):
         super().__init__(parent)
         self._component = component
         self._asset = asset
+        self._registry = registry
         self._path = QPainterPath()
         self._extra_path = QPainterPath()
 
@@ -87,27 +92,48 @@ class ComponentItem(QGraphicsObject):
         if self._asset is None:
             return
 
-        g = self._asset.geometry
+        # Рекурсивная сборка (центрирование уже сделано внутри)
+        main, extra = self._collect_asset_paths(
+            self._asset, depth=0,
+        )
+        self._path = main
+        self._extra_path = extra
+        self._offset_x = 0.0
+        self._offset_y = 0.0
+
+    def _collect_asset_paths(
+        self, asset, depth: int,
+    ) -> tuple[QPainterPath, QPainterPath]:
+        """Собрать main + extra из asset'а рекурсивно.
+
+        Возвращает (main_path, extra_path).
+        """
+        main = QPainterPath()
+        extra = QPainterPath()
+
+        if asset is None:
+            return main, extra
+
+        if depth > self.MAX_DEPTH:
+            return main, extra
+
+        g = asset.geometry
         contour = g.get("contour", [])
         node_ids = g.get("node_ids", [])
         extra_pts = g.get("extra_points", [])
         extra_ids = g.get("extra_node_ids", [])
         extra_edges = g.get("extra_edges", [])
 
-        if len(contour) < 2:
-            return
+        # --- Main контур ---
+        if len(contour) >= 2:
+            x0, y0 = contour[0]
+            main.moveTo(float(x0), float(y0))
+            for pt in contour[1:]:
+                main.lineTo(float(pt[0]), float(pt[1]))
+            if g.get("closed", True):
+                main.closeSubpath()
 
-        # Main контур
-        p = QPainterPath()
-        x0, y0 = contour[0]
-        p.moveTo(float(x0), float(y0))
-        for pt in contour[1:]:
-            p.lineTo(float(pt[0]), float(pt[1]))
-        if g.get("closed", True):
-            p.closeSubpath()
-        self._path = p
-
-        # Карта node_id → (x, y)
+        # --- Карта node_id → (x, y) ---
         pos_map: dict[str, tuple[float, float]] = {}
         for i, nid in enumerate(node_ids):
             if i < len(contour):
@@ -118,8 +144,7 @@ class ComponentItem(QGraphicsObject):
                 x, y = extra_pts[i]
                 pos_map[nid] = (float(x), float(y))
 
-        # Extra edges
-        ep = QPainterPath()
+        # --- Extra edges ---
         for edge in extra_edges:
             if not isinstance(edge, (list, tuple)) or len(edge) != 2:
                 continue
@@ -128,30 +153,47 @@ class ComponentItem(QGraphicsObject):
             pb = pos_map.get(b_id)
             if pa is None or pb is None:
                 continue
-            ep.moveTo(pa[0], pa[1])
-            ep.lineTo(pb[0], pb[1])
-        self._extra_path = ep
+            extra.moveTo(pa[0], pa[1])
+            extra.lineTo(pb[0], pb[1])
 
-        # Центрируем: смещаем оба path'а на -центр bounding box.
-        # Никакого флипа Y — координаты уже в Y↓ (как рисует vector editor).
+        # --- Вложенные компоненты (рекурсия) ---
+        comps = getattr(asset, "components", {})
+        if comps and self._registry is not None:
+            from PySide6.QtGui import QTransform
+            for comp in comps.values():
+                sub = self._registry.get(comp.asset_id)
+                if sub is None:
+                    continue
+                sub_main, sub_extra = self._collect_asset_paths(
+                    sub, depth + 1,
+                )
+
+                t = QTransform()
+                t.translate(comp.x, comp.y)
+                t.rotate(-comp.rotation)
+                t.scale(comp.scale, comp.scale)
+
+                if not sub_main.isEmpty():
+                    main.addPath(t.map(sub_main))
+                if not sub_extra.isEmpty():
+                    extra.addPath(t.map(sub_extra))
+
+        # --- Центрируем каждый asset до применения (общий bbox) ---
         r = QRectF()
-        if not self._path.isEmpty():
-            r = self._path.boundingRect()
-        if not self._extra_path.isEmpty():
-            er = self._extra_path.boundingRect()
+        if not main.isEmpty():
+            r = main.boundingRect()
+        if not extra.isEmpty():
+            er = extra.boundingRect()
             r = r.united(er) if not r.isEmpty() else er
 
         if not r.isEmpty():
             from PySide6.QtGui import QTransform
-            self._offset_x = r.center().x()
-            self._offset_y = r.center().y()
             shift = QTransform()
-            shift.translate(-self._offset_x, -self._offset_y)
-            self._path = shift.map(self._path)
-            self._extra_path = shift.map(self._extra_path)
-        else:
-            self._offset_x = 0.0
-            self._offset_y = 0.0
+            shift.translate(-r.center().x(), -r.center().y())
+            main = shift.map(main)
+            extra = shift.map(extra)
+
+        return main, extra
 
     # ------------------------------------------------------------
 

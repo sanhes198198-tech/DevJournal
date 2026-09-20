@@ -57,7 +57,9 @@ class AssetPalette(QWidget):
             self._list.addItem(item)
             return
         for a in assets:
-            item = QListWidgetItem(f"{a.name}  [{a.type}]")
+            is_comp = bool(getattr(a, "components", None))
+            icon = "📦 " if is_comp else "  "
+            item = QListWidgetItem(f"{icon}{a.name}  [{a.type}]")
             item.setData(Qt.ItemDataRole.UserRole, a.id)
             self._list.addItem(item)
 

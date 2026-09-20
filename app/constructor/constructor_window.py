@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QToolBar, QMessageBox, QInputDialog,
 )
 from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtWidgets import QGraphicsItem
 
 from .view.canvas import ConstructorCanvas
 from .view.scene import ConstructorScene
@@ -159,7 +160,9 @@ class ConstructorWindow(QMainWindow):
             return
 
         # Item на сцене
-        item = ComponentItem(comp, asset=asset)
+        item = ComponentItem(
+            comp, asset=asset, registry=self._registry,
+        )
         item.moved.connect(self._on_item_moved)
         self._items_by_comp_id[comp.id] = item
         self._scene.addItem(item)
@@ -292,24 +295,30 @@ class ConstructorWindow(QMainWindow):
         self._current_asset_name = asset.name
         self._update_title()
 
-        # Отрисовываем компоненты
-        n_orphan = 0
-        for comp in asset.components.values():
-            ref_asset = None
-            if self._registry is not None:
-                ref_asset = self._registry.get(comp.asset_id)
-            if ref_asset is None:
-                n_orphan += 1
+        # ОДИН item для composite — рисуется рекурсивно как единое
+        root_comp = Component(
+            id="__root__",
+            asset_id=asset.id,
+            x=0.0, y=0.0, rotation=0.0, scale=1.0,
+            name=asset.name,
+        )
+        item = ComponentItem(
+            root_comp, asset=asset, registry=self._registry,
+        )
+        # Root не двигается — это «вид» composite для правки вложенных
+        item.setFlag(
+            QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False,
+        )
+        item.setFlag(
+            QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False,
+        )
+        self._items_by_comp_id["__root__"] = item
+        self._scene.addItem(item)
 
-            item = ComponentItem(comp, asset=ref_asset)
-            item.moved.connect(self._on_item_moved)
-            self._items_by_comp_id[comp.id] = item
-            self._scene.addItem(item)
-
-        msg = f"Загружено: {asset.name} · {len(asset.components)} компонентов"
-        if n_orphan:
-            msg += f" · {n_orphan} битых ссылок"
-        self.statusBar().showMessage(msg, 5000)
+        self.statusBar().showMessage(
+            f"Загружено: {asset.name} · "
+            f"{len(asset.components)} компонентов", 5000,
+        )
 
     def _on_scene_selection_changed(self) -> None:
         """Обновить панель свойств по выделенному компоненту."""
