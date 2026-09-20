@@ -1331,7 +1331,10 @@ class VectorEditor(QMainWindow):
         # Переносим semantic_groups из текущего asset,
         # отфильтровав группы с несуществующими узлами
         if self._current_asset is not None:
-            valid_ids = list(asset.geometry.get("node_ids", []))
+            valid_ids = (
+                list(asset.geometry.get("node_ids", []))
+                + list(asset.geometry.get("extra_node_ids", []))
+            )
             asset.semantic_groups = self._prune_groups(
                 self._current_asset.semantic_groups,
                 valid_ids,
@@ -1388,7 +1391,10 @@ class VectorEditor(QMainWindow):
 
         # Save As копирует группы из текущего asset (отфильтрованные)
         if self._current_asset is not None:
-            valid_ids = list(asset.geometry.get("node_ids", []))
+            valid_ids = (
+                list(asset.geometry.get("node_ids", []))
+                + list(asset.geometry.get("extra_node_ids", []))
+            )
             asset.semantic_groups = self._prune_groups(
                 self._current_asset.semantic_groups,
                 valid_ids,
@@ -1583,7 +1589,13 @@ class VectorEditor(QMainWindow):
                     self._contour_item._selected_extra = None
                     self._contour_item._hover_edge_idx = None
                     self._contour_item._hover_extra = None
+                    # Сбрасываем и подсветку группы
+                    self._contour_item.clear_highlight()
                     self._contour_item.update()
+
+                # Сброс выделения в панелях
+                self._groups_panel.clear_selection()
+                self._parameters_panel.clear_selection()
 
                 pos = event.scenePos()
                 items = self._scene.items(pos)
