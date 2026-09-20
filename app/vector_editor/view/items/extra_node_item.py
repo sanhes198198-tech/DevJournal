@@ -60,6 +60,7 @@ class ExtraNodeItem(QGraphicsObject):
         self.setPos(QPointF(x, y))
 
         self._hover = False
+        self._highlight = False
         self.setAcceptHoverEvents(True)
 
     # ------------------------------------------------------------
@@ -67,6 +68,14 @@ class ExtraNodeItem(QGraphicsObject):
     @property
     def node_id(self) -> str:
         return self._node_id
+
+    def set_highlight(self, value: bool) -> None:
+        if self._highlight != value:
+            self._highlight = value
+            self.update()
+
+    def is_highlighted(self) -> bool:
+        return self._highlight
 
     # ------------------------------------------------------------
 
@@ -87,6 +96,10 @@ class ExtraNodeItem(QGraphicsObject):
             fill = QColor("#0055CC")
             border = QColor("#003399")
             pen_width = 0
+        elif self._highlight:
+            fill = QColor("#FFFFFF")
+            border = QColor("#FF6B00")   # оранжевый как у main
+            pen_width = 2.5
         elif self._hover:
             fill = QColor(self.HOVER_FILL)
             border = QColor(self.BORDER)

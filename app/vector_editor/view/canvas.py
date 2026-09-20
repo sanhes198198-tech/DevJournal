@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import math
 
-from PySide6.QtCore import QPoint, QPointF, Qt, Signal
+from PySide6.QtCore import QPoint, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QCursor
 from PySide6.QtWidgets import QGraphicsView
 
@@ -44,6 +44,8 @@ class VectorCanvas(QGraphicsView):
     extrude_click = Signal(float, float)
     # Extrude-режим отменён (Esc) или завершён
     extrude_finished = Signal()
+    # Rubber band (ПКМ+drag) — прямоугольник в scene-координатах
+    rubber_band_finished = Signal(QRectF)
 
     def __init__(self, scene: VectorScene, parent=None):
         super().__init__(scene, parent)
@@ -57,6 +59,8 @@ class VectorCanvas(QGraphicsView):
         self._preview: DrawingPreviewItem | None = None
         # Anchor для preview в extrude-режиме (scene coords в метрах)
         self._extrude_anchor: tuple[float, float] | None = None
+        # Rubber band: начало прямоугольника (scene coords)
+        self._rubber_origin: QPointF | None = None
 
         self.setDragMode(QGraphicsView.DragMode.NoDrag)
         self.setTransformationAnchor(
@@ -70,6 +74,9 @@ class VectorCanvas(QGraphicsView):
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
         self.setMouseTracking(True)
+        self.setContextMenuPolicy(
+            Qt.ContextMenuPolicy.NoContextMenu
+        )
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
         self.setViewportUpdateMode(
@@ -147,6 +154,18 @@ class VectorCanvas(QGraphicsView):
             self._start_pan(event)
             return
 
+        # ПКМ → rubber band (только в select-режиме)
+        if (
+            event.button() == Qt.MouseButton.RightButton
+            and self._tool == "select"
+        ):
+            self._rubber_origin = self.mapToScene(
+                event.position().toPoint()
+            )
+            self.viewport().update()
+            event.accept()
+            return
+
         # ЛКМ в select-режиме без Shift: если клик не попал ни в узел,
         # ни в ребро — сигналим наружу и НЕ пропускаем в scene.
         if (
@@ -195,6 +214,11 @@ class VectorCanvas(QGraphicsView):
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event) -> None:
+        if self._rubber_origin is not None:
+            self.viewport().update()
+            event.accept()
+            return
+
         if self._panning:
             self._pan_move(event)
             return
@@ -215,6 +239,21 @@ class VectorCanvas(QGraphicsView):
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event) -> None:
+        # ПКМ → завершение rubber band
+        if (
+            event.button() == Qt.MouseButton.RightButton
+            and self._rubber_origin is not None
+        ):
+            end = self.mapToScene(event.position().toPoint())
+            origin = self._rubber_origin
+            self._rubber_origin = None
+            self.viewport().update()
+
+            rect = QRectF(origin, end).normalized()
+            self.rubber_band_finished.emit(rect)
+            event.accept()
+            return
+
         if self._panning and event.button() in (
             Qt.MouseButton.LeftButton,
             Qt.MouseButton.MiddleButton,
@@ -435,8 +474,26 @@ class VectorCanvas(QGraphicsView):
     # ============================================================
 
     def drawForeground(self, painter, rect) -> None:
-        """Preview-линия в extrude-режиме: от anchor к курсору."""
+        """Preview-линия в extrude + rubber band прямоугольник."""
         super().drawForeground(painter, rect)
+
+        # Rubber band (ПКМ+drag)
+        if self._rubber_origin is not None:
+            from PySide6.QtGui import QPen, QColor, QBrush
+
+            cursor_scene = self.mapToScene(
+                self.viewport().mapFromGlobal(QCursor.pos())
+            )
+            band = QRectF(
+                self._rubber_origin, cursor_scene,
+            ).normalized()
+
+            pen = QPen(QColor("#0055CC"), 1.0)
+            pen.setCosmetic(True)
+            pen.setStyle(Qt.PenStyle.DashLine)
+            painter.setPen(pen)
+            painter.setBrush(QBrush(QColor(0, 85, 204, 40)))
+            painter.drawRect(band)
 
         if (
             self._tool != "extrude"

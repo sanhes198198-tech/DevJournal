@@ -260,6 +260,20 @@ class VectorEditor(QMainWindow):
         act_extra.triggered.connect(self._on_add_extra_edge)
         tb.addAction(act_extra)
 
+        tb.addSeparator()
+
+        act_draw = QAction("✏ Рисовать", self)
+        act_draw.setShortcut(QKeySequence("D"))
+        act_draw.setShortcutContext(
+            Qt.ShortcutContext.ApplicationShortcut
+        )
+        act_draw.setToolTip(
+            "Начать рисовать контур (D). "
+            "Клик — точка, Enter — замкнуть, Esc — отмена."
+        )
+        act_draw.triggered.connect(self._on_start_draw)
+        tb.addAction(act_draw)
+
         act_validate = QAction("🔍 Проверить", self)
         act_validate.setShortcut(QKeySequence("Ctrl+Shift+V"))
         act_validate.setShortcutContext(
@@ -274,6 +288,9 @@ class VectorEditor(QMainWindow):
     def _connect_signals(self) -> None:
         self._canvas.contour_created.connect(self._on_contour_created)
         self._canvas.empty_click.connect(self._on_empty_scene_click)
+        self._canvas.rubber_band_finished.connect(
+            self._on_rubber_band_finished
+        )
         self._canvas.extrude_click.connect(self._on_extrude_click)
         self._canvas.extrude_finished.connect(
             self._on_extrude_finished
@@ -913,28 +930,81 @@ class VectorEditor(QMainWindow):
         if self._param_undo_timer.isValid():
             self._param_undo_timer.invalidate()
 
+    def _on_start_draw(self) -> None:
+        """Включить draw-режим. Работает в любой момент."""
+        if self._contour_item is not None:
+            reply = QMessageBox.question(
+                self, "Новый контур",
+                "На сцене уже есть контур.\n\n"
+                "Очистить его и начать рисовать заново?",
+                QMessageBox.StandardButton.Yes
+                | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+
+            # Очищаем контур, но Asset и подложку не трогаем
+            self._contour_item.contour.points = []
+            self._contour_item.contour.node_ids = []
+            self._contour_item.contour.extra_edges = []
+            self._contour_item.contour.extra_points = []
+            self._contour_item.contour.extra_node_ids = []
+            self._contour_item._rebuild_nodes()
+            self._contour_item._rebuild_extra_nodes()
+            self._contour_item._rebuild_path()
+
+        self._canvas.set_tool("draw")
+        if self._reference_item is not None:
+            self._reference_item.set_interactive(False)
+
+        self.statusBar().showMessage(
+            "Рисование: ЛКМ — точка · Enter — замкнуть · Esc — отмена",
+            8000,
+        )
+
     def _on_new(self) -> None:
         if not self._confirm_discard():
             return
 
-        self._clear_scene()
+        # Спрашиваем имя + тип СРАЗУ, до рисования
+        dlg = SaveAssetDialog(
+            default_name="Новый",
+            parent=self,
+        )
+        if dlg.exec() != SaveAssetDialog.DialogCode.Accepted:
+            return
 
-        self._current_asset_id = None
-        self._current_asset_name = "Новый"
-        self._current_asset_type = "other"
+        # Создаём пустой Asset (без точек) и сразу сохраняем
+        empty_contour = VectorContour(points=[])
+        asset = Asset.from_contour(
+            empty_contour,
+            name=dlg.result_name,
+            type_=dlg.result_type,
+        )
 
-        self._mark_saved()
-        self._browser.clear_selection()
+        try:
+            save_asset(asset)
+        except StorageError as e:
+            QMessageBox.critical(
+                self, "Ошибка создания",
+                f"Не удалось создать Asset:\n\n{e}"
+            )
+            return
 
-        # Входим в режим рисования — пустая сцена, ждём кликов
+        # Открываем его в редакторе — контур пустой
+        self._load_asset_into_editor(asset)
+        self._browser.refresh()
+
+        # Входим в draw — рисуй
         self._canvas.set_tool("draw")
-
-        # Подложка не должна ловить клики в draw-режиме
         if self._reference_item is not None:
             self._reference_item.set_interactive(False)
+
         self.statusBar().showMessage(
-            "Нарисуйте контур: ЛКМ — точка · клик по первой или "
-            "Enter — замкнуть · Esc — отмена", 8000
+            f"Asset «{asset.name}» создан. "
+            f"Нарисуйте контур: ЛКМ — точка · "
+            f"Enter — замкнуть · Esc — отмена", 8000
         )
 
     def _clear_scene(self) -> None:
@@ -1562,6 +1632,30 @@ class VectorEditor(QMainWindow):
                     return False
 
         return super().eventFilter(obj, event)
+
+    def _on_rubber_band_finished(self, rect) -> None:
+        """Выделить все узлы (main + extra) внутри прямоугольника."""
+        if self._contour_item is None:
+            return
+
+        # Очистить старое выделение? — да, чтобы не смешивать.
+        # Если нужен режим «добавить к текущему» — Ctrl+drag.
+        self._scene.clearSelection()
+
+        n = 0
+        for item in self._scene.items(rect):
+            if isinstance(item, (NodeItem, ExtraNodeItem)):
+                item.setSelected(True)
+                n += 1
+
+        if n > 0:
+            self.statusBar().showMessage(
+                f"Выделено узлов: {n}", 2000,
+            )
+        else:
+            self.statusBar().showMessage(
+                "Ни один узел не попал в область", 2000,
+            )
 
     def _on_empty_scene_click(self) -> None:
         """Клик мимо узлов и граней:
