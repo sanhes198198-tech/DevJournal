@@ -37,8 +37,16 @@ class ComponentItem(QGraphicsObject):
         self._offset_y = 0.0
 
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
+        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
+        self.setFlag(
+            QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges,
+            True,
+        )
         self.setZValue(3.0)
         self.setCacheMode(QGraphicsItem.CacheMode.NoCache)
+
+        # Снап к 0.1 м при перемещении
+        self._snap_step = 0.1
 
         self._rebuild_paths()
         self._apply_transform()
@@ -201,6 +209,22 @@ class ComponentItem(QGraphicsObject):
             painter.drawPath(self._extra_path)
 
     # ------------------------------------------------------------
+
+    def mouseReleaseEvent(self, event) -> None:
+        super().mouseReleaseEvent(event)
+
+        # Снапим к сетке 0.1 м
+        pos = self.pos()
+        step = self._snap_step
+        sx = round(pos.x() / step) * step
+        sy = round(pos.y() / step) * step
+
+        if abs(sx - pos.x()) > 1e-9 or abs(sy - pos.y()) > 1e-9:
+            self.setPos(sx, sy)
+
+        # Записываем в компонент
+        self._component.x = sx
+        self._component.y = sy
 
     def itemChange(self, change, value):
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
