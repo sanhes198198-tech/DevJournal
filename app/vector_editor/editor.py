@@ -260,6 +260,17 @@ class VectorEditor(QMainWindow):
         act_extra.triggered.connect(self._on_add_extra_edge)
         tb.addAction(act_extra)
 
+        act_validate = QAction("🔍 Проверить", self)
+        act_validate.setShortcut(QKeySequence("Ctrl+Shift+V"))
+        act_validate.setShortcutContext(
+            Qt.ShortcutContext.ApplicationShortcut
+        )
+        act_validate.setToolTip(
+            "Проверить инварианты контура (Ctrl+Shift+V)"
+        )
+        act_validate.triggered.connect(self._on_validate_contour)
+        tb.addAction(act_validate)
+
     def _connect_signals(self) -> None:
         self._canvas.contour_created.connect(self._on_contour_created)
         self._canvas.empty_click.connect(self._on_empty_scene_click)
@@ -308,6 +319,7 @@ class VectorEditor(QMainWindow):
         if not self._modified:
             self._modified = True
             self._update_title()
+        print(f"[MODIFIED] undo_stack={len(self._undo_stack)}")
 
     def _mark_saved(self) -> None:
         if self._modified:
@@ -419,7 +431,7 @@ class VectorEditor(QMainWindow):
             pass
         else:
             # Новая серия: снапшот ДО текущего изменения.
-            snapshot = list(self._contour_item.contour.points)
+            snapshot = self._contour_item.contour.snapshot()
             self._undo_stack.append(
                 (self._contour_item, snapshot, param_id, old_value)
             )
@@ -998,13 +1010,73 @@ class VectorEditor(QMainWindow):
         # завершает текущую сессию изменения параметра.
         self._reset_param_undo_session()
         self._mark_modified()
+        self._check_contour_invariants("после изменения")
+
+    def _check_contour_invariants(self, tag: str = "") -> bool:
+        """Проверить инварианты. Печатает проблемы в консоль.
+
+        Возвращает True если всё ок.
+        """
+        if self._contour_item is None:
+            return True
+
+        problems = self._contour_item.contour.validate()
+        if not problems:
+            if tag:
+                print(f"[OK] {tag}: контур валиден")
+            return True
+
+        print(f"[!!] {tag}: НАЙДЕНЫ ПРОБЛЕМЫ ({len(problems)}):")
+        for p in problems:
+            print(f"     - {p}")
+
+        self.statusBar().showMessage(
+            f"⚠ Проблема контура ({len(problems)}). "
+            f"Ctrl+Shift+V — детали", 6000,
+        )
+        return False
+
+    def _on_validate_contour(self) -> None:
+        """Ctrl+Shift+V — принудительная проверка."""
+        if self._contour_item is None:
+            QMessageBox.information(
+                self, "Проверка контура",
+                "Нет контура на сцене.",
+            )
+            return
+
+        c = self._contour_item.contour
+        problems = c.validate()
+
+        info = [
+            f"points: {len(c.points)}",
+            f"node_ids: {len(c.node_ids)}",
+            f"extra_points: {len(c.extra_points)}",
+            f"extra_node_ids: {len(c.extra_node_ids)}",
+            f"extra_edges: {len(c.extra_edges)}",
+            f"undo_stack: {len(self._undo_stack)}",
+            "",
+        ]
+
+        if not problems:
+            info.append("✓ Все инварианты в порядке")
+        else:
+            info.append(f"⚠ Проблем: {len(problems)}")
+            for p in problems[:20]:
+                info.append(f"  - {p}")
+
+        QMessageBox.information(
+            self, "Проверка контура",
+            "\n".join(info),
+        )
+        print("\n".join(info))
 
     def _on_node_drag_started(self) -> None:
         """Пользователь начал тянуть узел — запомним снапшот."""
         if self._contour_item is None:
             return
-        self._pending_drag_snapshot = list(
-            self._contour_item.contour.points
+        self._pending_drag_snapshot = (
+            self._contour_item.contour.snapshot()
         )
 
     def _on_node_drag_finished(self) -> None:
@@ -1017,11 +1089,10 @@ class VectorEditor(QMainWindow):
         if snapshot is None or self._contour_item is None:
             return
 
-        current = list(self._contour_item.contour.points)
+        current = self._contour_item.contour.snapshot()
         if current == snapshot:
             return
 
-        # 2-tuple (item, snapshot) — совместимо с _on_undo
         self._undo_stack.append((self._contour_item, snapshot))
 
     # ============================================================
@@ -1113,6 +1184,16 @@ class VectorEditor(QMainWindow):
             name=asset.name,
             extra_edges=asset.extra_edges(),
         )
+
+        # Автоочистка: если старый JSON битый (дубли, висящие
+        # extra_edges) — починить
+        fixes = contour.sanitize()
+        if fixes > 0:
+            print(f"[SANITIZE] исправлено проблем: {fixes}")
+            self.statusBar().showMessage(
+                f"Asset почищен при загрузке ({fixes} правок)",
+                5000,
+            )
 
         item = ContourItem(contour)
         item.changed.connect(self._on_contour_changed)
@@ -1305,7 +1386,7 @@ class VectorEditor(QMainWindow):
             return
 
         contour = self._contour_item.contour
-        extra_snapshot = list(contour.extra_edges)
+        snapshot = contour.snapshot()
 
         if not contour.add_extra_edge(a_id, b_id):
             self.statusBar().showMessage(
@@ -1319,12 +1400,7 @@ class VectorEditor(QMainWindow):
         self._contour_item.update()
 
         self._undo_stack.append(
-            (
-                self._contour_item,
-                list(contour.points),
-                "extra_edges",
-                extra_snapshot,
-            )
+            (self._contour_item, snapshot)
         )
 
         self._mark_modified()
@@ -1344,7 +1420,7 @@ class VectorEditor(QMainWindow):
             )
             return
 
-        snapshot = list(item.contour.points)
+        snapshot = item.contour.snapshot()
 
         ok = item.extrude_selected_face(EXTRUDE_TEST_DISTANCE)
         if not ok:
@@ -1372,64 +1448,31 @@ class VectorEditor(QMainWindow):
         item = entry[0]
         snapshot = entry[1]
 
-        # -------- EXTRA POINTS ----------------
-        if (
-            len(entry) >= 4
-            and isinstance(entry[2], str)
-            and entry[2] == "extra_points"
-        ):
+        # snapshot — либо dict (новый формат), либо list (старый)
+        if isinstance(snapshot, dict):
+            tag = "dict"
+            item.contour.restore(snapshot)
+        else:
+            tag = "legacy-list"
             item.contour.points = list(snapshot)
-            data = entry[3]
-            item.contour.extra_points = list(
-                data.get("extra_points", [])
-            )
-            item.contour.extra_node_ids = list(
-                data.get("extra_node_ids", [])
-            )
-            item.contour.extra_edges = [
-                tuple(e)
-                for e in data.get("extra_edges", [])
-            ]
 
-            item._selected_edge_idx = None
-            item._selected_extra = None
-            item._hover_edge_idx = None
-            item._hover_extra = None
+        e2 = entry[2] if len(entry) >= 3 else None
+        print(f"[UNDO] entry len={len(entry)}, "
+              f"snapshot={tag}, "
+              f"entry[2]={e2!r}, "
+              f"stack left={len(self._undo_stack)}")
 
-            item._rebuild_nodes()
-            item._rebuild_extra_nodes()
-            item._rebuild_path()
-            item.update()
+        item._selected_edge_idx = None
+        item._selected_extra = None
+        item._hover_edge_idx = None
+        item._hover_extra = None
 
-        # -------- EXTRA EDGES ----------------
-        elif (
-            len(entry) >= 4
-            and isinstance(entry[2], str)
-            and entry[2] == "extra_edges"
-        ):
-            item.contour.points = list(snapshot)
-            item.contour.extra_edges = [
-                tuple(e) for e in entry[3]
-            ]
+        item._rebuild_nodes()
+        item._rebuild_extra_nodes()
+        item._rebuild_path()
 
-            item._selected_edge_idx = None
-            item._selected_extra = None
-            item._hover_edge_idx = None
-            item._hover_extra = None
-
-            item._rebuild_nodes()
-            item._rebuild_extra_nodes()
-            item._rebuild_path()
-            item.update()
-
-        # -------- PARAMETER ------------------
-        elif len(entry) >= 4:
-            item.contour.points = list(snapshot)
-            item._selected_edge_idx = None
-            item._selected_extra = None
-            item._rebuild_nodes()
-            item._rebuild_path()
-
+        # Запись от параметра: (item, snapshot, param_id, old_value)
+        if len(entry) >= 4:
             param_id = entry[2]
             old_value = entry[3]
             if self._current_asset is not None:
@@ -1438,26 +1481,10 @@ class VectorEditor(QMainWindow):
                     p.value = old_value
                     self._parameters_panel.refresh()
 
-        # -------- ОБЫЧНЫЙ --------------------
-        else:
-            item.contour.points = list(snapshot)
-            item._selected_edge_idx = None
-            item._selected_extra = None
-            item._rebuild_nodes()
-            item._rebuild_extra_nodes()
-            item._rebuild_path()
-
         self._reset_param_undo_session()
         self._mark_modified()
+        self._check_contour_invariants("после undo")
         self.statusBar().showMessage("Отменено", 2000)
-
-    # ============================================================
-    # KEYBOARD
-    # ============================================================
-
-    # ============================================================
-    # EVENT FILTER — клик по пустому месту сцены
-    # ============================================================
 
     def eventFilter(self, obj, event) -> bool:
         if obj is self._scene:
@@ -1579,9 +1606,7 @@ class VectorEditor(QMainWindow):
             if isinstance(it, ExtraNodeItem)
         ]
         if extra_nodes:
-            snapshot_pts = list(item.contour.extra_points)
-            snapshot_ids = list(item.contour.extra_node_ids)
-            snapshot_edges = list(item.contour.extra_edges)
+            snapshot = item.contour.snapshot()
 
             n = 0
             for node in extra_nodes:
@@ -1594,18 +1619,7 @@ class VectorEditor(QMainWindow):
                 item._rebuild_extra_nodes()
                 item.update()
 
-                self._undo_stack.append(
-                    (
-                        item,
-                        list(item.contour.points),
-                        "extra_points",
-                        {
-                            "extra_points": snapshot_pts,
-                            "extra_node_ids": snapshot_ids,
-                            "extra_edges": snapshot_edges,
-                        },
-                    )
-                )
+                self._undo_stack.append((item, snapshot))
                 self._mark_modified()
                 self.statusBar().showMessage(
                     f"Удалено extra-узлов: {n}", 2500,
@@ -1616,7 +1630,7 @@ class VectorEditor(QMainWindow):
         extra = getattr(item, "_selected_extra", None)
         if extra is not None:
             a_id, b_id = extra
-            snapshot = list(item.contour.extra_edges)
+            snapshot = item.contour.snapshot()
 
             if item.contour.remove_extra_edge(a_id, b_id):
                 # Каскад: подчистить висящие extra-узлы
@@ -1627,14 +1641,7 @@ class VectorEditor(QMainWindow):
                 item._rebuild_extra_nodes()
                 item.update()
 
-                self._undo_stack.append(
-                    (
-                        item,
-                        list(item.contour.points),
-                        "extra_edges",
-                        snapshot,
-                    )
-                )
+                self._undo_stack.append((item, snapshot))
                 self._mark_modified()
                 self.statusBar().showMessage(
                     f"Extra удалено: {a_id} — {b_id}", 2500,
@@ -1681,7 +1688,7 @@ class VectorEditor(QMainWindow):
             return True
 
         # Undo snapshot
-        snapshot = list(item.contour.points)
+        snapshot = item.contour.snapshot()
 
         # Индексы выделенных
         indices = sorted(

@@ -58,7 +58,7 @@ class VectorContour:
         idx = len(self.points)
         self.points.append((float(x), float(y)))
         if node_id is None:
-            node_id = f"n_{idx:03d}"
+            node_id = self._next_node_id()
         self.node_ids.append(node_id)
         return idx
 
@@ -70,7 +70,7 @@ class VectorContour:
         x = float(x)
         y = float(y)
         if node_id is None:
-            node_id = f"n_{idx:03d}"
+            node_id = self._next_node_id()
         self.points.insert(idx, (x, y))
         self.node_ids.insert(idx, node_id)
         return idx
@@ -122,12 +122,23 @@ class VectorContour:
             return -1
 
     def _next_node_id(self) -> str:
-        """Следующий свободный n_NNN."""
+        """Следующий свободный n_NNN.
+
+        Учитывает и main, и extra — чтобы не создать id,
+        который уже занят.
+        """
+        all_ids = set(self.node_ids) | set(self.extra_node_ids)
         max_n = -1
-        for nid in self.node_ids:
+        for nid in all_ids:
             if nid.startswith("n_") and nid[2:].isdigit():
                 max_n = max(max_n, int(nid[2:]))
-        return f"n_{max_n + 1:03d}"
+        # Дополнительная защита: если по какой-то причине
+        # max_n + 1 уже занят — сдвигаем дальше
+        candidate = f"n_{max_n + 1:03d}"
+        while candidate in all_ids:
+            max_n += 1
+            candidate = f"n_{max_n + 1:03d}"
+        return candidate
 
     def insert_point_after(
         self,
@@ -149,6 +160,181 @@ class VectorContour:
         self.points.insert(insert_at, (float(x), float(y)))
         self.node_ids.insert(insert_at, node_id)
         return node_id
+
+    def sanitize(self) -> int:
+        """Починить контур: убрать дубли node_ids, битые extra_edges.
+
+        Возвращает количество исправлений.
+        """
+        fixes = 0
+
+        # 1. Дедупликация main node_ids
+        # Собираем множество ВСЕХ используемых id (main + extra),
+        # чтобы при генерации не столкнуться ни с чем
+        all_used: set[str] = set(self.node_ids) | set(self.extra_node_ids)
+
+        seen: set[str] = set()
+        new_main_ids: list[str] = []
+        for nid in self.node_ids:
+            if nid in seen:
+                # Генерируем уникальный id, не совпадающий ни с чем
+                max_n = -1
+                for existing in all_used:
+                    if (existing.startswith("n_")
+                            and existing[2:].isdigit()):
+                        max_n = max(max_n, int(existing[2:]))
+                candidate = f"n_{max_n + 1:03d}"
+                while candidate in all_used:
+                    max_n += 1
+                    candidate = f"n_{max_n + 1:03d}"
+                nid = candidate
+                all_used.add(candidate)
+                fixes += 1
+            seen.add(nid)
+            new_main_ids.append(nid)
+        self.node_ids = new_main_ids
+
+        # 2. Дедупликация extra_node_ids
+        seen_e: set[str] = set()
+        new_extra_ids: list[str] = []
+        for nid in self.extra_node_ids:
+            if nid in seen_e or nid in seen:
+                new_nid = f"e_{len(new_extra_ids):03d}"
+                while new_nid in seen_e or new_nid in seen:
+                    new_nid = f"e_{len(new_extra_ids):03d}_x"
+                nid = new_nid
+                fixes += 1
+            seen_e.add(nid)
+            new_extra_ids.append(nid)
+        self.extra_node_ids = new_extra_ids
+
+        # 3. Отбросить битые extra_edges
+        all_ids = set(self.node_ids) | set(self.extra_node_ids)
+        new_edges: list[tuple[str, str]] = []
+        seen_edges: set[frozenset] = set()
+        for a, b in self.extra_edges:
+            if a not in all_ids or b not in all_ids or a == b:
+                fixes += 1
+                continue
+            key = frozenset((a, b))
+            if key in seen_edges:
+                fixes += 1
+                continue
+            seen_edges.add(key)
+            new_edges.append((a, b))
+        self.extra_edges = new_edges
+
+        # 4. Убрать висящие extra_points (без edges)
+        used_extra: set[str] = set()
+        for a, b in self.extra_edges:
+            used_extra.add(a)
+            used_extra.add(b)
+
+        if used_extra:
+            keep_pts: list[tuple[float, float]] = []
+            keep_ids: list[str] = []
+            for i, nid in enumerate(self.extra_node_ids):
+                if nid in used_extra:
+                    keep_pts.append(self.extra_points[i])
+                    keep_ids.append(nid)
+            if len(keep_ids) != len(self.extra_node_ids):
+                fixes += len(self.extra_node_ids) - len(keep_ids)
+                self.extra_points = keep_pts
+                self.extra_node_ids = keep_ids
+
+        return fixes
+
+    def validate(self) -> list[str]:
+        """Проверить инварианты. Возвращает список проблем."""
+        problems: list[str] = []
+
+        # 1. points ↔ node_ids
+        if len(self.points) != len(self.node_ids):
+            problems.append(
+                f"points={len(self.points)} "
+                f"node_ids={len(self.node_ids)} — разная длина"
+            )
+
+        # 2. extra_points ↔ extra_node_ids
+        if len(self.extra_points) != len(self.extra_node_ids):
+            problems.append(
+                f"extra_points={len(self.extra_points)} "
+                f"extra_node_ids={len(self.extra_node_ids)}"
+            )
+
+        # 3. Уникальность node_ids
+        main_set = set(self.node_ids)
+        if len(main_set) != len(self.node_ids):
+            problems.append(
+                f"дубли в main node_ids "
+                f"({len(self.node_ids)} шт, "
+                f"{len(main_set)} уник)"
+            )
+
+        extra_set = set(self.extra_node_ids)
+        if len(extra_set) != len(self.extra_node_ids):
+            problems.append(
+                f"дубли в extra_node_ids "
+                f"({len(self.extra_node_ids)} шт, "
+                f"{len(extra_set)} уник)"
+            )
+
+        # 4. Пересечение main и extra id
+        overlap = main_set & extra_set
+        if overlap:
+            problems.append(
+                f"id пересекаются main/extra: {overlap}"
+            )
+
+        # 5. Extra_edges — все ссылки валидны
+        all_ids = main_set | extra_set
+        for i, (a, b) in enumerate(self.extra_edges):
+            if a not in all_ids:
+                problems.append(
+                    f"extra_edges[{i}]=({a},{b}): "
+                    f"id {a!r} не существует"
+                )
+            if b not in all_ids:
+                problems.append(
+                    f"extra_edges[{i}]=({a},{b}): "
+                    f"id {b!r} не существует"
+                )
+            if a == b:
+                problems.append(
+                    f"extra_edges[{i}] самоссылка ({a})"
+                )
+
+        # 6. Индексы в extra_edges не дублируются
+        seen: set[frozenset] = set()
+        for i, (a, b) in enumerate(self.extra_edges):
+            key = frozenset((a, b))
+            if key in seen:
+                problems.append(
+                    f"extra_edges[{i}]=({a},{b}) дубликат"
+                )
+            seen.add(key)
+
+        return problems
+
+    def snapshot(self) -> dict:
+        """Полный снимок состояния контура для undo."""
+        return {
+            "points": list(self.points),
+            "node_ids": list(self.node_ids),
+            "extra_edges": list(self.extra_edges),
+            "extra_points": list(self.extra_points),
+            "extra_node_ids": list(self.extra_node_ids),
+        }
+
+    def restore(self, snap: dict) -> None:
+        """Восстановить состояние из snapshot()."""
+        self.points = list(snap.get("points", []))
+        self.node_ids = list(snap.get("node_ids", []))
+        self.extra_edges = list(snap.get("extra_edges", []))
+        self.extra_points = list(snap.get("extra_points", []))
+        self.extra_node_ids = list(
+            snap.get("extra_node_ids", [])
+        )
 
     def count(self) -> int:
         return len(self.points)
