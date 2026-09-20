@@ -18,6 +18,7 @@ from .view.scene import ConstructorScene
 from .view.palette import AssetPalette
 from .view.properties_panel import PropertiesPanel
 from .view.asset_open_dialog import AssetOpenDialog
+from .view.rules_manager_dialog import RulesManagerDialog
 from .view.items.component_item import ComponentItem
 from app.vector_editor.model import Asset, Component
 from app.vector_editor.io import (
@@ -91,6 +92,13 @@ class ConstructorWindow(QMainWindow):
         act_open.setShortcut(QKeySequence("Ctrl+O"))
         act_open.triggered.connect(self._on_open)
         tb.addAction(act_open)
+
+        tb.addSeparator()
+
+        act_rules = QAction("Правила", self)
+        act_rules.setShortcut(QKeySequence("Ctrl+R"))
+        act_rules.triggered.connect(self._on_rules_clicked)
+        tb.addAction(act_rules)
 
         tb.addSeparator()
 
@@ -513,6 +521,15 @@ class ConstructorWindow(QMainWindow):
                     c.x, c.y, c.rotation, c.scale,
                 )
                 break
+
+    def _on_rules_clicked(self) -> None:
+        """Открыть диалог управления правилами."""
+        if self._current_composite is None:
+            return
+        dlg = RulesManagerDialog(
+            self._current_composite, self._registry, self,
+        )
+        dlg.exec()
 
     def _on_asset_selected(self, asset_id: str) -> None:
         self.statusBar().showMessage(
