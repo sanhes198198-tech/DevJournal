@@ -99,14 +99,17 @@ class NodeItem(QGraphicsObject):
 
     def paint(self, painter, option, widget=None) -> None:
         # Приоритет: selected > highlight > hover > обычный
-        if self.isSelected():
-            fill = QColor("#0055CC")
-            border = QColor("#003399")
-            pen_width = 0
-        elif self._highlight:
+        # Приоритет: highlight > selected > hover > обычный.
+        # Кликнул по параметру — видно всю группу, даже если
+        # часть узлов была выделена.
+        if self._highlight:
             fill = QColor("#FFFFFF")
             border = HIGHLIGHT_BORDER
             pen_width = 2.5
+        elif self.isSelected():
+            fill = QColor("#0055CC")
+            border = QColor("#003399")
+            pen_width = 0
         elif self._hover:
             fill = QColor("#8AB4FF")
             border = QColor("#0055CC")

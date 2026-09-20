@@ -39,6 +39,7 @@ from .view.canvas import VectorCanvas
 from .view.asset_browser import AssetBrowser
 from .view.semantic_groups_panel import SemanticGroupsPanel
 from .view.parameters_panel import ParametersPanel
+from .view.stretch_dialog import StretchDialog
 from .model.parameter import (
     compute_delta_for_parameter,
     apply_delta_to_points,
@@ -285,6 +286,14 @@ class VectorEditor(QMainWindow):
         act_validate.triggered.connect(self._on_validate_contour)
         tb.addAction(act_validate)
 
+        act_stretch = QAction("📏 Растяжка", self)
+        act_stretch.setToolTip(
+            "Создать параметр-растяжение (высоту) между "
+            "низом и верхом"
+        )
+        act_stretch.triggered.connect(self._on_stretch)
+        tb.addAction(act_stretch)
+
     def _connect_signals(self) -> None:
         self._canvas.contour_created.connect(self._on_contour_created)
         self._canvas.empty_click.connect(self._on_empty_scene_click)
@@ -467,13 +476,23 @@ class VectorEditor(QMainWindow):
         )
 
         if node_delta:
+            c = self._contour_item.contour
+
+            # Main узлы
             new_points = apply_delta_to_points(
-                self._contour_item.contour.points,
-                self._contour_item.contour.node_ids,
-                node_delta,
+                c.points, c.node_ids, node_delta,
             )
-            self._contour_item.contour.points = new_points
+            c.points = new_points
+
+            # Extra-узлы (e_*) — тоже
+            if c.extra_points:
+                new_extra = apply_delta_to_points(
+                    c.extra_points, c.extra_node_ids, node_delta,
+                )
+                c.extra_points = new_extra
+
             self._contour_item._rebuild_nodes()
+            self._contour_item._rebuild_extra_nodes()
             self._contour_item._rebuild_path()
 
         param.value = new_value
@@ -1492,6 +1511,87 @@ class VectorEditor(QMainWindow):
         self._browser.refresh()
         self.statusBar().showMessage(
             f"Создан новый Asset: {asset.name}", 3000
+        )
+
+    # ============================================================
+    # STRETCH (V9a) — параметр-растяжение
+    # ============================================================
+
+    def _on_stretch(self) -> None:
+        """Мастер параметра растяжения."""
+        if self._current_asset is None:
+            self.statusBar().showMessage(
+                "Сначала откройте Asset", 3000,
+            )
+            return
+
+        if not self._current_asset.semantic_groups:
+            self.statusBar().showMessage(
+                "Создайте группы (foundation, top) сначала", 4000,
+            )
+            return
+
+        dlg = StretchDialog(self._current_asset, self)
+        if dlg.exec() != StretchDialog.DialogCode.Accepted:
+            return
+
+        # Готовим targets
+        from .model.parameter import Parameter, ParameterTarget
+
+        # Ось → (kx_top, ky_top, kx_mid, ky_mid, kx_second, ky_second)
+        axis = dlg.result_axis
+        if axis == "y":
+            kx_t, ky_t = 0.0, 1.0
+            kx_m, ky_m = 0.0, 0.5
+            kx_s, ky_s = 0.0, -1.0
+        elif axis == "x+1":
+            kx_t, ky_t = 1.0, 0.0
+            kx_m, ky_m = 0.5, 0.0
+            kx_s, ky_s = -1.0, 0.0
+        else:  # "x-1"
+            kx_t, ky_t = -1.0, 0.0
+            kx_m, ky_m = -0.5, 0.0
+            kx_s, ky_s = 1.0, 0.0
+
+        targets: list = []
+
+        # Тянется — едет на всю Δ
+        targets.append(ParameterTarget(
+            dlg.result_top_id, koef_x=kx_t, koef_y=ky_t,
+        ))
+
+        # Вторая сторона — едет на -Δ
+        if dlg.result_second_id:
+            targets.append(ParameterTarget(
+                dlg.result_second_id, koef_x=kx_s, koef_y=ky_s,
+            ))
+
+        # Середина — едет на Δ/2
+        if dlg.result_middle_id:
+            targets.append(ParameterTarget(
+                dlg.result_middle_id, koef_x=kx_m, koef_y=ky_m,
+            ))
+
+        # Стоит — НЕ в targets
+
+        param = Parameter(
+            name=dlg.result_name,
+            label=dlg.result_label,
+            value=0.0,
+            unit="м",
+            targets=targets,
+        )
+        self._current_asset.add_parameter(param)
+
+        # Обновляем панель
+        self._parameters_panel.set_asset(self._current_asset)
+        self._mark_modified()
+
+        self.statusBar().showMessage(
+            f"Параметр растяжения создан: {param.label}. "
+            f"Откройте панель «Параметры» справа, "
+            f"тяните значение.",
+            6000,
         )
 
     # ============================================================

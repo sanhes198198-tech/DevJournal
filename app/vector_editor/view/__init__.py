@@ -10,6 +10,7 @@ from .semantic_group_dialog import SemanticGroupDialog
 from .semantic_groups_panel import SemanticGroupsPanel
 from .parameter_dialog import ParameterDialog
 from .parameters_panel import ParametersPanel
+from .stretch_dialog import StretchDialog
 from .reference_properties_dialog import ReferencePropertiesDialog
 from .items.contour_item import ContourItem
 from .items.node_item import NodeItem
@@ -25,6 +26,7 @@ __all__ = [
     "SemanticGroupsPanel",
     "ParameterDialog",
     "ParametersPanel",
+    "StretchDialog",
     "ReferencePropertiesDialog",
     "ContourItem",
     "NodeItem",
