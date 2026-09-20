@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 
 class AssetPalette(QWidget):
     asset_selected = Signal(str)
+    asset_add_requested = Signal(str)
     refresh_requested = Signal()
     WIDTH = 260
 
@@ -71,4 +72,4 @@ class AssetPalette(QWidget):
     def _on_double(self, item) -> None:
         aid = item.data(Qt.ItemDataRole.UserRole)
         if aid:
-            self.asset_selected.emit(aid)
+            self.asset_add_requested.emit(aid)

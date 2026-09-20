@@ -28,3 +28,27 @@ class ConstructorScene(QGraphicsScene):
             ppm = abs(views[0].transform().m11())
 
         self._grid.draw(painter, rect, ppm)
+
+    def drawForeground(self, painter, rect: QRectF) -> None:
+        super().drawForeground(painter, rect)
+
+        # Красный крест в (0,0) — точка отсчёта
+        from PySide6.QtGui import QPen, QColor
+        from PySide6.QtCore import QPointF
+
+        # Размер крестика фиксированный в пикселях
+        views = self.views()
+        ppm = 50.0
+        if views:
+            ppm = abs(views[0].transform().m11()) or 50.0
+        size_m = 8.0 / ppm   # 8 пикселей
+
+        pen = QPen(QColor("#DD2222"), 1.4)
+        pen.setCosmetic(True)
+        painter.setPen(pen)
+        painter.drawLine(
+            QPointF(-size_m, 0), QPointF(size_m, 0)
+        )
+        painter.drawLine(
+            QPointF(0, -size_m), QPointF(0, size_m)
+        )

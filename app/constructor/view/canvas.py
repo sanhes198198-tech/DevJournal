@@ -27,14 +27,29 @@ class ConstructorCanvas(QGraphicsView):
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.FullViewportUpdate)
+        self._centered_once = False
         self.reset_view()
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        # Центрируем в (0,0) один раз, после первого показа окна.
+        # До показа viewport имеет нулевой размер, centerOn даёт смещение.
+        if not self._centered_once:
+            self._centered_once = True
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(0, self._center_on_origin)
+
+    def _center_on_origin(self) -> None:
+        self.centerOn(0.0, 0.0)
 
     def current_ppm(self) -> float:
         return abs(self.transform().m11())
 
     def reset_view(self) -> None:
         self.resetTransform()
-        self.scale(PPM_DEFAULT, -PPM_DEFAULT)
+        # Y↑ делается в ComponentItem через флип контура.
+        # Здесь — Qt-нативный Y↓.
+        self.scale(PPM_DEFAULT, PPM_DEFAULT)
         self.centerOn(0.0, 0.0)
 
     def wheelEvent(self, event) -> None:

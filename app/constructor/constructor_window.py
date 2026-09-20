@@ -13,6 +13,8 @@ from PySide6.QtWidgets import (
 from .view.canvas import ConstructorCanvas
 from .view.scene import ConstructorScene
 from .view.palette import AssetPalette
+from .view.items.component_item import ComponentItem
+from app.vector_editor.model import Asset, Component
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "architecture"))
 try:
@@ -32,6 +34,7 @@ class ConstructorWindow(QMainWindow):
         self._palette = AssetPalette()
 
         self._registry = None
+        self._current_composite = Asset(name="Новый замок", type_="tower_body")
         self._init_registry()
         self._build_ui()
         self._connect_signals()
@@ -73,6 +76,7 @@ class ConstructorWindow(QMainWindow):
     def _connect_signals(self) -> None:
         self._palette.refresh_requested.connect(self._load_assets)
         self._palette.asset_selected.connect(self._on_asset_selected)
+        self._palette.asset_add_requested.connect(self._on_add_asset)
         self._canvas.mouse_moved.connect(self._on_mouse_moved)
 
     def _load_assets(self) -> None:
@@ -83,6 +87,42 @@ class ConstructorWindow(QMainWindow):
             self._palette.set_assets(self._registry.all())
         except Exception:
             self._palette.set_assets([])
+
+    def _on_add_asset(self, asset_id: str) -> None:
+        """Двойной клик в палитре — добавить компонент на сцену."""
+        if self._registry is None:
+            self.statusBar().showMessage("Реестр ассетов недоступен", 3000)
+            return
+
+        asset = self._registry.get(asset_id)
+        if asset is None:
+            self.statusBar().showMessage(
+                f"Ассет {asset_id} не найден", 3000)
+            return
+
+        # Создаём компонент в композитном Asset
+        comp = Component(
+            asset_id=asset_id,
+            x=0.0,
+            y=0.0,
+            rotation=0.0,
+            scale=1.0,
+            name=asset.name,
+        )
+        if not self._current_composite.add_component(comp):
+            self.statusBar().showMessage(
+                "Компонент не добавлен (дубликат или self-ref)", 3000)
+            return
+
+        # Item на сцене
+        item = ComponentItem(comp, asset=asset)
+        self._scene.addItem(item)
+
+        self.statusBar().showMessage(
+            f"Добавлен: {asset.name} (id={comp.id[:8]}). "
+            f"Всего: {self._current_composite.component_count()}",
+            4000,
+        )
 
     def _on_asset_selected(self, asset_id: str) -> None:
         self.statusBar().showMessage(
