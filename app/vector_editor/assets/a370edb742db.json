@@ -17,12 +17,15 @@
       "id": "c_13c6154e",
       "asset_id": "c2dd0d912a21",
       "x": 0.0,
-      "y": 0.0,
+      "y": 0.5,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Сторожевая башня",
       "layer": 1,
-      "filled": true
+      "filled": true,
+      "param_overrides": {
+        "height": 5.0
+      }
     },
     "c_91e4f30d": {
       "id": "c_91e4f30d",
@@ -33,9 +36,11 @@
       "scale": 1.0,
       "name": "Луковичная крыша",
       "layer": 0,
-      "filled": true
+      "filled": true,
+      "param_overrides": {}
     }
   },
+  "visibility_rules": {},
   "semantic_groups": {},
   "parameters": {},
   "reference_image": null,

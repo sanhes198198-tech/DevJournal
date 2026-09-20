@@ -140,6 +140,9 @@ class ConstructorWindow(QMainWindow):
         self._properties.filled_changed.connect(
             self._on_prop_filled_changed
         )
+        self._properties.param_override_changed.connect(
+            self._on_prop_param_override
+        )
 
     def _load_assets(self) -> None:
         if self._registry is None:
@@ -421,7 +424,13 @@ class ConstructorWindow(QMainWindow):
             self._properties.clear()
             return
 
-        self._properties.show_component(comp_item.component)
+        # Найти ссылочный ассет компонента (для параметров)
+        comp = comp_item.component
+        ref_asset = None
+        if self._registry is not None:
+            ref_asset = self._registry.get(comp.asset_id)
+
+        self._properties.show_component(comp, ref_asset=ref_asset)
 
     def _on_prop_value_changed(
         self, comp_id: str, field: str, value: float,
@@ -471,6 +480,15 @@ class ConstructorWindow(QMainWindow):
             return
         comp.filled = bool(filled)
         item.update()
+
+    def _on_prop_param_override(
+        self, comp_id: str, name: str, value: float,
+    ) -> None:
+        """Пользователь меняет параметр sub-ассета у компонента."""
+        comp = self._current_composite.get_component(comp_id)
+        if comp is None:
+            return
+        comp.set_param_override(name, value)
 
     def _on_prop_delete(self, comp_id: str) -> None:
         """Удалить компонент."""

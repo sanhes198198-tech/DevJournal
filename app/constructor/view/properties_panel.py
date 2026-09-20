@@ -33,6 +33,8 @@ class PropertiesPanel(QWidget):
     layer_shift = Signal(str, int)
     # (comp_id, filled)
     filled_changed = Signal(str, bool)
+    # (comp_id, param_name, new_value)
+    param_override_changed = Signal(str, str, float)
 
     WIDTH = 260
 
@@ -149,6 +151,28 @@ class PropertiesPanel(QWidget):
         form.addRow("", self._filled_check)
 
         layout.addLayout(form)
+
+        # Параметры sub-ассета (динамически)
+        self._params_label = QLabel("Параметры")
+        self._params_label.setStyleSheet(
+            "font-weight: 600; font-size: 11px; "
+            "color: #1A1A1A; padding-top: 8px;"
+        )
+        self._params_label.setVisible(False)
+        layout.addWidget(self._params_label)
+
+        self._params_container = QWidget()
+        self._params_form = QFormLayout(self._params_container)
+        self._params_form.setSpacing(6)
+        self._params_form.setContentsMargins(0, 0, 0, 0)
+        self._params_container.setVisible(False)
+        layout.addWidget(self._params_container)
+
+        # Список текущих спинбоксов {name: QDoubleSpinBox}
+        self._param_widgets: dict = {}
+        # Текущий ref_asset для сравнения
+        self._current_ref_asset = None
+
         layout.addStretch()
 
         # Кнопка удалить
@@ -162,6 +186,7 @@ class PropertiesPanel(QWidget):
     def clear(self) -> None:
         """Ничего не выбрано."""
         self._current_comp = None
+        self._current_ref_asset = None
         self._name_label.setText("— не выбрано —")
         self._muted = True
         self._x_spin.setValue(0.0)
@@ -173,10 +198,19 @@ class PropertiesPanel(QWidget):
         self._muted = False
         self._set_enabled(False)
 
-    def show_component(self, comp) -> None:
-        """Показать свойства компонента."""
+        # Скрыть параметры
+        self._param_widgets.clear()
+        while self._params_form.rowCount() > 0:
+            self._params_form.removeRow(0)
+        self._params_label.setVisible(False)
+        self._params_container.setVisible(False)
+
+    def show_component(self, comp, ref_asset=None) -> None:
+        """Показать свойства компонента + параметры ссылочного ассета."""
         self._current_comp = comp
+        self._current_ref_asset = ref_asset
         self._name_label.setText(comp.name or comp.id)
+
         self._muted = True
         self._x_spin.setValue(comp.x)
         self._y_spin.setValue(comp.y)
@@ -188,6 +222,50 @@ class PropertiesPanel(QWidget):
         )
         self._muted = False
         self._set_enabled(True)
+
+        self._rebuild_param_widgets(comp, ref_asset)
+
+    def _rebuild_param_widgets(self, comp, ref_asset) -> None:
+        """Пересобрать список параметров sub-ассета."""
+        # Очищаем старые
+        self._param_widgets.clear()
+        while self._params_form.rowCount() > 0:
+            self._params_form.removeRow(0)
+
+        if ref_asset is None or not getattr(ref_asset, "parameters", None):
+            self._params_label.setVisible(False)
+            self._params_container.setVisible(False)
+            return
+
+        params = ref_asset.parameters_list()
+        if not params:
+            self._params_label.setVisible(False)
+            self._params_container.setVisible(False)
+            return
+
+        self._params_label.setVisible(True)
+        self._params_container.setVisible(True)
+
+        for p in params:
+            spin = QDoubleSpinBox()
+            spin.setRange(-1e6, 1e6)
+            spin.setDecimals(3)
+            spin.setSingleStep(0.1)
+
+            # Значение: override, если есть, иначе из параметра
+            ov = comp.get_param_override(p.name)
+            value = ov if ov is not None else p.value
+            spin.setValue(value)
+
+            # Соединяем с фиксацией имени (иначе all lambda пишут в последний)
+            spin.valueChanged.connect(
+                lambda v, nm=p.name: self._on_param_changed(nm, v)
+            )
+
+            unit = f" {p.unit}" if p.unit else ""
+            label_text = f"{p.label}{'*' if ov is not None else ''}"
+            self._params_form.addRow(label_text + unit + ":", spin)
+            self._param_widgets[p.name] = spin
 
     def update_values(self, x: float, y: float,
                       rotation: float, scale: float) -> None:
@@ -213,6 +291,13 @@ class PropertiesPanel(QWidget):
         self._btn_delete.setEnabled(enabled)
 
     # ------------------------------------------------------------
+
+    def _on_param_changed(self, name: str, value: float) -> None:
+        if self._muted or self._current_comp is None:
+            return
+        self.param_override_changed.emit(
+            self._current_comp.id, name, value,
+        )
 
     def _on_filled_toggled(self, checked: bool) -> None:
         if self._muted or self._current_comp is None:
