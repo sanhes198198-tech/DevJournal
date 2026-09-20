@@ -12,6 +12,11 @@ from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QPainterPath, QPen
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsObject
 
+from app.vector_editor.model.parameter import (
+    compute_delta_for_parameter,
+    apply_delta_to_points,
+)
+
 
 ASSET_LINE = QColor("#1A1A1A")
 ASSET_LINE_SELECTED = QColor("#0055CC")
@@ -109,8 +114,9 @@ class ComponentItem(QGraphicsObject):
             return
 
         # Рекурсивная сборка (центрирование внутри)
+        overrides = getattr(self._component, "param_overrides", None) or {}
         main, extra, center = self._collect_asset_paths(
-            self._asset, depth=0,
+            self._asset, depth=0, param_overrides=overrides,
         )
         self._path = main
         self._extra_path = extra
@@ -118,7 +124,7 @@ class ComponentItem(QGraphicsObject):
         self._center_x, self._center_y = center
 
     def _collect_asset_paths(
-        self, asset, depth: int,
+        self, asset, depth: int, param_overrides: dict | None = None,
     ) -> tuple[QPainterPath, QPainterPath, tuple[float, float]]:
         """Собрать main + extra из asset'а рекурсивно.
 
@@ -135,11 +141,32 @@ class ComponentItem(QGraphicsObject):
             return main, extra, (0.0, 0.0)
 
         g = asset.geometry
-        contour = g.get("contour", [])
-        node_ids = g.get("node_ids", [])
-        extra_pts = g.get("extra_points", [])
-        extra_ids = g.get("extra_node_ids", [])
+        contour = list(g.get("contour", []))
+        node_ids = list(g.get("node_ids", []))
+        extra_pts = list(g.get("extra_points", []))
+        extra_ids = list(g.get("extra_node_ids", []))
         extra_edges = g.get("extra_edges", [])
+
+        # --- V10: применить override параметров sub-ассета ---
+        if param_overrides:
+            params = getattr(asset, "parameters", None) or {}
+            sem_groups = getattr(asset, "semantic_groups", None) or {}
+            for p in params.values():
+                ov = param_overrides.get(p.name)
+                if ov is None:
+                    continue
+                delta_shift = float(ov) - float(p.value)
+                if abs(delta_shift) < 1e-12:
+                    continue
+                node_delta = compute_delta_for_parameter(
+                    p, delta_shift, sem_groups,
+                )
+                contour = apply_delta_to_points(
+                    contour, node_ids, node_delta,
+                )
+                extra_pts = apply_delta_to_points(
+                    extra_pts, extra_ids, node_delta,
+                )
 
         # --- Main контур ---
         if len(contour) >= 2:

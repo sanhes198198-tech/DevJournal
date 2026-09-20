@@ -356,6 +356,9 @@ class ConstructorWindow(QMainWindow):
             msg += f" · {n_orphan} битых"
         self.statusBar().showMessage(msg, 5000)
 
+        # Применить правила сразу при загрузке
+        self._apply_visibility_rules()
+
     # ============================================================
     # NAVIGATION (вход в composite)
     # ============================================================
@@ -498,6 +501,17 @@ class ConstructorWindow(QMainWindow):
             return
         comp.set_param_override(name, value)
 
+        # Пересобрать path компонента (V10: применить override к геометрии)
+        item = self._items_by_comp_id.get(comp_id)
+        if item is not None:
+            item.prepareGeometryChange()
+            item._rebuild_paths()
+            item.update()
+
+        # Правила — отложенно (setVisible вложенно рвёт Qt)
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(0, self._apply_visibility_rules)
+
     def _on_prop_delete(self, comp_id: str) -> None:
         """Удалить компонент."""
         item = self._items_by_comp_id.pop(comp_id, None)
@@ -521,6 +535,60 @@ class ConstructorWindow(QMainWindow):
                     c.x, c.y, c.rotation, c.scale,
                 )
                 break
+
+    def _apply_visibility_rules(self) -> None:
+        """Применить все visibility-правила к items.
+
+        Для каждого правила:
+          1. Находим компонент-триггер.
+          2. Берём значение параметра (override или родное).
+          3. Оцениваем условие.
+          4. Для всех компонентов применяем action_for → show/hide.
+        """
+        if self._current_composite is None:
+            return
+        rules = self._current_composite.visibility_rules.values()
+        if not rules:
+            return
+
+        for rule in rules:
+            if not rule.enabled:
+                continue
+
+            comp = self._current_composite.get_component(
+                rule.component_id,
+            )
+            if comp is None:
+                continue
+
+            # Значение параметра
+            ov = comp.param_overrides.get(rule.parameter_name)
+            if ov is not None:
+                value = ov
+            else:
+                ref = None
+                if self._registry is not None:
+                    ref = self._registry.get(comp.asset_id)
+                if ref is None:
+                    continue
+                p = None
+                for pp in ref.parameters_list():
+                    if pp.name == rule.parameter_name:
+                        p = pp
+                        break
+                if p is None:
+                    continue
+                value = p.value
+
+            condition = rule.evaluate(value)
+
+            # Применяем ко всем загруженным компонентам
+            for cid, item in self._items_by_comp_id.items():
+                action = rule.action_for(cid, condition)
+                if action == "show" and not item.isVisible():
+                    item.setVisible(True)
+                elif action == "hide" and item.isVisible():
+                    item.setVisible(False)
 
     def _on_rules_clicked(self) -> None:
         """Открыть диалог управления правилами."""

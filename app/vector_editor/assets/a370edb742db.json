@@ -40,24 +40,7 @@
       "param_overrides": {}
     }
   },
-  "visibility_rules": {
-    "r_82313768": {
-      "id": "r_82313768",
-      "name": "tall_roof",
-      "label": "Высокая крыша",
-      "component_id": "c_13c6154e",
-      "parameter_name": "height",
-      "operator": ">",
-      "value": 5.0,
-      "show_ids": [
-        "c_91e4f30d"
-      ],
-      "hide_ids": [
-        "c_13c6154e"
-      ],
-      "enabled": true
-    }
-  },
+  "visibility_rules": {},
   "semantic_groups": {},
   "parameters": {},
   "reference_image": null,
