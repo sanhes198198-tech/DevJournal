@@ -23,13 +23,61 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "vector_editor")
 
 
 def _load_asset_from_file(path: Path):
-    """Загружает Asset из JSON. Возвращает None при ошибке."""
+    """Загружает Asset из JSON. Возвращает None при ошибке.
+
+    После загрузки — sanitize (чистит дубли node_ids и
+    битые extra_edges), чтобы архитектура не рисовала артефакты.
+    """
     from app.vector_editor.io import load_asset, StorageError
+
     try:
-        return load_asset(path)
+        asset = load_asset(path)
     except StorageError as e:
         print(f"[AssetRegistry] skip {path.name}: {e}")
         return None
+
+    if asset is not None:
+        try:
+            from app.vector_editor.model.contour import (
+                VectorContour,
+            )
+            geom = asset.geometry
+            c = VectorContour(
+                points=[
+                    (float(p[0]), float(p[1]))
+                    for p in geom.get("contour", [])
+                ],
+                node_ids=list(geom.get("node_ids", [])),
+                extra_edges=[
+                    tuple(e)
+                    for e in geom.get("extra_edges", [])
+                ],
+                extra_points=[
+                    (float(p[0]), float(p[1]))
+                    for p in geom.get("extra_points", [])
+                ],
+                extra_node_ids=list(
+                    geom.get("extra_node_ids", [])
+                ),
+            )
+            fixes = c.sanitize()
+            if fixes > 0:
+                geom["node_ids"] = list(c.node_ids)
+                geom["extra_edges"] = [
+                    [a, b] for a, b in c.extra_edges
+                ]
+                geom["extra_points"] = [
+                    [x, y] for x, y in c.extra_points
+                ]
+                geom["extra_node_ids"] = list(c.extra_node_ids)
+                print(
+                    f"[AssetRegistry] {path.name}: "
+                    f"sanitize fixes={fixes}"
+                )
+        except Exception as e:
+            print(f"[AssetRegistry] sanitize error: {e}")
+
+    return asset
 
 
 class AssetRegistry:

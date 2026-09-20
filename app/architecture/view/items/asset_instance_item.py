@@ -52,6 +52,11 @@ class AssetInstanceItem(QGraphicsObject):
 
         self.setZValue(3.0)
 
+        # Отключаем кэш — иначе при перемещении остаются следы
+        self.setCacheMode(
+            QGraphicsItem.CacheMode.NoCache
+        )
+
         self._apply_transform()
 
     # ------------------------------------------------------------
@@ -114,11 +119,11 @@ class AssetInstanceItem(QGraphicsObject):
             return path
 
         x0, y0 = contour[0]
-        path.moveTo(x0, -y0)
+        path.moveTo(x0, y0)
 
         for pt in contour[1:]:
             x, y = pt
-            path.lineTo(x, -y)
+            path.lineTo(x, y)
 
         if self._asset.geometry.get("closed", True):
             path.closeSubpath()
@@ -159,8 +164,8 @@ class AssetInstanceItem(QGraphicsObject):
             pb = pos_map.get(b_id)
             if pa is None or pb is None:
                 continue
-            path.moveTo(pa[0], -pa[1])
-            path.lineTo(pb[0], -pb[1])
+            path.moveTo(pa[0], pa[1])
+            path.lineTo(pb[0], pb[1])
 
         return path
 
@@ -192,18 +197,12 @@ class AssetInstanceItem(QGraphicsObject):
 
         from PySide6.QtGui import QPainterPathStroker
         path = self._base_path()
-        extra = self._extra_path()
-
-        combined = QPainterPath(path)
-        if not extra.isEmpty():
-            combined.addPath(extra)
-
-        if combined.isEmpty():
-            return combined
+        if path.isEmpty():
+            return path
 
         stroker = QPainterPathStroker()
         stroker.setWidth(0.5)
-        return stroker.createStroke(combined)
+        return stroker.createStroke(path)
 
     def paint(self, painter, option, widget=None) -> None:
         painter.setRenderHint(painter.RenderHint.Antialiasing, True)
@@ -243,6 +242,11 @@ class AssetInstanceItem(QGraphicsObject):
         painter.setPen(pen)
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawPath(path)
+
+        # Extra-линии (Ctrl+J) — тем же стилем
+        extra = self._extra_path()
+        if not extra.isEmpty():
+            painter.drawPath(extra)
 
     # ------------------------------------------------------------
     # СИНХРОНИЗАЦИЯ

@@ -69,6 +69,13 @@ class ArchCanvas(QGraphicsView):
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setMouseTracking(True)
 
+        # Полное обновление вьюпорта — устраняет артефакты
+        # при перемещении item'ов с нестандартным boundingRect.
+        from PySide6.QtWidgets import QGraphicsView as _QV
+        self.setViewportUpdateMode(
+            _QV.ViewportUpdateMode.FullViewportUpdate
+        )
+
         # Фокус для клавиатуры
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
