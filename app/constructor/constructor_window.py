@@ -46,6 +46,9 @@ class ConstructorWindow(QMainWindow):
         self._current_asset_id: str | None = None
         self._current_asset_name: str = "Новый замок"
         self._items_by_comp_id: dict = {}
+        # Стек навигации: [(asset_id, asset_name), ...]
+        # Верх стека — откуда пришли. Пусто = верхний уровень.
+        self._nav_stack: list = []
         self._init_registry()
         self._build_ui()
         self._connect_signals()
@@ -88,6 +91,14 @@ class ConstructorWindow(QMainWindow):
         act_open.setShortcut(QKeySequence("Ctrl+O"))
         act_open.triggered.connect(self._on_open)
         tb.addAction(act_open)
+
+        tb.addSeparator()
+
+        self._act_back = QAction("← Назад", self)
+        self._act_back.setShortcut(QKeySequence("Alt+Left"))
+        self._act_back.setEnabled(False)
+        self._act_back.triggered.connect(self._on_nav_back)
+        tb.addAction(self._act_back)
 
     def _build_ui(self) -> None:
         self._build_toolbar()
@@ -164,6 +175,7 @@ class ConstructorWindow(QMainWindow):
             comp, asset=asset, registry=self._registry,
         )
         item.moved.connect(self._on_item_moved)
+        item.enter_requested.connect(self._on_enter_composite)
         self._items_by_comp_id[comp.id] = item
         self._scene.addItem(item)
 
@@ -185,13 +197,17 @@ class ConstructorWindow(QMainWindow):
         self._current_composite = Asset(name="Новый замок", type_="tower_body")
         self._current_asset_id = None
         self._current_asset_name = "Новый замок"
+        self._nav_stack.clear()
         self._properties.clear()
         self._update_title()
 
     def _update_title(self) -> None:
-        self.setWindowTitle(
-            f"Constructor — {self._current_asset_name}"
-        )
+        crumbs = [name for (_, name) in self._nav_stack]
+        crumbs.append(self._current_asset_name)
+        path = " › ".join(crumbs)
+        self.setWindowTitle(f"Constructor — {path}")
+        if hasattr(self, "_act_back"):
+            self._act_back.setEnabled(bool(self._nav_stack))
 
     def _on_new(self) -> None:
         self._reset_scene()
@@ -284,6 +300,8 @@ class ConstructorWindow(QMainWindow):
         if target is None:
             return
 
+        # Открытие с верхнего уровня — стек пуст
+        self._nav_stack.clear()
         self._load_composite(target)
 
     def _load_composite(self, asset: Asset) -> None:
@@ -295,30 +313,94 @@ class ConstructorWindow(QMainWindow):
         self._current_asset_name = asset.name
         self._update_title()
 
-        # ОДИН item для composite — рисуется рекурсивно как единое
-        root_comp = Component(
-            id="__root__",
-            asset_id=asset.id,
-            x=0.0, y=0.0, rotation=0.0, scale=1.0,
-            name=asset.name,
-        )
-        item = ComponentItem(
-            root_comp, asset=asset, registry=self._registry,
-        )
-        # Root не двигается — это «вид» composite для правки вложенных
-        item.setFlag(
-            QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False,
-        )
-        item.setFlag(
-            QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False,
-        )
-        self._items_by_comp_id["__root__"] = item
-        self._scene.addItem(item)
+        # N отдельных items — по одному на компонент верхнего уровня.
+        # Вложенные composite внутри каждого item отрисуются рекурсивно.
+        n_orphan = 0
+        for comp in asset.components.values():
+            ref_asset = None
+            if self._registry is not None:
+                ref_asset = self._registry.get(comp.asset_id)
+            if ref_asset is None:
+                n_orphan += 1
 
-        self.statusBar().showMessage(
+            item = ComponentItem(
+                comp, asset=ref_asset, registry=self._registry,
+            )
+            item.moved.connect(self._on_item_moved)
+            item.enter_requested.connect(self._on_enter_composite)
+            self._items_by_comp_id[comp.id] = item
+            self._scene.addItem(item)
+
+        msg = (
             f"Загружено: {asset.name} · "
-            f"{len(asset.components)} компонентов", 5000,
+            f"{len(asset.components)} компонентов"
         )
+        if n_orphan:
+            msg += f" · {n_orphan} битых"
+        self.statusBar().showMessage(msg, 5000)
+
+    # ============================================================
+    # NAVIGATION (вход в composite)
+    # ============================================================
+
+    def _on_enter_composite(self, asset_id: str) -> None:
+        """Двойной клик по composite — войти внутрь."""
+        if self._current_asset_id is None:
+            reply = QMessageBox.question(
+                self, "Сохранить текущий?",
+                "Чтобы войти внутрь, надо сохранить текущий composite.\n\n"
+                "Сохранить сейчас?",
+                QMessageBox.StandardButton.Yes
+                | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+            self._on_save_as()
+            if self._current_asset_id is None:
+                return
+
+        # Загружаем sub-asset
+        if self._registry is None:
+            return
+        sub = self._registry.get(asset_id)
+        if sub is None:
+            QMessageBox.warning(
+                self, "Не найдено",
+                f"Ассет {asset_id} не найден в библиотеке.",
+            )
+            return
+
+        # Пушим текущий в стек
+        self._nav_stack.append(
+            (self._current_asset_id, self._current_asset_name)
+        )
+
+        # Загружаем sub как документ
+        self._load_composite(sub)
+
+    def _on_nav_back(self) -> None:
+        """Вернуться к родителю."""
+        if not self._nav_stack:
+            return
+
+        parent_id, parent_name = self._nav_stack.pop()
+
+        # Перечитываем parent с диска
+        if self._registry is not None:
+            self._registry.load_all()
+            parent = self._registry.get(parent_id)
+        else:
+            parent = None
+
+        if parent is None:
+            QMessageBox.warning(
+                self, "Не найдено",
+                f"Родитель {parent_id} не найден.",
+            )
+            return
+
+        self._load_composite(parent)
 
     def _on_scene_selection_changed(self) -> None:
         """Обновить панель свойств по выделенному компоненту."""

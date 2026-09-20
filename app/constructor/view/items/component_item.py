@@ -26,6 +26,8 @@ class ComponentItem(QGraphicsObject):
 
     # Эмитится после завершения drag или после apply_from_component
     moved = Signal()
+    # Двойной клик по composite — сигнал «войти» с asset_id
+    enter_requested = Signal(str)
 
     MAX_DEPTH = 8
 
@@ -263,6 +265,16 @@ class ComponentItem(QGraphicsObject):
         self.setScale(c.scale)
         self.update()
         self.moved.emit()
+
+    def mouseDoubleClickEvent(self, event) -> None:
+        """Двойной клик — войти в composite (если это composite)."""
+        if self._asset is not None:
+            comps = getattr(self._asset, "components", None)
+            if comps:
+                self.enter_requested.emit(self._asset.id)
+                event.accept()
+                return
+        super().mouseDoubleClickEvent(event)
 
     def mouseReleaseEvent(self, event) -> None:
         super().mouseReleaseEvent(event)
