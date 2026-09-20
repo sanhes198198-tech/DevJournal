@@ -247,6 +247,18 @@ class VectorEditor(QMainWindow):
         act_ext_node.triggered.connect(self._on_extrude_node)
         tb.addAction(act_ext_node)
 
+        act_extra = QAction("🔗 Соединить", self)
+        act_extra.setShortcut(QKeySequence("Ctrl+J"))
+        act_extra.setShortcutContext(
+            Qt.ShortcutContext.ApplicationShortcut
+        )
+        act_extra.setToolTip(
+            "Соединить два выделенных узла дополнительным ребром "
+            "(Ctrl+J). Выделите два узла Ctrl+кликом."
+        )
+        act_extra.triggered.connect(self._on_add_extra_edge)
+        tb.addAction(act_extra)
+
     def _connect_signals(self) -> None:
         self._canvas.contour_created.connect(self._on_contour_created)
         self._canvas.empty_click.connect(self._on_empty_scene_click)
@@ -1091,10 +1103,14 @@ class VectorEditor(QMainWindow):
     def _load_asset_into_editor(self, asset: Asset) -> None:
         self._clear_scene()
 
+        geometry = asset.geometry
+
         contour = VectorContour(
             points=asset.points(),
+            node_ids=list(geometry.get("node_ids", [])),
             closed=asset.is_closed(),
             name=asset.name,
+            extra_edges=asset.extra_edges(),
         )
 
         item = ContourItem(contour)
@@ -1255,6 +1271,67 @@ class VectorEditor(QMainWindow):
         )
 
     # ============================================================
+    # EXTRA EDGES (V8-lite)
+    # ============================================================
+
+    def _on_add_extra_edge(self) -> None:
+        """Соединить два выделенных узла дополнительным ребром."""
+        if self._contour_item is None:
+            self.statusBar().showMessage(
+                "Сначала создайте или откройте контур", 3000,
+            )
+            return
+
+        nodes = [
+            it for it in self._scene.selectedItems()
+            if isinstance(it, NodeItem)
+        ]
+
+        if len(nodes) != 2:
+            self.statusBar().showMessage(
+                "Выберите ровно ДВА узла через Ctrl+клик, затем Ctrl+J",
+                5000,
+            )
+            return
+
+        a_id = nodes[0].node_id
+        b_id = nodes[1].node_id
+
+        if not a_id or not b_id:
+            self.statusBar().showMessage(
+                "У одного из узлов нет node_id", 3000,
+            )
+            return
+
+        contour = self._contour_item.contour
+        extra_snapshot = list(contour.extra_edges)
+
+        if not contour.add_extra_edge(a_id, b_id):
+            self.statusBar().showMessage(
+                "Такое extra-ребро уже существует "
+                "или узлы недействительны", 3500,
+            )
+            return
+
+        self._contour_item._selected_extra = None
+        self._contour_item._selected_edge_idx = None
+        self._contour_item.update()
+
+        self._undo_stack.append(
+            (
+                self._contour_item,
+                list(contour.points),
+                "extra_edges",
+                extra_snapshot,
+            )
+        )
+
+        self._mark_modified()
+        self.statusBar().showMessage(
+            f"Extra создано: {a_id} ↔ {b_id}", 2500,
+        )
+
+    # ============================================================
     # EXTRUDE
     # ============================================================
 
@@ -1294,13 +1371,34 @@ class VectorEditor(QMainWindow):
         item = entry[0]
         snapshot = entry[1]
 
-        item.contour.points = list(snapshot)
-        item._selected_edge_idx = None
-        item._rebuild_nodes()
-        item._rebuild_path()
+        # -------- EXTRA EDGES ----------------
+        if (
+            len(entry) >= 4
+            and isinstance(entry[2], str)
+            and entry[2] == "extra_edges"
+        ):
+            item.contour.points = list(snapshot)
+            item.contour.extra_edges = [
+                tuple(e) for e in entry[3]
+            ]
 
-        # Расширенная запись от изменения параметра
-        if len(entry) >= 4:
+            item._selected_edge_idx = None
+            item._selected_extra = None
+            item._hover_edge_idx = None
+            item._hover_extra = None
+
+            item._rebuild_nodes()
+            item._rebuild_path()
+            item.update()
+
+        # -------- PARAMETER ------------------
+        elif len(entry) >= 4:
+            item.contour.points = list(snapshot)
+            item._selected_edge_idx = None
+            item._selected_extra = None
+            item._rebuild_nodes()
+            item._rebuild_path()
+
             param_id = entry[2]
             old_value = entry[3]
             if self._current_asset is not None:
@@ -1309,9 +1407,15 @@ class VectorEditor(QMainWindow):
                     p.value = old_value
                     self._parameters_panel.refresh()
 
-        # Откат рвёт текущую сессию параметра
-        self._reset_param_undo_session()
+        # -------- ОБЫЧНЫЙ --------------------
+        else:
+            item.contour.points = list(snapshot)
+            item._selected_edge_idx = None
+            item._selected_extra = None
+            item._rebuild_nodes()
+            item._rebuild_path()
 
+        self._reset_param_undo_session()
         self._mark_modified()
         self.statusBar().showMessage("Отменено", 2000)
 
@@ -1326,31 +1430,64 @@ class VectorEditor(QMainWindow):
     def eventFilter(self, obj, event) -> bool:
         if obj is self._scene:
             if event.type() == QEvent.Type.GraphicsSceneMousePress:
+                # Сбрасываем edge-подсветку ВСЕГДА при клике.
+                # Если клик попадёт в грань — ContourItem сам её
+                # поставит заново. Если мимо — останется сброшено.
+                if self._contour_item is not None:
+                    self._contour_item._selected_edge_idx = None
+                    self._contour_item._selected_extra = None
+                    self._contour_item._hover_edge_idx = None
+                    self._contour_item._hover_extra = None
+                    self._contour_item.update()
+
                 pos = event.scenePos()
                 items = self._scene.items(pos)
                 has_node = any(
                     isinstance(it, NodeItem) for it in items
                 )
 
+                if has_node:
+                    return False
+
                 if not has_node:
-                    # Проверим, не рядом ли с гранью контура.
-                    # Если рядом — пусть ContourItem сам обработает
-                    # (выбор грани для Extrude).
                     near_edge = False
+
                     if self._contour_item is not None:
+                        # Extra — приоритет
                         try:
-                            idx = self._contour_item._find_edge_at(
-                                pos.x(), pos.y(),
+                            extra = (
+                                self._contour_item
+                                ._find_extra_edge_at(
+                                    pos.x(), pos.y(),
+                                )
                             )
-                            near_edge = idx is not None
+                            near_edge = extra is not None
                         except Exception:
                             near_edge = False
 
+                        # Main — только если extra нет
+                        if not near_edge:
+                            try:
+                                idx = (
+                                    self._contour_item
+                                    ._find_edge_at(
+                                        pos.x(), pos.y(),
+                                    )
+                                )
+                                near_edge = idx is not None
+                            except Exception:
+                                near_edge = False
+
+                    # Если клик не в узел/ребро — сброс.
+                    # Если попал в ребро — тоже сбрасываем текущую
+                    # грань, чтобы клик в другое место не оставлял
+                    # старую синюю подсветку.
+                    self._on_empty_scene_click()
                     if not near_edge:
-                        # Клик в "пустоту" — сбросить всё
-                        # и ЗАБЛОКИРОВАТЬ передачу в ContourItem.
-                        self._on_empty_scene_click()
                         return True
+                    # Если попали в ребро — не съедаем событие,
+                    # пусть ContourItem сам поставит новую грань.
+                    return False
 
         return super().eventFilter(obj, event)
 
@@ -1363,7 +1500,9 @@ class VectorEditor(QMainWindow):
         if self._contour_item is not None:
             self._contour_item.clear_highlight()
             self._contour_item._selected_edge_idx = None
+            self._contour_item._selected_extra = None
             self._contour_item._hover_edge_idx = None
+            self._contour_item._hover_extra = None
             self._contour_item.update()
 
         self._scene.clearSelection()
@@ -1389,15 +1528,44 @@ class VectorEditor(QMainWindow):
         super().keyPressEvent(event)
 
     def _delete_selected_nodes(self) -> bool:
-        """Удалить все выделенные NodeItem.
+        """Удалить выделенное: extra_edge ИЛИ узлы.
 
-        - Выделены ВСЕ узлы → удалить весь контур (с подтверждением).
-        - После удаления останется < 3 → предупреждение.
-        - Иначе — массовое удаление + одна undo-запись.
+        - Если выделена extra_edge — удалить только её.
+        - Иначе — существующая логика для узлов:
+            выделены ВСЕ → удалить весь контур (с подтверждением).
+            останется < 3 → предупреждение.
+            иначе — массовое удаление + одна undo-запись.
         """
         if self._contour_item is None:
             return False
 
+        # ---- EXTRA EDGE ----------------------------------------
+        item = self._contour_item
+        extra = getattr(item, "_selected_extra", None)
+        if extra is not None:
+            a_id, b_id = extra
+            snapshot = list(item.contour.extra_edges)
+
+            if item.contour.remove_extra_edge(a_id, b_id):
+                item._selected_extra = None
+                item._hover_extra = None
+                item.update()
+
+                self._undo_stack.append(
+                    (
+                        item,
+                        list(item.contour.points),
+                        "extra_edges",
+                        snapshot,
+                    )
+                )
+                self._mark_modified()
+                self.statusBar().showMessage(
+                    f"Extra удалено: {a_id} — {b_id}", 2500,
+                )
+                return True
+
+        # ---- NODES ---------------------------------------------
         selected = [
             it for it in self._scene.selectedItems()
             if isinstance(it, NodeItem)

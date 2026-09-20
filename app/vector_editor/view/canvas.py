@@ -256,7 +256,14 @@ class VectorCanvas(QGraphicsView):
     # ============================================================
 
     def _hit_test_node_or_edge(self, scene_pos) -> bool:
-        """True, если клик попал в NodeItem или в ребро ContourItem."""
+        """True, если клик попал в NodeItem или в ребро ContourItem.
+
+        Проверяет и main, и extra рёбра. Extra имеет приоритет над
+        main, но для hit-test это не важно — важен сам факт «попал».
+
+        Без этой проверки клик по extra считался бы «пустым» и не
+        доходил до ContourItem.mousePressEvent.
+        """
         from .items.node_item import NodeItem
         from .items.contour_item import ContourItem
 
@@ -267,15 +274,30 @@ class VectorCanvas(QGraphicsView):
                 return True
 
         for it in items:
-            if isinstance(it, ContourItem):
-                try:
-                    idx = it._find_edge_at(
-                        scene_pos.x(), scene_pos.y(),
-                    )
-                except Exception:
-                    idx = None
-                if idx is not None:
-                    return True
+            if not isinstance(it, ContourItem):
+                continue
+
+            # Сначала extra (приоритет)
+            try:
+                extra = it._find_extra_edge_at(
+                    scene_pos.x(), scene_pos.y(),
+                )
+            except Exception:
+                extra = None
+
+            if extra is not None:
+                return True
+
+            # Потом main
+            try:
+                idx = it._find_edge_at(
+                    scene_pos.x(), scene_pos.y(),
+                )
+            except Exception:
+                idx = None
+
+            if idx is not None:
+                return True
 
         return False
 

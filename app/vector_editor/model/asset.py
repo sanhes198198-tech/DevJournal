@@ -80,6 +80,7 @@ class Asset:
             "units": "m",
             "node_ids": [],
             "groups": {},
+            "extra_edges": [],
         }
 
     @staticmethod
@@ -127,6 +128,11 @@ class Asset:
             "units": "m",
             "node_ids": node_ids,
             "groups": groups,
+            "extra_edges": [
+                [a, b]
+                for (a, b) in getattr(contour, "extra_edges", [])
+                if a in node_ids and b in node_ids
+            ],
         }
 
         return cls(
@@ -218,6 +224,61 @@ class Asset:
 
     def group_count(self) -> int:
         return len(self.geometry.get("groups", {}))
+
+    # ------------------------------------------------------------
+    # EXTRA EDGES
+    # ------------------------------------------------------------
+
+    def extra_edges(self) -> list[tuple[str, str]]:
+        """Вернуть extra_edges, нормализовав старый index-формат.
+
+        - int-индексы превращаются в node_ids по node_ids-списку
+        - отбрасываются пары с несуществующими id
+        - отбрасываются self-пары
+        - отбрасываются дубликаты
+
+        После вызова `geometry["extra_edges"]` перезаписывается
+        нормализованным списком.
+        """
+        node_ids = list(self.geometry.get("node_ids", []))
+        valid = set(node_ids)
+
+        result: list[tuple[str, str]] = []
+
+        for raw in self.geometry.get("extra_edges", []) or []:
+            if not isinstance(raw, (list, tuple)):
+                continue
+            if len(raw) != 2:
+                continue
+
+            a, b = raw
+
+            if isinstance(a, int) and 0 <= a < len(node_ids):
+                a = node_ids[a]
+            if isinstance(b, int) and 0 <= b < len(node_ids):
+                b = node_ids[b]
+
+            if not isinstance(a, str) or not isinstance(b, str):
+                continue
+            if a == b:
+                continue
+            if a not in valid or b not in valid:
+                continue
+
+            if any(
+                frozenset(edge) == frozenset((a, b))
+                for edge in result
+            ):
+                continue
+
+            result.append((a, b))
+
+        # Нормализуем geometry сразу
+        self.geometry["extra_edges"] = [
+            [a, b] for a, b in result
+        ]
+
+        return result
 
     # ------------------------------------------------------------
     # SEMANTIC GROUPS

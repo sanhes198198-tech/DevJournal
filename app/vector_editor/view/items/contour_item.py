@@ -1,20 +1,30 @@
 """
-ContourItem — QGraphicsObject, рисует замкнутый контур.
+ContourItem — QGraphicsObject, рисует замкнутый/разомкнутый контур.
 
 Поддерживает:
-  - узлы (NodeItem) — drag, del;
+  - узлы (NodeItem) — drag, delete;
   - грани (edges) — hover / selection / extrude;
-  - двойной клик по сегменту → вставка узла.
+  - двойной клик по main-сегменту → вставка узла;
+  - extra_edges (V8-lite) — дополнительные рёбра между несоседними
+    узлами, хранятся как пары node_ids.
 
 Внутреннее состояние:
-  - _selected_edge_idx: int | None — выделенная грань;
-  - _hover_edge_idx: int | None — грань под курсором.
+  - _selected_edge_idx: int | None — выделенная main-грань;
+  - _hover_edge_idx: int | None — main-грань под курсором;
+  - _selected_extra: tuple[str, str] | None — выделенное extra-ребро;
+  - _hover_extra: tuple[str, str] | None — extra-ребро под курсором.
+
+Приоритет при клике: Extra > Main.
+Приоритет при hover:   Extra > Main.
+Double-click: только main (extra не обрабатывается).
 """
 
 from __future__ import annotations
 
 from PySide6.QtCore import QPointF, QRectF, Qt, Signal
-from PySide6.QtGui import QColor, QPainterPath, QPainterPathStroker, QPen
+from PySide6.QtGui import (
+    QColor, QPainterPath, QPainterPathStroker, QPen,
+)
 from PySide6.QtWidgets import QGraphicsObject
 
 from ...model.contour import VectorContour
@@ -26,12 +36,7 @@ from .node_item import NodeItem
 class ContourItem(QGraphicsObject):
     """Визуализация VectorContour."""
 
-    # Эмитится при любом изменении геометрии:
-    # move узла, insert, remove.
     changed = Signal()
-
-    # Начало/конец перетаскивания одного узла.
-    # Позволяют editor'у сделать одну undo-запись на весь drag.
     node_drag_started = Signal()
     node_drag_finished = Signal()
 
@@ -42,6 +47,12 @@ class ContourItem(QGraphicsObject):
     LINE_COLOR = "#1A1A1A"
     LINE_COLOR_SELECTED = "#0055CC"
     LINE_COLOR_HOVER = "#5588DD"
+
+    # Extra edges — визуально отличаются от main
+    EXTRA_COLOR = "#888888"
+    EXTRA_COLOR_SELECTED = "#F28C28"   # оранжевый
+    EXTRA_WIDTH = 1.8
+    EXTRA_WIDTH_SELECTED = 3.2
 
     HIT_THRESHOLD_PX = 8.0
 
@@ -55,6 +66,9 @@ class ContourItem(QGraphicsObject):
 
         self._selected_edge_idx: int | None = None
         self._hover_edge_idx: int | None = None
+
+        self._selected_extra: tuple[str, str] | None = None
+        self._hover_extra: tuple[str, str] | None = None
 
         self._path = QPainterPath()
 
@@ -80,9 +94,22 @@ class ContourItem(QGraphicsObject):
     def selected_edge_idx(self) -> int | None:
         return self._selected_edge_idx
 
+    def selected_extra(self) -> tuple[str, str] | None:
+        return self._selected_extra
+
     def clear_edge_selection(self) -> None:
-        if self._selected_edge_idx is not None:
-            self._selected_edge_idx = None
+        changed = (
+            self._selected_edge_idx is not None
+            or self._selected_extra is not None
+        )
+        self._selected_edge_idx = None
+        self._selected_extra = None
+        if changed:
+            self.update()
+
+    def clear_extra_selection(self) -> None:
+        if self._selected_extra is not None:
+            self._selected_extra = None
             self.update()
 
     def set_editable(self, editable: bool) -> None:
@@ -91,14 +118,13 @@ class ContourItem(QGraphicsObject):
             node.setVisible(editable)
 
     # ============================================================
-    # EXTRUDE
+    # EXTRUDE (по main-грани)
     # ============================================================
 
     def has_selected_edge(self) -> bool:
         return self._selected_edge_idx is not None
 
     def extrude_selected_face(self, distance: float) -> bool:
-        """Вытянуть выделенную грань. Возвращает True при успехе."""
         if self._selected_edge_idx is None:
             return False
 
@@ -113,6 +139,8 @@ class ContourItem(QGraphicsObject):
         self._contour.points = new_points
         self._selected_edge_idx = None
         self._hover_edge_idx = None
+        self._selected_extra = None
+        self._hover_extra = None
 
         self._rebuild_nodes()
         self._rebuild_path()
@@ -120,7 +148,7 @@ class ContourItem(QGraphicsObject):
         return True
 
     # ============================================================
-    # ГЕОМЕТРИЯ
+    # GEOMETRY
     # ============================================================
 
     def boundingRect(self) -> QRectF:
@@ -131,15 +159,27 @@ class ContourItem(QGraphicsObject):
         )
 
     def shape(self) -> QPainterPath:
-        if self._path.isEmpty():
-            return QPainterPath()
-
+        """Форма для Qt-hit-test. Включает extra_edges, чтобы Qt
+        корректно выбирал ContourItem при клике по extra."""
         ppm = self._last_ppm or 50.0
-        stroke_w_m = self.HIT_THRESHOLD_PX / ppm
+        stroke_w_m = max(self.HIT_THRESHOLD_PX / ppm, 0.01)
 
         stroker = QPainterPathStroker()
-        stroker.setWidth(max(stroke_w_m, 0.01))
-        return stroker.createStroke(self._path)
+        stroker.setWidth(stroke_w_m)
+
+        path = QPainterPath(self._path)
+
+        for a_id, b_id in self._contour.extra_edges:
+            ia = self._contour.index_of(a_id)
+            ib = self._contour.index_of(b_id)
+            if ia < 0 or ib < 0:
+                continue
+            ax, ay = self._contour.points[ia]
+            bx, by = self._contour.points[ib]
+            path.moveTo(ax, ay)
+            path.lineTo(bx, by)
+
+        return stroker.createStroke(path)
 
     # ============================================================
     # PAINT
@@ -147,7 +187,6 @@ class ContourItem(QGraphicsObject):
 
     def paint(self, painter, option, widget=None) -> None:
         self._last_ppm = abs(painter.transform().m11()) or 50.0
-
         painter.setRenderHint(painter.RenderHint.Antialiasing, True)
 
         pts = self._contour.points
@@ -155,9 +194,12 @@ class ContourItem(QGraphicsObject):
         if n < 2:
             return
 
-        segments = list(range(n)) if self._contour.closed else list(range(n - 1))
+        segments = (
+            list(range(n)) if self._contour.closed
+            else list(range(n - 1))
+        )
 
-        # Сначала все сегменты обычным цветом
+        # --- 1. Основной контур ---
         base_color = (
             self.LINE_COLOR_SELECTED
             if self.isSelected()
@@ -170,18 +212,66 @@ class ContourItem(QGraphicsObject):
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawPath(self._path)
 
-        # Поверх — выделенная грань
-        if self._selected_edge_idx is not None and self._selected_edge_idx in segments:
+        # --- 2. Extra edges (поверх main) ---
+        for edge in self._contour.extra_edges:
+            a_id, b_id = edge
+            ia = self._contour.index_of(a_id)
+            ib = self._contour.index_of(b_id)
+            if ia < 0 or ib < 0:
+                continue
+
+            p1 = pts[ia]
+            p2 = pts[ib]
+
+            is_selected = (
+                self._selected_extra is not None
+                and frozenset(self._selected_extra)
+                == frozenset(edge)
+            )
+            is_hover = (
+                self._hover_extra is not None
+                and frozenset(self._hover_extra)
+                == frozenset(edge)
+                and not is_selected
+            )
+
+            if is_selected:
+                color = QColor(self.EXTRA_COLOR_SELECTED)
+                width = self.EXTRA_WIDTH_SELECTED
+                style = Qt.PenStyle.SolidLine
+            elif is_hover:
+                color = QColor(self.LINE_COLOR_HOVER)
+                width = self.EXTRA_WIDTH_SELECTED
+                style = Qt.PenStyle.SolidLine
+            else:
+                color = QColor(self.EXTRA_COLOR)
+                width = self.EXTRA_WIDTH
+                style = Qt.PenStyle.DashLine
+
+            pen = QPen(color, width)
+            pen.setCosmetic(True)
+            pen.setStyle(style)
+            painter.setPen(pen)
+            painter.drawLine(QPointF(*p1), QPointF(*p2))
+
+        # --- 3. Selected main edge (поверх всего) ---
+        if (
+            self._selected_edge_idx is not None
+            and self._selected_edge_idx in segments
+        ):
             i = self._selected_edge_idx
             p1 = pts[i]
             p2 = pts[(i + 1) % n]
 
-            pen = QPen(QColor(self.LINE_COLOR_SELECTED), self.LINE_WIDTH_SELECTED)
+            pen = QPen(
+                QColor(self.LINE_COLOR_SELECTED),
+                self.LINE_WIDTH_SELECTED,
+            )
             pen.setCosmetic(True)
             painter.setPen(pen)
             painter.drawLine(QPointF(*p1), QPointF(*p2))
 
-        # И hover-грань (если не совпадает с выделенной)
+        # --- 4. Hover main edge (если не совпадает с selected) ---
         elif (
             self._hover_edge_idx is not None
             and self._hover_edge_idx in segments
@@ -191,7 +281,10 @@ class ContourItem(QGraphicsObject):
             p1 = pts[i]
             p2 = pts[(i + 1) % n]
 
-            pen = QPen(QColor(self.LINE_COLOR_HOVER), self.LINE_WIDTH_HOVER)
+            pen = QPen(
+                QColor(self.LINE_COLOR_HOVER),
+                self.LINE_WIDTH_HOVER,
+            )
             pen.setCosmetic(True)
             painter.setPen(pen)
             painter.drawLine(QPointF(*p1), QPointF(*p2))
@@ -237,31 +330,24 @@ class ContourItem(QGraphicsObject):
             self._nodes.append(node)
 
     # ============================================================
-    # EVENTS
+    # NODES VISIBILITY / HIGHLIGHT
     # ============================================================
 
     def are_nodes_visible(self) -> bool:
-        """Возвращает True, если квадратики узлов видны."""
         if not self._nodes:
             return self._editable
         return self._nodes[0].isVisible()
 
     def set_nodes_visible(self, visible: bool) -> None:
-        """Скрыть / показать квадратики узлов."""
         for node in self._nodes:
             node.setVisible(visible)
 
-    def highlight_nodes(self, node_ids: set[str] | list[str]) -> None:
-        """Подсветить узлы с указанными node_id.
-
-        Пустое множество → сбросить всю подсветку.
-        """
+    def highlight_nodes(self, node_ids) -> None:
         wanted = set(node_ids)
         for node in self._nodes:
             node.set_highlight(node.node_id in wanted)
 
     def clear_highlight(self) -> None:
-        """Сбросить подсветку всех узлов."""
         for node in self._nodes:
             node.set_highlight(False)
 
@@ -270,13 +356,20 @@ class ContourItem(QGraphicsObject):
         self._rebuild_path()
         self.changed.emit()
 
+    # ============================================================
+    # HIT-TEST: main edges
+    # ============================================================
+
     def _find_edge_at(self, scene_x: float, scene_y: float) -> int | None:
         pts = self._contour.points
         n = len(pts)
         if n < 2:
             return None
 
-        segments = range(n) if self._contour.closed else range(n - 1)
+        segments = (
+            range(n) if self._contour.closed
+            else range(n - 1)
+        )
 
         best_dist = float("inf")
         best_idx: int | None = None
@@ -299,21 +392,79 @@ class ContourItem(QGraphicsObject):
             return best_idx
         return None
 
+    # ============================================================
+    # HIT-TEST: extra edges
+    # ============================================================
+
+    def _find_extra_edge_at(
+        self, scene_x: float, scene_y: float,
+    ) -> tuple[str, str] | None:
+        """Найти extra-ребро под курсором. Возвращает пару node_ids."""
+        best_dist = float("inf")
+        best_edge: tuple[str, str] | None = None
+
+        for edge in self._contour.extra_edges:
+            a_id, b_id = edge
+            ia = self._contour.index_of(a_id)
+            ib = self._contour.index_of(b_id)
+            if ia < 0 or ib < 0:
+                continue
+
+            p1 = self._contour.points[ia]
+            p2 = self._contour.points[ib]
+
+            d, _ = dist_point_to_segment(
+                scene_x, scene_y,
+                p1[0], p1[1], p2[0], p2[1],
+            )
+            if d < best_dist:
+                best_dist = d
+                best_edge = (a_id, b_id)
+
+        ppm = self._last_ppm or 50.0
+        threshold_m = self.HIT_THRESHOLD_PX / ppm
+
+        if best_dist <= threshold_m:
+            return best_edge
+        return None
+
+    # ============================================================
+    # EVENTS
+    # ============================================================
+
     def mousePressEvent(self, event) -> None:
-        """Клик по грани — выделить её. Клик по узлам сюда не доходит."""
+        """Клик по грани — выделить. Приоритет: Extra > Main."""
         if event.button() == Qt.MouseButton.LeftButton:
             scene_pos = event.scenePos()
-            idx = self._find_edge_at(scene_pos.x(), scene_pos.y())
 
-            if idx is not None:
-                self._selected_edge_idx = idx
+            # PRIORITY 1: Extra
+            extra = self._find_extra_edge_at(
+                scene_pos.x(), scene_pos.y(),
+            )
+            if extra is not None:
+                self._selected_extra = extra
+                self._selected_edge_idx = None
                 self.update()
                 event.accept()
                 return
 
-            # Клик мимо грани — снять выделение грани
-            if self._selected_edge_idx is not None:
-                self._selected_edge_idx = None
+            # PRIORITY 2: Main
+            idx = self._find_edge_at(scene_pos.x(), scene_pos.y())
+            if idx is not None:
+                self._selected_edge_idx = idx
+                self._selected_extra = None
+                self.update()
+                event.accept()
+                return
+
+            # Пусто внутри ContourItem
+            changed = (
+                self._selected_edge_idx is not None
+                or self._selected_extra is not None
+            )
+            self._selected_edge_idx = None
+            self._selected_extra = None
+            if changed:
                 self.update()
 
         super().mousePressEvent(event)
@@ -324,30 +475,51 @@ class ContourItem(QGraphicsObject):
             return
 
         scene_pos = event.scenePos()
-        idx = self._find_edge_at(scene_pos.x(), scene_pos.y())
 
-        if idx != self._hover_edge_idx:
-            self._hover_edge_idx = idx
+        extra = self._find_extra_edge_at(
+            scene_pos.x(), scene_pos.y(),
+        )
+
+        idx = None
+        if extra is None:
+            idx = self._find_edge_at(
+                scene_pos.x(), scene_pos.y(),
+            )
+
+        changed = (
+            extra != self._hover_extra
+            or idx != self._hover_edge_idx
+        )
+        self._hover_extra = extra
+        self._hover_edge_idx = idx
+
+        if changed:
             self.update()
 
         super().hoverMoveEvent(event)
 
     def hoverLeaveEvent(self, event) -> None:
-        if self._hover_edge_idx is not None:
+        if (
+            self._hover_edge_idx is not None
+            or self._hover_extra is not None
+        ):
             self._hover_edge_idx = None
+            self._hover_extra = None
             self.update()
+
         super().hoverLeaveEvent(event)
 
     def mouseDoubleClickEvent(self, event) -> None:
+        """Двойной клик — вставка узла в main-сегмент.
+
+        Extra НЕ обрабатывается (см. решение: функционал вставки
+        точки в extra отложен до появления extra_only-узлов).
+        """
         if not self._editable:
             super().mouseDoubleClickEvent(event)
             return
 
         scene_pos = event.scenePos()
-
-        best_dist = float("inf")
-        best_seg = -1
-        best_t = 0.0
 
         pts = self._contour.points
         n = len(pts)
@@ -355,7 +527,14 @@ class ContourItem(QGraphicsObject):
             super().mouseDoubleClickEvent(event)
             return
 
-        segments = range(n) if self._contour.closed else range(n - 1)
+        best_dist = float("inf")
+        best_seg = -1
+        best_t = 0.0
+
+        segments = (
+            range(n) if self._contour.closed
+            else range(n - 1)
+        )
 
         for i in segments:
             p1 = pts[i]
@@ -392,6 +571,9 @@ class ContourItem(QGraphicsObject):
 
         self._contour.remove_point(idx)
         self._selected_edge_idx = None
+        self._selected_extra = None
+        self._hover_edge_idx = None
+        self._hover_extra = None
         self._rebuild_nodes()
         self._rebuild_path()
         self.changed.emit()
@@ -412,6 +594,7 @@ class ContourItem(QGraphicsObject):
 
         self._contour.insert_point(seg_idx + 1, x, y)
         self._selected_edge_idx = None
+        self._selected_extra = None
         self._rebuild_nodes()
         self._rebuild_path()
         self.changed.emit()

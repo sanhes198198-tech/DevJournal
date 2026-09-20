@@ -334,7 +334,13 @@
         "n_035",
         "n_000"
       ]
-    }
+    },
+    "extra_edges": [
+      [
+        "n_030",
+        "n_001"
+      ]
+    ]
   },
   "semantic_groups": {},
   "parameters": {},
