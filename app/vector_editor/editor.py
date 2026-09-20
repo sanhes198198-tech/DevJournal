@@ -1268,6 +1268,9 @@ class VectorEditor(QMainWindow):
             asset.parameters = dict(self._current_asset.parameters)
             asset.prune_parameters()
 
+            # Копируем подложку — иначе она теряется при Save
+            asset.reference_image = self._current_asset.reference_image
+
         try:
             save_asset(asset)
         except StorageError as e:

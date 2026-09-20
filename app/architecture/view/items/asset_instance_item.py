@@ -125,6 +125,45 @@ class AssetInstanceItem(QGraphicsObject):
 
         return path
 
+    def _extra_path(self) -> QPainterPath:
+        """Дополнительные линии: extra_edges между узлами
+        (main + extra), плюс изолированные extra_points."""
+        path = QPainterPath()
+        if self._asset is None:
+            return path
+
+        g = self._asset.geometry
+        node_ids = list(g.get("node_ids", []))
+        contour = list(g.get("contour", []))
+        extra_pts = list(g.get("extra_points", []))
+        extra_ids = list(g.get("extra_node_ids", []))
+        edges = list(g.get("extra_edges", []))
+
+        # Карта: node_id → (x, y)
+        pos_map: dict[str, tuple[float, float]] = {}
+        for i, nid in enumerate(node_ids):
+            if i < len(contour):
+                x, y = contour[i]
+                pos_map[nid] = (float(x), float(y))
+        for i, nid in enumerate(extra_ids):
+            if i < len(extra_pts):
+                x, y = extra_pts[i]
+                pos_map[nid] = (float(x), float(y))
+
+        # Линии
+        for edge in edges:
+            if not isinstance(edge, (list, tuple)) or len(edge) != 2:
+                continue
+            a_id, b_id = edge
+            pa = pos_map.get(a_id)
+            pb = pos_map.get(b_id)
+            if pa is None or pb is None:
+                continue
+            path.moveTo(pa[0], -pa[1])
+            path.lineTo(pb[0], -pb[1])
+
+        return path
+
     def _orphan_rect(self) -> QRectF:
         return QRectF(
             0.0, -ORPHAN_SIZE_M,
@@ -136,10 +175,14 @@ class AssetInstanceItem(QGraphicsObject):
             return self._orphan_rect().adjusted(-0.1, -0.1, 0.1, 0.1)
 
         path = self._base_path()
-        if path.isEmpty():
+        extra = self._extra_path()
+        if path.isEmpty() and extra.isEmpty():
             return QRectF()
 
-        return path.boundingRect().adjusted(-0.3, -0.3, 0.3, 0.3)
+        r = path.boundingRect()
+        if not extra.isEmpty():
+            r = r.united(extra.boundingRect())
+        return r.adjusted(-0.3, -0.3, 0.3, 0.3)
 
     def shape(self) -> QPainterPath:
         if self._asset is None:
@@ -149,12 +192,18 @@ class AssetInstanceItem(QGraphicsObject):
 
         from PySide6.QtGui import QPainterPathStroker
         path = self._base_path()
-        if path.isEmpty():
-            return path
+        extra = self._extra_path()
+
+        combined = QPainterPath(path)
+        if not extra.isEmpty():
+            combined.addPath(extra)
+
+        if combined.isEmpty():
+            return combined
 
         stroker = QPainterPathStroker()
         stroker.setWidth(0.5)
-        return stroker.createStroke(path)
+        return stroker.createStroke(combined)
 
     def paint(self, painter, option, widget=None) -> None:
         painter.setRenderHint(painter.RenderHint.Antialiasing, True)
