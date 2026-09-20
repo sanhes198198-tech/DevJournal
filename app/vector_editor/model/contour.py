@@ -208,6 +208,19 @@ class VectorContour:
             new_extra_ids.append(nid)
         self.extra_node_ids = new_extra_ids
 
+        # 2b. Выровнять длины extra_points / extra_node_ids
+        # (если рассинхрон — обрезаем до короткого)
+        if len(self.extra_points) != len(self.extra_node_ids):
+            n = min(
+                len(self.extra_points),
+                len(self.extra_node_ids),
+            )
+            fixes += (
+                abs(len(self.extra_points) - len(self.extra_node_ids))
+            )
+            self.extra_points = self.extra_points[:n]
+            self.extra_node_ids = self.extra_node_ids[:n]
+
         # 3. Отбросить битые extra_edges
         all_ids = set(self.node_ids) | set(self.extra_node_ids)
         new_edges: list[tuple[str, str]] = []

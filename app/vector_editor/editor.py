@@ -1183,6 +1183,14 @@ class VectorEditor(QMainWindow):
             closed=asset.is_closed(),
             name=asset.name,
             extra_edges=asset.extra_edges(),
+            extra_points=[
+                (float(p[0]), float(p[1]))
+                for p in geometry.get("extra_points", [])
+                if isinstance(p, (list, tuple)) and len(p) >= 2
+            ],
+            extra_node_ids=list(
+                geometry.get("extra_node_ids", [])
+            ),
         )
 
         # Автоочистка: если старый JSON битый (дубли, висящие
@@ -1236,6 +1244,7 @@ class VectorEditor(QMainWindow):
 
         if self._contour_item is not None:
             contour = self._contour_item.contour
+            contour.sanitize()
         else:
             contour = VectorContour(points=[])
 
@@ -1291,6 +1300,7 @@ class VectorEditor(QMainWindow):
         # (например, чтобы сразу привязать подложку).
         if self._contour_item is not None:
             contour = self._contour_item.contour
+            contour.sanitize()
         else:
             contour = VectorContour(points=[])
 
