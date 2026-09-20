@@ -29,6 +29,10 @@ class VectorContour:
     name: str = "Контур"
     # Пары node_ids (не индексов!)
     extra_edges: list[tuple[str, str]] = field(default_factory=list)
+    # Extra-only узлы (не входят в main-контур).
+    # Живут отдельно, main не трогают. id с префиксом "e_".
+    extra_points: list[tuple[float, float]] = field(default_factory=list)
+    extra_node_ids: list[str] = field(default_factory=list)
 
     def __post_init__(self):
         if self.points and not self.node_ids:
@@ -37,6 +41,12 @@ class VectorContour:
             ]
         while len(self.node_ids) < len(self.points):
             self.node_ids.append(f"n_{len(self.node_ids):03d}")
+
+        # То же для extra-точек
+        while len(self.extra_node_ids) < len(self.extra_points):
+            self.extra_node_ids.append(
+                f"e_{len(self.extra_node_ids):03d}"
+            )
 
     # ------------------------------------------------------------
     # POINTS
@@ -143,6 +153,82 @@ class VectorContour:
     def count(self) -> int:
         return len(self.points)
 
+    def extra_count(self) -> int:
+        return len(self.extra_points)
+
+    # ------------------------------------------------------------
+    # EXTRA-ONLY NODES (не входят в main-контур)
+    # ------------------------------------------------------------
+
+    def has_node(self, node_id: str) -> bool:
+        """True, если node_id есть в main или в extra-списке."""
+        return (
+            node_id in self.node_ids
+            or node_id in self.extra_node_ids
+        )
+
+    def is_extra_node(self, node_id: str) -> bool:
+        return node_id in self.extra_node_ids
+
+    def _next_extra_node_id(self) -> str:
+        max_n = -1
+        for nid in self.extra_node_ids:
+            if nid.startswith("e_") and nid[2:].isdigit():
+                max_n = max(max_n, int(nid[2:]))
+        return f"e_{max_n + 1:03d}"
+
+    def add_extra_point(
+        self, x: float, y: float, node_id: str | None = None,
+    ) -> str:
+        """Добавить extra-only узел. Возвращает его node_id."""
+        if node_id is None:
+            node_id = self._next_extra_node_id()
+        self.extra_points.append((float(x), float(y)))
+        self.extra_node_ids.append(node_id)
+        return node_id
+
+    def remove_extra_point(self, node_id: str) -> bool:
+        """Удалить extra-узел + все extra_edges с ним."""
+        if node_id not in self.extra_node_ids:
+            return False
+
+        i = self.extra_node_ids.index(node_id)
+        self.extra_points.pop(i)
+        self.extra_node_ids.pop(i)
+
+        self.extra_edges = [
+            (a, b)
+            for (a, b) in self.extra_edges
+            if a != node_id and b != node_id
+        ]
+        return True
+
+    def get_point_by_id(
+        self, node_id: str,
+    ) -> tuple[float, float] | None:
+        """Координаты узла из main или extra списка."""
+        if node_id in self.node_ids:
+            return self.points[self.node_ids.index(node_id)]
+        if node_id in self.extra_node_ids:
+            return self.extra_points[
+                self.extra_node_ids.index(node_id)
+            ]
+        return None
+
+    def set_point_by_id(
+        self, node_id: str, x: float, y: float,
+    ) -> bool:
+        """Обновить координаты узла (main или extra)."""
+        if node_id in self.node_ids:
+            i = self.node_ids.index(node_id)
+            self.points[i] = (float(x), float(y))
+            return True
+        if node_id in self.extra_node_ids:
+            i = self.extra_node_ids.index(node_id)
+            self.extra_points[i] = (float(x), float(y))
+            return True
+        return False
+
     # ------------------------------------------------------------
     # EXTRA EDGES
     # ------------------------------------------------------------
@@ -156,12 +242,15 @@ class VectorContour:
         )
 
     def add_extra_edge(self, a_id: str, b_id: str) -> bool:
-        """Добавить extra-ребро. True при успехе."""
+        """Добавить extra-ребро. True при успехе.
+
+        Узлы могут быть как main (n_*), так и extra (e_*).
+        """
         if not a_id or not b_id:
             return False
         if a_id == b_id:
             return False
-        if a_id not in self.node_ids or b_id not in self.node_ids:
+        if not self.has_node(a_id) or not self.has_node(b_id):
             return False
         if self.has_extra_edge(a_id, b_id):
             return False
@@ -191,6 +280,10 @@ class VectorContour:
             "extra_edges": [
                 [a, b] for (a, b) in self.extra_edges
             ],
+            "extra_points": [
+                [x, y] for (x, y) in self.extra_points
+            ],
+            "extra_node_ids": list(self.extra_node_ids),
         }
 
     @classmethod
@@ -214,7 +307,21 @@ class VectorContour:
                 nids.append(candidate)
                 used.add(candidate)
 
-        valid_ids = set(nids)
+        # Extra-only точки парсим ДО валидации edges,
+        # чтобы ссылки на e_* не отбрасывались.
+        raw_extra_pts = d.get("extra_points") or []
+        extra_pts = [
+            (float(p[0]), float(p[1]))
+            for p in raw_extra_pts
+            if isinstance(p, (list, tuple)) and len(p) >= 2
+        ]
+        extra_nids = list(d.get("extra_node_ids", []))
+
+        # Синхронизируем длины (если JSON сломан)
+        while len(extra_nids) < len(extra_pts):
+            extra_nids.append(f"e_{len(extra_nids):03d}")
+
+        valid_ids = set(nids) | set(extra_nids)
 
         raw_edges = d.get("extra_edges") or []
         extra_edges: list[tuple[str, str]] = []
@@ -255,6 +362,8 @@ class VectorContour:
             closed=bool(d.get("closed", True)),
             name=d.get("name", "Контур"),
             extra_edges=extra_edges,
+            extra_points=extra_pts,
+            extra_node_ids=extra_nids,
         )
 
     @classmethod

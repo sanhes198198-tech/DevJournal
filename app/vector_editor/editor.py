@@ -46,6 +46,7 @@ from .model.parameter import (
 from .view.save_asset_dialog import SaveAssetDialog
 from .view.items.contour_item import ContourItem
 from .view.items.node_item import NodeItem
+from .view.items.extra_node_item import ExtraNodeItem
 from .view.items.reference_item import ReferenceImageItem
 from .view.reference_properties_dialog import ReferencePropertiesDialog
 from .model.reference_image import ReferenceImage
@@ -1284,7 +1285,7 @@ class VectorEditor(QMainWindow):
 
         nodes = [
             it for it in self._scene.selectedItems()
-            if isinstance(it, NodeItem)
+            if isinstance(it, (NodeItem, ExtraNodeItem))
         ]
 
         if len(nodes) != 2:
@@ -1371,8 +1372,37 @@ class VectorEditor(QMainWindow):
         item = entry[0]
         snapshot = entry[1]
 
-        # -------- EXTRA EDGES ----------------
+        # -------- EXTRA POINTS ----------------
         if (
+            len(entry) >= 4
+            and isinstance(entry[2], str)
+            and entry[2] == "extra_points"
+        ):
+            item.contour.points = list(snapshot)
+            data = entry[3]
+            item.contour.extra_points = list(
+                data.get("extra_points", [])
+            )
+            item.contour.extra_node_ids = list(
+                data.get("extra_node_ids", [])
+            )
+            item.contour.extra_edges = [
+                tuple(e)
+                for e in data.get("extra_edges", [])
+            ]
+
+            item._selected_edge_idx = None
+            item._selected_extra = None
+            item._hover_edge_idx = None
+            item._hover_extra = None
+
+            item._rebuild_nodes()
+            item._rebuild_extra_nodes()
+            item._rebuild_path()
+            item.update()
+
+        # -------- EXTRA EDGES ----------------
+        elif (
             len(entry) >= 4
             and isinstance(entry[2], str)
             and entry[2] == "extra_edges"
@@ -1388,6 +1418,7 @@ class VectorEditor(QMainWindow):
             item._hover_extra = None
 
             item._rebuild_nodes()
+            item._rebuild_extra_nodes()
             item._rebuild_path()
             item.update()
 
@@ -1413,6 +1444,7 @@ class VectorEditor(QMainWindow):
             item._selected_edge_idx = None
             item._selected_extra = None
             item._rebuild_nodes()
+            item._rebuild_extra_nodes()
             item._rebuild_path()
 
         self._reset_param_undo_session()
@@ -1539,16 +1571,60 @@ class VectorEditor(QMainWindow):
         if self._contour_item is None:
             return False
 
-        # ---- EXTRA EDGE ----------------------------------------
         item = self._contour_item
+
+        # ---- EXTRA NODES (ExtraNodeItem) -----------------------
+        extra_nodes = [
+            it for it in self._scene.selectedItems()
+            if isinstance(it, ExtraNodeItem)
+        ]
+        if extra_nodes:
+            snapshot_pts = list(item.contour.extra_points)
+            snapshot_ids = list(item.contour.extra_node_ids)
+            snapshot_edges = list(item.contour.extra_edges)
+
+            n = 0
+            for node in extra_nodes:
+                if item.contour.remove_extra_point(node.node_id):
+                    n += 1
+
+            if n > 0:
+                item._selected_extra = None
+                item._hover_extra = None
+                item._rebuild_extra_nodes()
+                item.update()
+
+                self._undo_stack.append(
+                    (
+                        item,
+                        list(item.contour.points),
+                        "extra_points",
+                        {
+                            "extra_points": snapshot_pts,
+                            "extra_node_ids": snapshot_ids,
+                            "extra_edges": snapshot_edges,
+                        },
+                    )
+                )
+                self._mark_modified()
+                self.statusBar().showMessage(
+                    f"Удалено extra-узлов: {n}", 2500,
+                )
+                return True
+
+        # ---- EXTRA EDGE ----------------------------------------
         extra = getattr(item, "_selected_extra", None)
         if extra is not None:
             a_id, b_id = extra
             snapshot = list(item.contour.extra_edges)
 
             if item.contour.remove_extra_edge(a_id, b_id):
+                # Каскад: подчистить висящие extra-узлы
+                item.prune_dangling_extra_nodes()
+
                 item._selected_extra = None
                 item._hover_extra = None
+                item._rebuild_extra_nodes()
                 item.update()
 
                 self._undo_stack.append(

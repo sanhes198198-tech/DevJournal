@@ -81,6 +81,8 @@ class Asset:
             "node_ids": [],
             "groups": {},
             "extra_edges": [],
+            "extra_points": [],
+            "extra_node_ids": [],
         }
 
     @staticmethod
@@ -122,6 +124,21 @@ class Asset:
                 b = node_ids[(i + 1) % n]
                 groups[f"edge_{i:03d}"] = [a, b]
 
+        # Extra-узлы и extra-edges сохраняются как есть (они
+        # ссылаются на node_ids из main или extra).
+        extra_points = list(getattr(contour, "extra_points", []))
+        extra_node_ids = list(
+            getattr(contour, "extra_node_ids", [])
+        )
+
+        # Синхронизация (на всякий случай)
+        while len(extra_node_ids) < len(extra_points):
+            extra_node_ids.append(
+                f"e_{len(extra_node_ids):03d}"
+            )
+
+        valid_all_ids = set(node_ids) | set(extra_node_ids)
+
         geometry = {
             "contour": [[float(x), float(y)] for (x, y) in points],
             "closed": bool(contour.closed),
@@ -131,8 +148,12 @@ class Asset:
             "extra_edges": [
                 [a, b]
                 for (a, b) in getattr(contour, "extra_edges", [])
-                if a in node_ids and b in node_ids
+                if a in valid_all_ids and b in valid_all_ids
             ],
+            "extra_points": [
+                [float(x), float(y)] for (x, y) in extra_points
+            ],
+            "extra_node_ids": extra_node_ids,
         }
 
         return cls(
@@ -241,7 +262,13 @@ class Asset:
         нормализованным списком.
         """
         node_ids = list(self.geometry.get("node_ids", []))
-        valid = set(node_ids)
+        extra_ids = list(self.geometry.get("extra_node_ids", []))
+        valid = set(node_ids) | set(extra_ids)
+
+        # Склеенный список для backward compat int → node_id.
+        # Порядок: сначала main, потом extra — соответствует
+        # порядку, в котором когда-то могли идти индексы.
+        all_ids = node_ids + extra_ids
 
         result: list[tuple[str, str]] = []
 
@@ -253,10 +280,10 @@ class Asset:
 
             a, b = raw
 
-            if isinstance(a, int) and 0 <= a < len(node_ids):
-                a = node_ids[a]
-            if isinstance(b, int) and 0 <= b < len(node_ids):
-                b = node_ids[b]
+            if isinstance(a, int) and 0 <= a < len(all_ids):
+                a = all_ids[a]
+            if isinstance(b, int) and 0 <= b < len(all_ids):
+                b = all_ids[b]
 
             if not isinstance(a, str) or not isinstance(b, str):
                 continue
