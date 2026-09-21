@@ -90,3 +90,52 @@ class MoveComponentCommand(QUndoCommand):
             return False
         self._new = other._new
         return True
+
+class AddComponentCommand(QUndoCommand):
+    """Добавление компонента в композит."""
+
+    def __init__(
+        self,
+        composite,
+        comp,
+        on_create_item,
+        on_remove_item,
+    ):
+        super().__init__("Добавить компонент")
+        self._composite = composite
+        self._comp = comp
+        self._on_create_item = on_create_item
+        self._on_remove_item = on_remove_item
+
+    def redo(self) -> None:
+        self._composite.add_component(self._comp)
+        self._on_create_item(self._comp)
+
+    def undo(self) -> None:
+        self._on_remove_item(self._comp.id)
+        self._composite.remove_component(self._comp.id)
+
+
+class DeleteComponentCommand(QUndoCommand):
+    """Удаление компонента из композита."""
+
+    def __init__(
+        self,
+        composite,
+        comp,
+        on_create_item,
+        on_remove_item,
+    ):
+        super().__init__("Удалить компонент")
+        self._composite = composite
+        self._comp = comp
+        self._on_create_item = on_create_item
+        self._on_remove_item = on_remove_item
+
+    def redo(self) -> None:
+        self._on_remove_item(self._comp.id)
+        self._composite.remove_component(self._comp.id)
+
+    def undo(self) -> None:
+        self._composite.add_component(self._comp)
+        self._on_create_item(self._comp)

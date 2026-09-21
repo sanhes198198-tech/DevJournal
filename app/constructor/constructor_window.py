@@ -24,6 +24,8 @@ from .view.items.component_item import ComponentItem
 from .commands import (
     SetParamOverrideCommand,
     MoveComponentCommand,
+    AddComponentCommand,
+    DeleteComponentCommand,
 )
 from PySide6.QtGui import QUndoStack
 from app.vector_editor.model import Asset, Component
@@ -240,21 +242,15 @@ class ConstructorWindow(QMainWindow):
             scale=1.0,
             name=asset.name,
         )
-        if not self._current_composite.add_component(comp):
-            self.statusBar().showMessage(
-                "Компонент не добавлен (дубликат или self-ref)", 3000)
-            return
 
-        # Item на сцене
-        item = ComponentItem(
-            comp, asset=asset, registry=self._registry,
+        # Через undo-команду
+        cmd = AddComponentCommand(
+            composite=self._current_composite,
+            comp=comp,
+            on_create_item=self._create_component_item,
+            on_remove_item=self._remove_component_item,
         )
-        item.moved.connect(self._on_item_moved)
-        item.enter_requested.connect(self._on_enter_composite)
-        item.param_changed.connect(self._on_prop_param_override)
-        item.drag_finished.connect(self._on_item_drag_finished)
-        self._items_by_comp_id[comp.id] = item
-        self._scene.addItem(item)
+        self._undo_stack.push(cmd)
 
         self.statusBar().showMessage(
             f"Добавлен: {asset.name} (id={comp.id[:8]}). "
@@ -575,6 +571,31 @@ class ConstructorWindow(QMainWindow):
         from PySide6.QtCore import QTimer
         QTimer.singleShot(0, self._apply_visibility_rules)
 
+    def _create_component_item(self, comp) -> "ComponentItem":
+        """Создать ComponentItem для компонента, добавить на сцену,
+        подключить все сигналы. Возвращает item."""
+        ref_asset = None
+        if self._registry is not None:
+            ref_asset = self._registry.get(comp.asset_id)
+
+        item = ComponentItem(
+            comp, asset=ref_asset, registry=self._registry,
+        )
+        item.moved.connect(self._on_item_moved)
+        item.enter_requested.connect(self._on_enter_composite)
+        item.param_changed.connect(self._on_prop_param_override)
+        item.drag_finished.connect(self._on_item_drag_finished)
+
+        self._items_by_comp_id[comp.id] = item
+        self._scene.addItem(item)
+        return item
+
+    def _remove_component_item(self, comp_id: str) -> None:
+        """Убрать ComponentItem со сцены."""
+        item = self._items_by_comp_id.pop(comp_id, None)
+        if item is not None:
+            self._scene.removeItem(item)
+
     def _on_prop_param_override(
         self, comp_id: str, name: str, value: float,
     ) -> None:
@@ -596,12 +617,19 @@ class ConstructorWindow(QMainWindow):
         self._undo_stack.push(cmd)
 
     def _on_prop_delete(self, comp_id: str) -> None:
-        """Удалить компонент."""
-        item = self._items_by_comp_id.pop(comp_id, None)
-        if item is not None:
-            self._scene.removeItem(item)
+        """Удалить компонент через undo-команду."""
+        comp = self._current_composite.get_component(comp_id)
+        if comp is None:
+            return
 
-        self._current_composite.remove_component(comp_id)
+        cmd = DeleteComponentCommand(
+            composite=self._current_composite,
+            comp=comp,
+            on_create_item=self._create_component_item,
+            on_remove_item=self._remove_component_item,
+        )
+        self._undo_stack.push(cmd)
+
         self._properties.clear()
         self.statusBar().showMessage(
             f"Компонент удалён. Всего: "
