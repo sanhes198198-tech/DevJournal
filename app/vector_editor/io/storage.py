@@ -95,6 +95,9 @@ def list_assets(folder: Path | None = None) -> list[Asset]:
 
     assets: list[Asset] = []
     for json_file in sorted(target_dir.glob("*.json")):
+        # Пропускать служебные файлы (начинаются с _)
+        if json_file.name.startswith("_"):
+            continue
         try:
             assets.append(load_asset(json_file))
         except StorageError as e:
