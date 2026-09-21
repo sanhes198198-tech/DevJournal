@@ -32,6 +32,7 @@ from PySide6.QtGui import QUndoStack
 from app.vector_editor.model import Asset, Component
 from app.vector_editor.io import (
     save_asset, load_asset, list_assets, StorageError,
+    delete_asset,
 )
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "architecture"))
@@ -133,6 +134,10 @@ class ConstructorWindow(QMainWindow):
         act_open.triggered.connect(self._on_open)
         tb.addAction(act_open)
 
+        act_del_asset = QAction("Удалить ассет", self)
+        act_del_asset.triggered.connect(self._on_delete_asset)
+        tb.addAction(act_del_asset)
+
         tb.addSeparator()
 
         act_rules = QAction("Правила", self)
@@ -205,6 +210,7 @@ class ConstructorWindow(QMainWindow):
 
     def _connect_signals(self) -> None:
         self._palette.refresh_requested.connect(self._load_assets)
+        self._palette.delete_requested.connect(self._on_delete_assets)
         self._palette.asset_selected.connect(self._on_asset_selected)
         self._palette.asset_add_requested.connect(self._on_add_asset)
         self._canvas.mouse_moved.connect(self._on_mouse_moved)
@@ -373,8 +379,18 @@ class ConstructorWindow(QMainWindow):
             )
             return
 
-        dlg = AssetOpenDialog(composites, self)
+        dlg = AssetOpenDialog(composites, mode="open", parent=self)
         if dlg.exec() != AssetOpenDialog.DialogCode.Accepted:
+            # Может быть удаление
+            del_id = dlg.deleted_id()
+            if del_id:
+                self._do_delete_asset(del_id)
+            return
+
+        # Может быть нажали «Удалить»
+        del_id = dlg.deleted_id()
+        if del_id:
+            self._do_delete_asset(del_id)
             return
 
         aid = dlg.selected_id()
@@ -397,6 +413,107 @@ class ConstructorWindow(QMainWindow):
             self._registry.load_all()
 
         self._load_composite(target)
+
+    def _on_delete_assets(self, asset_ids: list) -> None:
+        """Удалить список ассетов (из палитры)."""
+        if not asset_ids:
+            return
+
+        names = []
+        try:
+            all_assets = list_assets()
+            by_id = {a.id: a.name for a in all_assets}
+            for aid in asset_ids[:3]:
+                names.append(by_id.get(aid, aid[:8]))
+        except Exception:
+            names = [aid[:8] for aid in asset_ids[:3]]
+
+        if len(asset_ids) == 1:
+            msg = "Удалить " + repr(names[0]) + "?"
+        else:
+            more = "" if len(asset_ids) <= 3 else " и ещё " + str(len(asset_ids) - 3)
+            msg = (
+                "Удалить " + str(len(asset_ids)) + " ассетов?\n"
+                "(" + ", ".join(names) + more + ")\n\n"
+                "Файлы будут удалены с диска."
+            )
+
+        reply = QMessageBox.question(
+            self, "Удалить ассеты", msg,
+            QMessageBox.StandardButton.Yes
+            | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        deleted = 0
+        for aid in asset_ids:
+            try:
+                delete_asset(aid)
+                deleted += 1
+            except Exception as e:
+                print("[DELETE] ошибка " + aid + ": " + str(e))
+
+        if self._current_asset_id in asset_ids:
+            self._reset_scene()
+
+        if self._registry is not None:
+            self._registry.load_all()
+        self._load_assets()
+
+        self.statusBar().showMessage(
+            "Удалено: " + str(deleted) + " из " + str(len(asset_ids)),
+            3000,
+        )
+    def _on_delete_asset(self) -> None:
+        """Открыть диалог выбора ассета для удаления."""
+        try:
+            all_assets = list_assets()
+        except Exception as e:
+            QMessageBox.warning(
+                self, "Ошибка", f"Не удалось загрузить:\n\n{e}")
+            return
+
+        composites = [a for a in all_assets if a.components]
+        if not composites:
+            QMessageBox.information(
+                self, "Нет ассетов",
+                "Нет сохранённых композитных ассетов.",
+            )
+            return
+
+        dlg = AssetOpenDialog(composites, mode="delete", parent=self)
+        if dlg.exec() != AssetOpenDialog.DialogCode.Accepted:
+            return
+
+        del_id = dlg.deleted_id()
+        if not del_id:
+            return
+
+        self._do_delete_asset(del_id)
+
+    def _do_delete_asset(self, asset_id: str) -> None:
+        """Удалить ассет по id + обновить UI."""
+        try:
+            delete_asset(asset_id)
+        except Exception as e:
+            QMessageBox.warning(
+                self, "Ошибка удаления",
+                f"Не удалось удалить:\n\n{e}",
+            )
+            return
+
+        if self._current_asset_id == asset_id:
+            self._reset_scene()
+
+        if self._registry is not None:
+            self._registry.load_all()
+        self._load_assets()
+
+        self.statusBar().showMessage(
+            f"Ассет удалён (id={asset_id[:8]})", 3000,
+        )
 
     def _load_composite(self, asset: Asset) -> None:
         """Загрузить композитный Asset в сцену."""
