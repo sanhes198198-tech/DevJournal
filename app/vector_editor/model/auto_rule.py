@@ -74,17 +74,27 @@ def recalculate_auto_points(contour, semantic_groups) -> int:
 
         axis_idx = 0 if axis == "x" else 1
 
+        until_name = rule.get("until_group") or ""
+        # Без границы авто-размножение бессмысленно — оно
+        # сгенерирует сотни точек и растянет ассет.
+        if not until_name:
+            continue
+
         limit_val = _find_limit(
-            rule.get("until_group"), axis_idx,
+            until_name, axis_idx,
             semantic_groups, pts_by_id,
         )
+        if limit_val is None:
+            # Граница задана, но группы нет — не генерируем.
+            continue
+
+        # Ограничение сверху, чтобы не убить ассет.
+        max_count = int(rule.get("max_count", 30))
 
         skip_boxes = _skip_boxes(
             rule.get("skip_groups", []),
             semantic_groups, pts_by_id,
         )
-
-        max_count = int(rule.get("max_count", 200))
 
         current = template_pos[axis_idx] + step
         counter = 0

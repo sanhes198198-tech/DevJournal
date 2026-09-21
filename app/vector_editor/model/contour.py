@@ -170,7 +170,9 @@ class VectorContour:
         self.node_ids.insert(insert_at, node_id)
         return node_id
 
-    def sanitize(self) -> int:
+    def sanitize(
+        self, keep_extra_ids: set[str] | None = None,
+    ) -> int:
         """Починить контур: убрать дубли node_ids, битые extra_edges.
 
         Возвращает количество исправлений.
@@ -252,11 +254,17 @@ class VectorContour:
             used_extra.add(a)
             used_extra.add(b)
 
-        if used_extra:
+        # Точки, которые нельзя удалять: в extra_edges ИЛИ
+        # в семантических группах (якоря, слоты, шаблоны).
+        keep = set(used_extra)
+        if keep_extra_ids:
+            keep |= keep_extra_ids
+
+        if keep:
             keep_pts: list[tuple[float, float]] = []
             keep_ids: list[str] = []
             for i, nid in enumerate(self.extra_node_ids):
-                if nid in used_extra:
+                if nid in keep:
                     keep_pts.append(self.extra_points[i])
                     keep_ids.append(nid)
             if len(keep_ids) != len(self.extra_node_ids):

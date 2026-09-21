@@ -1556,7 +1556,12 @@ class VectorEditor(QMainWindow):
 
         # Автоочистка: если старый JSON битый (дубли, висящие
         # extra_edges) — починить
-        fixes = contour.sanitize()
+        # Собрать id всех групп — чтобы sanitize не убил
+        # extra-точки, которые в них (якоря, слоты)
+        _keep = set()
+        for g in asset.semantic_groups.values():
+            _keep.update(g.node_ids)
+        fixes = contour.sanitize(keep_extra_ids=_keep)
         if fixes > 0:
             print(f"[SANITIZE] исправлено проблем: {fixes}")
             self.statusBar().showMessage(
@@ -1606,7 +1611,11 @@ class VectorEditor(QMainWindow):
 
         if self._contour_item is not None:
             contour = self._contour_item.contour
-            contour.sanitize()
+            group_ids = set()
+            if self._current_asset is not None:
+                for g in self._current_asset.semantic_groups.values():
+                    group_ids.update(g.node_ids)
+            contour.sanitize(keep_extra_ids=group_ids)
         else:
             contour = VectorContour(points=[])
 
@@ -1668,7 +1677,11 @@ class VectorEditor(QMainWindow):
         # (например, чтобы сразу привязать подложку).
         if self._contour_item is not None:
             contour = self._contour_item.contour
-            contour.sanitize()
+            group_ids = set()
+            if self._current_asset is not None:
+                for g in self._current_asset.semantic_groups.values():
+                    group_ids.update(g.node_ids)
+            contour.sanitize(keep_extra_ids=group_ids)
         else:
             contour = VectorContour(points=[])
 
