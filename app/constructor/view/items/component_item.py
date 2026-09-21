@@ -259,7 +259,9 @@ class ComponentItem(QGraphicsObject):
 
         if r.isEmpty():
             return QRectF()
-        return r.adjusted(-0.3, -0.3, 0.3, 0.3)
+        # Запас: 0.3 м обычный + 2.5 м при выделении (для подписей размеров)
+        pad = 2.5 if self.isSelected() else 0.3
+        return r.adjusted(-pad, -pad, pad, pad)
 
     def paint(self, painter, option, widget=None) -> None:
         painter.setRenderHint(painter.RenderHint.Antialiasing, True)
@@ -327,6 +329,73 @@ class ComponentItem(QGraphicsObject):
                     painter.setPen(pen)
                     painter.setBrush(QBrush(QColor("#FFFFFF")))
                     painter.drawEllipse(QPointF(lx, ly), r_m, r_m)
+
+        # Габариты (B) — только у выделенного
+        if self.isSelected():
+            self._paint_dimensions(painter)
+
+    def _paint_dimensions(self, painter) -> None:
+        """Подписи ширины/высоты в экранных пикселях (только у выделенного)."""
+        r = QRectF()
+        if not self._path.isEmpty():
+            r = self._path.boundingRect()
+        if not self._extra_path.isEmpty():
+            er = self._extra_path.boundingRect()
+            r = r.united(er) if not r.isEmpty() else er
+        if r.isEmpty():
+            return
+
+        w = r.width()
+        h = r.height()
+
+        scene = self.scene()
+        if scene is None:
+            return
+        views = scene.views()
+        if not views:
+            return
+        view = views[0]
+
+        # Точки в scene-координатах
+        bottom_scene = self.mapToScene(
+            QPointF(r.center().x(), r.bottom())
+        )
+        right_scene = self.mapToScene(
+            QPointF(r.right(), r.center().y())
+        )
+
+        # Переводим в пиксели viewport
+        bottom_px = view.mapFromScene(bottom_scene)
+        right_px = view.mapFromScene(right_scene)
+
+        from PySide6.QtGui import QFont, QFontMetrics
+
+        painter.save()
+        painter.resetTransform()  # отключаем масштаб сцены
+
+        font = QFont("sans-serif")
+        font.setPixelSize(12)
+        painter.setFont(font)
+        painter.setPen(QPen(QColor("#0055CC")))
+
+        fm = QFontMetrics(font)
+
+        # Ширина — снизу по центру
+        w_text = f"{w:.2f} м"
+        w_tw = fm.horizontalAdvance(w_text)
+        painter.drawText(
+            QPointF(bottom_px.x() - w_tw / 2, bottom_px.y() + 16),
+            w_text,
+        )
+
+        # Высота — справа
+        h_text = f"{h:.2f} м"
+        painter.drawText(
+            QPointF(right_px.x() + 8, right_px.y() + 4),
+            h_text,
+        )
+
+        painter.restore()
 
     # ------------------------------------------------------------
 
@@ -556,5 +625,6 @@ class ComponentItem(QGraphicsObject):
 
     def itemChange(self, change, value):
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
+            self.prepareGeometryChange()
             self.update()
         return super().itemChange(change, value)
