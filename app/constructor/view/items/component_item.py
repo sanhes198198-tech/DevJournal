@@ -223,12 +223,12 @@ class ComponentItem(QGraphicsObject):
                     extra.addPath(t.map(sub_extra))
 
         # --- Центрируем по общему bbox и возвращаем центр ---
+        # Центр — только по main-контуру.
+        # Extra (якоря, декор) НЕ влияет на bbox — иначе
+        # далёкая якорная точка сдвигает весь item.
         r = QRectF()
         if not main.isEmpty():
             r = main.boundingRect()
-        if not extra.isEmpty():
-            er = extra.boundingRect()
-            r = r.united(er) if not r.isEmpty() else er
 
         if not r.isEmpty():
             from PySide6.QtGui import QTransform
@@ -522,14 +522,29 @@ class ComponentItem(QGraphicsObject):
     def mouseReleaseEvent(self, event) -> None:
         super().mouseReleaseEvent(event)
 
-        # Снапим к сетке 0.1 м
-        pos = self.pos()
-        step = self._snap_step
-        sx = round(pos.x() / step) * step
-        sy = round(pos.y() / step) * step
+        # Если компонент привязан к родителю через anchor —
+        # позицией управляет reflow, не трогаем её руками.
+        # Иначе любой клик сдвигал бы точку стыковки.
+        attached = bool(getattr(self._component, "attach_to", ""))
 
-        if abs(sx - pos.x()) > 1e-9 or abs(sy - pos.y()) > 1e-9:
-            self.setPos(sx, sy)
+        if attached:
+            pos = self.pos()
+            sx = pos.x()
+            sy = pos.y()
+        elif self._snap_partner is not None:
+            # Сработал snap — не округляем, точная позиция
+            pos = self.pos()
+            sx = pos.x()
+            sy = pos.y()
+        else:
+            # Свободный компонент — снапим к сетке 0.1 м
+            pos = self.pos()
+            step = self._snap_step
+            sx = round(pos.x() / step) * step
+            sy = round(pos.y() / step) * step
+
+            if abs(sx - pos.x()) > 1e-9 or abs(sy - pos.y()) > 1e-9:
+                self.setPos(sx, sy)
 
         # Записываем в компонент
         self._component.x = sx

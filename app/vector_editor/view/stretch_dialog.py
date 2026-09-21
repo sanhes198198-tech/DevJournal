@@ -18,8 +18,10 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPushButton,
     QVBoxLayout,
 )
 
@@ -64,6 +66,45 @@ class StretchDialog(QDialog):
         )
         hint.setStyleSheet("color: #858B93; font-size: 11px;")
         layout.addWidget(hint)
+
+        # === Быстрые пресеты ===
+        presets_label = QLabel("Быстрый шаблон:")
+        presets_label.setStyleSheet(
+            "color: #B0B0B0; font-size: 11px; padding-top: 4px;"
+        )
+        layout.addWidget(presets_label)
+
+        presets_row = QHBoxLayout()
+        presets_row.setSpacing(6)
+
+        btn_v_up = QPushButton("↕ Вертикаль вверх")
+        btn_v_up.setToolTip(
+            "Стоит: foundation · Тянется: top · Середина: middle"
+        )
+        btn_v_up.clicked.connect(
+            lambda: self._apply_preset("vertical_up")
+        )
+        presets_row.addWidget(btn_v_up)
+
+        btn_sym = QPushButton("↔ Симметрично")
+        btn_sym.setToolTip(
+            "Стоит: (пусто) · Тянется: right · Вторая: left"
+        )
+        btn_sym.clicked.connect(
+            lambda: self._apply_preset("symmetric_x")
+        )
+        presets_row.addWidget(btn_sym)
+
+        btn_x_right = QPushButton("↔ Вправо")
+        btn_x_right.setToolTip(
+            "Стоит: left · Тянется: right"
+        )
+        btn_x_right.clicked.connect(
+            lambda: self._apply_preset("right_x")
+        )
+        presets_row.addWidget(btn_x_right)
+
+        layout.addLayout(presets_row)
 
         form = QFormLayout()
         form.setSpacing(8)
@@ -113,6 +154,88 @@ class StretchDialog(QDialog):
             key=lambda x: (x.label or x.name).lower(),
         ):
             combo.addItem(f"{g.label}  ({g.name})", g.id)
+
+    # ============================================================
+    # ПРЕСЕТЫ
+    # ============================================================
+
+    def _find_group_by_name(self, slug: str) -> str | None:
+        """Вернуть id группы по её slug-name, или None."""
+        if not self._asset:
+            return None
+        for g in self._asset.semantic_groups.values():
+            if g.name == slug:
+                return g.id
+        return None
+
+    def _set_combo_by_group_id(self, combo, group_id) -> None:
+        """Выставить combo на нужную группу (или на «— не выбрано —»)."""
+        if group_id is None:
+            combo.setCurrentIndex(0)
+            return
+        idx = combo.findData(group_id)
+        if idx >= 0:
+            combo.setCurrentIndex(idx)
+        else:
+            combo.setCurrentIndex(0)
+
+    def _apply_preset(self, preset: str) -> None:
+        """Заполнить поля одним из шаблонов."""
+        if preset == "vertical_up":
+            # Стоит: foundation · Тянется: top · Середина: middle
+            idx_y = self._axis_combo.findData("y")
+            if idx_y >= 0:
+                self._axis_combo.setCurrentIndex(idx_y)
+
+            self._name_edit.setText("height")
+            self._label_edit.setText("Высота")
+
+            bottom_id = self._find_group_by_name("foundation")
+            top_id = self._find_group_by_name("top")
+            middle_id = self._find_group_by_name("middle")
+
+            self._set_combo_by_group_id(self._bottom_combo, bottom_id)
+            self._set_combo_by_group_id(self._top_combo, top_id)
+            self._set_combo_by_group_id(self._second_combo, None)
+            self._set_combo_by_group_id(self._middle_combo, middle_id)
+
+        elif preset == "symmetric_x":
+            # Стоит: (пусто) · Тянется: right · Вторая: left
+            idx_x = self._axis_combo.findData("x+1")
+            if idx_x >= 0:
+                self._axis_combo.setCurrentIndex(idx_x)
+
+            self._name_edit.setText("width")
+            self._label_edit.setText("Ширина")
+
+            left_id = self._find_group_by_name("left")
+            right_id = self._find_group_by_name("right")
+
+            self._set_combo_by_group_id(self._bottom_combo, None)
+            self._set_combo_by_group_id(self._top_combo, right_id)
+            self._set_combo_by_group_id(self._second_combo, left_id)
+            self._set_combo_by_group_id(self._middle_combo, None)
+
+        elif preset == "right_x":
+            # Стоит: left · Тянется: right
+            idx_x = self._axis_combo.findData("x+1")
+            if idx_x >= 0:
+                self._axis_combo.setCurrentIndex(idx_x)
+
+            self._name_edit.setText("width")
+            self._label_edit.setText("Ширина")
+
+            left_id = self._find_group_by_name("left")
+            right_id = self._find_group_by_name("right")
+
+            self._set_combo_by_group_id(self._bottom_combo, left_id)
+            self._set_combo_by_group_id(self._top_combo, right_id)
+            self._set_combo_by_group_id(self._second_combo, None)
+            self._set_combo_by_group_id(self._middle_combo, None)
+
+    # ============================================================
+    # ЗАПОЛНЕНИЕ COMBO
+    # ============================================================
 
     def _refresh_combos(self) -> None:
         self._add_groups_to_combo(self._bottom_combo, "— не выбрано —")

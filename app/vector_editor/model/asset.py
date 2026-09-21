@@ -396,8 +396,13 @@ class Asset:
             "side_right": "right",
         }
 
+        # ПРОХОД 1: anchor_* группы имеют ПРИОРИТЕТ.
+        # Фиксит ситуацию, когда группа "top"/"foundation"
+        # перекрывает явную anchor-группу.
         for group in self.semantic_groups.values():
             gname = getattr(group, "name", "")
+            if not gname.startswith("anchor_"):
+                continue
             tag = _ALIASES.get(gname)
             if tag is None:
                 continue
@@ -414,7 +419,31 @@ class Asset:
 
             cx = sum(xs) / len(xs)
             cy = sum(ys) / len(ys)
-            # Если tag уже есть — не перезаписываем (первая группа побеждает)
+            if tag not in result:
+                result[tag] = (cx, cy)
+
+        # ПРОХОД 2: обычные группы (top/foundation/left/right/...).
+        # Заполняют только те теги, которые ещё не закрыты.
+        for group in self.semantic_groups.values():
+            gname = getattr(group, "name", "")
+            if gname.startswith("anchor_"):
+                continue
+            tag = _ALIASES.get(gname)
+            if tag is None:
+                continue
+
+            xs, ys = [], []
+            for nid in group.node_ids:
+                p = pts_by_id.get(nid)
+                if p is not None:
+                    xs.append(p[0])
+                    ys.append(p[1])
+
+            if not xs:
+                continue
+
+            cx = sum(xs) / len(xs)
+            cy = sum(ys) / len(ys)
             if tag not in result:
                 result[tag] = (cx, cy)
 

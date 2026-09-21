@@ -1,0 +1,102 @@
+{
+  "id": "89af26d59fca",
+  "name": "тест 5",
+  "type": "tower_body",
+  "geometry": {
+    "contour": [],
+    "closed": true,
+    "units": "m",
+    "node_ids": [],
+    "groups": {},
+    "extra_edges": [],
+    "extra_points": [],
+    "extra_node_ids": []
+  },
+  "components": {
+    "c_34db513e": {
+      "id": "c_34db513e",
+      "asset_id": "c2dd0d912a21",
+      "x": 0.0,
+      "y": 0.0,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "Сторожевая башня",
+      "layer": 0,
+      "filled": false,
+      "param_overrides": {},
+      "attach_to": "",
+      "attach_anchor": "",
+      "parent_anchor": ""
+    },
+    "c_4c495ba3": {
+      "id": "c_4c495ba3",
+      "asset_id": "4a02a5eeace1",
+      "x": 0.0,
+      "y": -9.600000000000001,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "крыша вытянутая",
+      "layer": 0,
+      "filled": false,
+      "param_overrides": {},
+      "attach_to": "c_d2c03023",
+      "attach_anchor": "bottom",
+      "parent_anchor": "top"
+    },
+    "c_d2c03023": {
+      "id": "c_d2c03023",
+      "asset_id": "3ec907f2b564",
+      "x": 0.0,
+      "y": -7.5,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "часть башни3",
+      "layer": 0,
+      "filled": false,
+      "param_overrides": {},
+      "attach_to": "c_5f21d653",
+      "attach_anchor": "bottom",
+      "parent_anchor": "top"
+    },
+    "c_27ec289a": {
+      "id": "c_27ec289a",
+      "asset_id": "2d7f96953f11",
+      "x": 0.0,
+      "y": -13.100000000000001,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "Луковичная крыша",
+      "layer": 0,
+      "filled": false,
+      "param_overrides": {},
+      "attach_to": "c_4c495ba3",
+      "attach_anchor": "bottom",
+      "parent_anchor": "top"
+    },
+    "c_5f21d653": {
+      "id": "c_5f21d653",
+      "asset_id": "0b83487c4eea",
+      "x": 0.0,
+      "y": -4.800000000000001,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "Часть башни2",
+      "layer": 0,
+      "filled": false,
+      "param_overrides": {},
+      "attach_to": "c_34db513e",
+      "attach_anchor": "bottom",
+      "parent_anchor": "top"
+    }
+  },
+  "visibility_rules": {},
+  "semantic_groups": {},
+  "parameters": {},
+  "reference_image": null,
+  "generation_rules": {
+    "allow_width_variation": false,
+    "allow_height_variation": false,
+    "irregularity": 0.0,
+    "repeatable": false
+  }
+}

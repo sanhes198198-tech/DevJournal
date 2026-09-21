@@ -29,6 +29,18 @@ from PySide6.QtWidgets import (
 from ..model.parameter import Parameter, ParameterTarget
 
 
+KNOWN_PARAM_TYPES: list[tuple[str, str]] = [
+    ("height", "Высота"),
+    ("width", "Ширина"),
+    ("depth", "Глубина"),
+    ("offset", "Смещение"),
+    ("scale", "Масштаб"),
+    ("angle", "Угол"),
+]
+
+CUSTOM_TYPE_SLUG = "__custom__"
+
+
 class ParameterDialog(QDialog):
     """Диалог параметра."""
 
@@ -88,6 +100,19 @@ class ParameterDialog(QDialog):
         # --- Основные поля ---
         form = QFormLayout()
         form.setSpacing(8)
+
+        # Тип — dropdown
+        self._type_combo = QComboBox()
+        self._type_combo.addItem("— выбери тип —", "")
+        for slug, label in KNOWN_PARAM_TYPES:
+            self._type_combo.addItem(
+                f"{label}  ({slug})", slug,
+            )
+        self._type_combo.addItem("Свой…", CUSTOM_TYPE_SLUG)
+        self._type_combo.currentIndexChanged.connect(
+            self._on_type_changed
+        )
+        form.addRow("Тип:", self._type_combo)
 
         self._name_edit = QLineEdit()
         self._name_edit.setPlaceholderText("width, height, wall_offset…")
@@ -201,7 +226,56 @@ class ParameterDialog(QDialog):
 
     # ------------------------------------------------------------
 
+    def _on_type_changed(self, idx: int) -> None:
+        slug = self._type_combo.currentData()
+
+        if slug == CUSTOM_TYPE_SLUG or slug == "":
+            self._apply_custom_mode(True)
+            return
+
+        label = ""
+        for s, l in KNOWN_PARAM_TYPES:
+            if s == slug:
+                label = l
+                break
+
+        self._name_edit.setText(slug)
+        self._label_edit.setText(label)
+        self._apply_custom_mode(False)
+
+    def _apply_custom_mode(self, custom: bool) -> None:
+        """True → поля редактируемые, False → только для чтения."""
+        self._name_edit.setReadOnly(not custom)
+        self._label_edit.setReadOnly(not custom)
+
+        style = (
+            "" if custom
+            else "background: #F0F0F0; color: #555;"
+        )
+        self._name_edit.setStyleSheet(style)
+        self._label_edit.setStyleSheet(style)
+
+    def _detect_type(self, slug: str) -> str:
+        """Определить slug типа по имени параметра."""
+        for s, _l in KNOWN_PARAM_TYPES:
+            if s == slug:
+                return s
+        return CUSTOM_TYPE_SLUG
+
     def _load_from_original(self) -> None:
+        # Определить тип по slug
+        detected = self._detect_type(self._original.name or "")
+        idx = self._type_combo.findData(detected)
+        if idx >= 0:
+            self._type_combo.blockSignals(True)
+            self._type_combo.setCurrentIndex(idx)
+            self._type_combo.blockSignals(False)
+
+        if detected == CUSTOM_TYPE_SLUG:
+            self._apply_custom_mode(True)
+        else:
+            self._apply_custom_mode(False)
+
         self._name_edit.setText(self._original.name)
         self._label_edit.setText(self._original.label)
         self._value_spin.setValue(self._original.value)

@@ -319,6 +319,12 @@ class ConstructorWindow(QMainWindow):
 
         # Открытие с верхнего уровня — стек пуст
         self._nav_stack.clear()
+
+        # Перечитать реестр с диска — чтобы подхватить свежие
+        # правки из Vector Editor (группы, anchors, контуры)
+        if self._registry is not None:
+            self._registry.load_all()
+
         self._load_composite(target)
 
     def _load_composite(self, asset: Asset) -> None:

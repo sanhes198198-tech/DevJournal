@@ -456,10 +456,6 @@
       ],
       [
         "e_005",
-        "e_004"
-      ],
-      [
-        "e_005",
         "n_021"
       ],
       [
@@ -505,6 +501,10 @@
       [
         "e_007",
         "n_042"
+      ],
+      [
+        "e_005",
+        "e_004"
       ]
     ],
     "extra_points": [
@@ -553,6 +553,7 @@
     ]
   },
   "components": {},
+  "visibility_rules": {},
   "semantic_groups": {
     "g_45cfe29b": {
       "id": "g_45cfe29b",
@@ -622,24 +623,6 @@
         "n_042"
       ]
     },
-    "g_e1d7c276": {
-      "id": "g_e1d7c276",
-      "name": "anchor_top",
-      "label": "Якорь низ",
-      "node_ids": [
-        "e_004",
-        "e_005"
-      ]
-    },
-    "g_0c5c632b": {
-      "id": "g_0c5c632b",
-      "name": "anchor_bottom",
-      "label": "Якорь низ",
-      "node_ids": [
-        "n_034",
-        "n_035"
-      ]
-    },
     "g_ba54ffe9": {
       "id": "g_ba54ffe9",
       "name": "left",
@@ -661,6 +644,24 @@
         "n_037",
         "n_042",
         "n_044"
+      ]
+    },
+    "g_19a7a617": {
+      "id": "g_19a7a617",
+      "name": "anchor_top",
+      "label": "Якорь верх",
+      "node_ids": [
+        "e_005",
+        "e_004"
+      ]
+    },
+    "g_0154bf16": {
+      "id": "g_0154bf16",
+      "name": "anchor_bottom",
+      "label": "Якорь низ",
+      "node_ids": [
+        "n_034",
+        "n_035"
       ]
     }
   },
