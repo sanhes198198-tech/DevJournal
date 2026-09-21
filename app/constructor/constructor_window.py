@@ -250,6 +250,21 @@ class ConstructorWindow(QMainWindow):
         except Exception:
             self._palette.set_assets([])
 
+    def _get_drop_position(self) -> tuple:
+        """Позиция для нового компонента — под мышью или в центре вида."""
+        try:
+            from PySide6.QtGui import QCursor
+            global_pos = QCursor.pos()
+            local_pos = self._canvas.viewport().mapFromGlobal(global_pos)
+            if self._canvas.viewport().rect().contains(local_pos):
+                scene_pos = self._canvas.mapToScene(local_pos)
+                return (scene_pos.x(), scene_pos.y())
+            center = self._canvas.viewport().rect().center()
+            scene_pos = self._canvas.mapToScene(center)
+            return (scene_pos.x(), scene_pos.y())
+        except Exception:
+            return (0.0, 0.0)
+
     def _on_add_asset(self, asset_id: str) -> None:
         """Двойной клик в палитре — добавить компонент на сцену."""
         if self._registry is None:
@@ -262,11 +277,13 @@ class ConstructorWindow(QMainWindow):
                 f"Ассет {asset_id} не найден", 3000)
             return
 
-        # Создаём компонент в композитном Asset
+        # Позиция — под курсором мыши или в центре вида
+        drop_x, drop_y = self._get_drop_position()
+
         comp = Component(
             asset_id=asset_id,
-            x=0.0,
-            y=0.0,
+            x=drop_x,
+            y=drop_y,
             rotation=0.0,
             scale=1.0,
             name=asset.name,
