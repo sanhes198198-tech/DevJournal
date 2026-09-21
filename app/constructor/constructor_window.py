@@ -21,7 +21,10 @@ from .view.properties_panel import PropertiesPanel
 from .view.asset_open_dialog import AssetOpenDialog
 from .view.rules_manager_dialog import RulesManagerDialog
 from .view.items.component_item import ComponentItem
-from .commands import SetParamOverrideCommand
+from .commands import (
+    SetParamOverrideCommand,
+    MoveComponentCommand,
+)
 from PySide6.QtGui import QUndoStack
 from app.vector_editor.model import Asset, Component
 from app.vector_editor.io import (
@@ -249,6 +252,7 @@ class ConstructorWindow(QMainWindow):
         item.moved.connect(self._on_item_moved)
         item.enter_requested.connect(self._on_enter_composite)
         item.param_changed.connect(self._on_prop_param_override)
+        item.drag_finished.connect(self._on_item_drag_finished)
         self._items_by_comp_id[comp.id] = item
         self._scene.addItem(item)
 
@@ -408,6 +412,7 @@ class ConstructorWindow(QMainWindow):
             item.moved.connect(self._on_item_moved)
             item.enter_requested.connect(self._on_enter_composite)
             item.param_changed.connect(self._on_prop_param_override)
+            item.drag_finished.connect(self._on_item_drag_finished)
             self._items_by_comp_id[comp.id] = item
             self._scene.addItem(item)
 
@@ -602,6 +607,33 @@ class ConstructorWindow(QMainWindow):
             f"Компонент удалён. Всего: "
             f"{self._current_composite.component_count()}", 3000,
         )
+
+    def _on_item_drag_finished(
+        self, comp_id: str,
+        old_x: float, old_y: float,
+        new_x: float, new_y: float,
+    ) -> None:
+        """Item перетащили — запушить команду в undo stack."""
+        comp = self._current_composite.get_component(comp_id)
+        if comp is None:
+            return
+
+        # Позиция уже применена в mouseRelease — просто фиксируем в истории
+        comp.x = old_x
+        comp.y = old_y
+
+        item = self._items_by_comp_id.get(comp_id)
+
+        def _apply():
+            if item is not None:
+                item.setPos(comp.x, comp.y)
+                item.update()
+
+        cmd = MoveComponentCommand(
+            comp, old_x, old_y, new_x, new_y,
+            on_apply=_apply,
+        )
+        self._undo_stack.push(cmd)
 
     def _on_item_moved(self) -> None:
         """Item перетащили — обновить значения в панели."""

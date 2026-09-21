@@ -46,6 +46,8 @@ class ComponentItem(QGraphicsObject):
     enter_requested = Signal(str)
     # (comp_id, param_name, value) — с on-canvas handles
     param_changed = Signal(str, str, float)
+    # (comp_id, old_x, old_y, new_x, new_y) — после drag
+    drag_finished = Signal(str, float, float, float, float)
 
     MAX_DEPTH = 8
 
@@ -70,6 +72,8 @@ class ComponentItem(QGraphicsObject):
         self._snap_partner = None
         # On-canvas слайдеры параметров (создаются при выделении)
         self._handles: dict = {}
+        # Undo: позиция до drag
+        self._drag_old_pos = None
 
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
@@ -654,6 +658,11 @@ class ComponentItem(QGraphicsObject):
                 return
         super().mouseDoubleClickEvent(event)
 
+    def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_old_pos = (self.pos().x(), self.pos().y())
+        super().mousePressEvent(event)
+
     def mouseMoveEvent(self, event) -> None:
         super().mouseMoveEvent(event)
         self._try_snap()
@@ -689,6 +698,15 @@ class ComponentItem(QGraphicsObject):
         self._component.x = sx
         self._component.y = sy
         self.moved.emit()
+
+        # Undo: если позиция изменилась — сигнал для команды
+        if self._drag_old_pos is not None:
+            ox, oy = self._drag_old_pos
+            if abs(ox - sx) > 1e-6 or abs(oy - sy) > 1e-6:
+                self.drag_finished.emit(
+                    self._component.id, ox, oy, sx, sy,
+                )
+            self._drag_old_pos = None
 
         # Убираем подсветку snap
         self.clear_snap_highlight()
