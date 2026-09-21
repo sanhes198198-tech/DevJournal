@@ -238,6 +238,7 @@ class ConstructorWindow(QMainWindow):
     def _connect_signals(self) -> None:
         self._palette.refresh_requested.connect(self._load_assets)
         self._palette.delete_requested.connect(self._on_delete_assets)
+        self._palette.rename_requested.connect(self._on_rename_asset)
         self._palette.asset_selected.connect(self._on_asset_selected)
         self._palette.asset_add_requested.connect(self._on_add_asset)
         self._canvas.mouse_moved.connect(self._on_mouse_moved)
@@ -477,6 +478,34 @@ class ConstructorWindow(QMainWindow):
             self._registry.load_all()
 
         self._load_composite(target)
+
+    def _on_rename_asset(self, asset_id: str, new_name: str) -> None:
+        """Переименовать ассет и сохранить файл."""
+        try:
+            all_assets = list_assets()
+            target = None
+            for a in all_assets:
+                if a.id == asset_id:
+                    target = a
+                    break
+            if target is None:
+                return
+            target.name = new_name
+            save_asset(target)
+        except Exception as e:
+            QMessageBox.warning(
+                self, "Ошибка",
+                "Не удалось переименовать:\n\n" + str(e),
+            )
+            return
+
+        if self._registry is not None:
+            self._registry.load_all()
+        self._load_assets()
+
+        self.statusBar().showMessage(
+            "Переименован: " + new_name, 3000,
+        )
 
     def _on_delete_assets(self, asset_ids: list) -> None:
         """Удалить список ассетов (из палитры)."""
