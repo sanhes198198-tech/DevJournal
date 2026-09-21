@@ -12,6 +12,7 @@ from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QPainterPath, QPen
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsObject
 
+from .param_handle_item import ParamHandleItem
 from app.vector_editor.model.parameter import (
     compute_delta_for_parameter,
     apply_delta_to_points,
@@ -43,6 +44,8 @@ class ComponentItem(QGraphicsObject):
     moved = Signal()
     # Двойной клик по composite — сигнал «войти» с asset_id
     enter_requested = Signal(str)
+    # (comp_id, param_name, value) — с on-canvas handles
+    param_changed = Signal(str, str, float)
 
     MAX_DEPTH = 8
 
@@ -65,6 +68,8 @@ class ComponentItem(QGraphicsObject):
         # Snap
         self._highlighted_anchor: str | None = None
         self._snap_partner = None
+        # On-canvas слайдеры параметров (создаются при выделении)
+        self._handles: dict = {}
 
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
@@ -105,6 +110,71 @@ class ComponentItem(QGraphicsObject):
         self.setZValue(100.0 + float(getattr(c, "layer", 0)))
 
     # ------------------------------------------------------------
+
+    def _clear_handles(self) -> None:
+        for h in self._handles.values():
+            h.setParentItem(None)
+            if h.scene() is not None:
+                h.scene().removeItem(h)
+        self._handles.clear()
+
+    def _rebuild_handles(self) -> None:
+        """Создать/обновить on-canvas слайдеры (только у выделенного)."""
+        self._clear_handles()
+
+        if not self.isSelected():
+            return
+        if self._asset is None:
+            return
+
+        params = getattr(self._asset, "parameters", None) or {}
+        if not params:
+            return
+
+        # bbox базовой геометрии (без padding boundingRect)
+        r = self._path.boundingRect()
+        if not self._extra_path.isEmpty():
+            er = self._extra_path.boundingRect()
+            r = r.united(er)
+        if r.isEmpty():
+            return
+
+        overrides = getattr(self._component, "param_overrides", None) or {}
+
+        # Высота — вертикальный справа
+        h_param = None
+        for p in params.values():
+            if p.name == "height":
+                h_param = p
+                break
+        if h_param is not None:
+            base_v = float(h_param.value)
+            cur_v = float(overrides.get("height", base_v))
+            h = ParamHandleItem(
+                "height", "v", base_v, cur_v, parent=self,
+            )
+            h.setPos(r.right() + 0.8, r.center().y())
+            h.value_changed.connect(self._on_handle_changed)
+            self._handles["height"] = h
+
+        # Ширина — горизонтальный снизу
+        w_param = None
+        for p in params.values():
+            if p.name == "width":
+                w_param = p
+                break
+        if w_param is not None:
+            base_v = float(w_param.value)
+            cur_v = float(overrides.get("width", base_v))
+            h = ParamHandleItem(
+                "width", "h", base_v, cur_v, parent=self,
+            )
+            h.setPos(r.center().x(), r.bottom() + 0.8)
+            h.value_changed.connect(self._on_handle_changed)
+            self._handles["width"] = h
+
+    def _on_handle_changed(self, name: str, value: float) -> None:
+        self.param_changed.emit(self._component.id, name, value)
 
     def _rebuild_paths(self) -> None:
         self._path = QPainterPath()
@@ -627,4 +697,7 @@ class ComponentItem(QGraphicsObject):
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
             self.prepareGeometryChange()
             self.update()
+            # QTimer — чтобы избежать проблем с setParent во время сигнала
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(0, self._rebuild_handles)
         return super().itemChange(change, value)

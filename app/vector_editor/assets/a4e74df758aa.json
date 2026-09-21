@@ -1,0 +1,112 @@
+{
+  "id": "a4e74df758aa",
+  "name": "ТЕСТ9",
+  "type": "tower_body",
+  "geometry": {
+    "contour": [],
+    "closed": true,
+    "units": "m",
+    "node_ids": [],
+    "groups": {},
+    "extra_edges": [],
+    "extra_points": [],
+    "extra_node_ids": []
+  },
+  "components": {
+    "c_bac6f0f4": {
+      "id": "c_bac6f0f4",
+      "asset_id": "c2dd0d912a21",
+      "x": 0.0,
+      "y": -0.7000000000000001,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "Сторожевая башня",
+      "layer": 2,
+      "filled": true,
+      "param_overrides": {
+        "height": -0.5370934349989778,
+        "width": 0.374
+      },
+      "attach_to": "",
+      "attach_anchor": "",
+      "parent_anchor": ""
+    },
+    "c_2b0130fc": {
+      "id": "c_2b0130fc",
+      "asset_id": "4a02a5eeace1",
+      "x": -0.10084285064609055,
+      "y": -13.656601594539081,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "крыша вытянутая",
+      "layer": 0,
+      "filled": true,
+      "param_overrides": {
+        "height": -0.8037157079176911
+      },
+      "attach_to": "c_53c539de",
+      "attach_anchor": "bottom",
+      "parent_anchor": "top"
+    },
+    "c_53c539de": {
+      "id": "c_53c539de",
+      "asset_id": "3ec907f2b564",
+      "x": -0.09322460347195438,
+      "y": -10.149937110720582,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "часть башни3",
+      "layer": 0,
+      "filled": true,
+      "param_overrides": {
+        "height": -1.1802607874617426,
+        "width": 0.1
+      },
+      "attach_to": "c_27242522",
+      "attach_anchor": "bottom",
+      "parent_anchor": "top"
+    },
+    "c_ee60a046": {
+      "id": "c_ee60a046",
+      "asset_id": "2d7f96953f11",
+      "x": -0.06790953879529837,
+      "y": -18.723221679684364,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "Луковичная крыша",
+      "layer": -2,
+      "filled": true,
+      "param_overrides": {},
+      "attach_to": "c_2b0130fc",
+      "attach_anchor": "bottom",
+      "parent_anchor": "top"
+    },
+    "c_27242522": {
+      "id": "c_27242522",
+      "asset_id": "0b83487c4eea",
+      "x": -0.042308446218866536,
+      "y": -4.673212770396122,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "Часть башни2",
+      "layer": 0,
+      "filled": true,
+      "param_overrides": {
+        "height": -2.80442438808382
+      },
+      "attach_to": "c_bac6f0f4",
+      "attach_anchor": "bottom",
+      "parent_anchor": "top"
+    }
+  },
+  "visibility_rules": {},
+  "semantic_groups": {},
+  "parameters": {},
+  "reference_image": null,
+  "generation_rules": {
+    "allow_width_variation": false,
+    "allow_height_variation": false,
+    "irregularity": 0.0,
+    "repeatable": false
+  }
+}

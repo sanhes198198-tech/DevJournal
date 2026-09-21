@@ -21,6 +21,8 @@ from .view.properties_panel import PropertiesPanel
 from .view.asset_open_dialog import AssetOpenDialog
 from .view.rules_manager_dialog import RulesManagerDialog
 from .view.items.component_item import ComponentItem
+from .commands import SetParamOverrideCommand
+from PySide6.QtGui import QUndoStack
 from app.vector_editor.model import Asset, Component
 from app.vector_editor.io import (
     save_asset, load_asset, list_assets, StorageError,
@@ -52,8 +54,10 @@ class ConstructorWindow(QMainWindow):
         # Верх стека — откуда пришли. Пусто = верхний уровень.
         self._nav_stack: list = []
         self._init_registry()
+        self._undo_stack = QUndoStack(self)
         self._build_ui()
         self._connect_signals()
+        self._setup_undo_shortcuts()
         self._load_assets()
 
     def _init_registry(self) -> None:
@@ -66,6 +70,21 @@ class ConstructorWindow(QMainWindow):
         except Exception as e:
             print(f"[Constructor] AssetRegistry error: {e}")
             self._registry = None
+
+    def _setup_undo_shortcuts(self) -> None:
+        from PySide6.QtGui import QShortcut
+        QShortcut(
+            QKeySequence("Ctrl+Z"), self,
+            lambda: self._undo_stack.undo(),
+        )
+        QShortcut(
+            QKeySequence("Ctrl+Shift+Z"), self,
+            lambda: self._undo_stack.redo(),
+        )
+        QShortcut(
+            QKeySequence("Ctrl+Y"), self,
+            lambda: self._undo_stack.redo(),
+        )
 
     def _build_toolbar(self) -> None:
         tb = QToolBar("Main", self)
@@ -100,6 +119,16 @@ class ConstructorWindow(QMainWindow):
         act_rules.setShortcut(QKeySequence("Ctrl+R"))
         act_rules.triggered.connect(self._on_rules_clicked)
         tb.addAction(act_rules)
+
+        tb.addSeparator()
+
+        act_undo = QAction("Отменить", self)
+        act_undo.triggered.connect(lambda: self._undo_stack.undo())
+        tb.addAction(act_undo)
+
+        act_redo = QAction("Повторить", self)
+        act_redo.triggered.connect(lambda: self._undo_stack.redo())
+        tb.addAction(act_redo)
 
         tb.addSeparator()
 
@@ -219,6 +248,7 @@ class ConstructorWindow(QMainWindow):
         )
         item.moved.connect(self._on_item_moved)
         item.enter_requested.connect(self._on_enter_composite)
+        item.param_changed.connect(self._on_prop_param_override)
         self._items_by_comp_id[comp.id] = item
         self._scene.addItem(item)
 
@@ -377,6 +407,7 @@ class ConstructorWindow(QMainWindow):
             )
             item.moved.connect(self._on_item_moved)
             item.enter_requested.connect(self._on_enter_composite)
+            item.param_changed.connect(self._on_prop_param_override)
             self._items_by_comp_id[comp.id] = item
             self._scene.addItem(item)
 
@@ -526,28 +557,38 @@ class ConstructorWindow(QMainWindow):
         comp.filled = bool(filled)
         item.update()
 
-    def _on_prop_param_override(
-        self, comp_id: str, name: str, value: float,
-    ) -> None:
-        """Пользователь меняет параметр sub-ассета у компонента."""
-        comp = self._current_composite.get_component(comp_id)
-        if comp is None:
-            return
-        comp.set_param_override(name, value)
-
-        # Пересобрать path компонента (V10: применить override к геометрии)
+    def _apply_override(self, comp_id: str, name: str) -> None:
+        """Применить override к item — пересобрать path + reflow."""
         item = self._items_by_comp_id.get(comp_id)
         if item is not None:
             item.prepareGeometryChange()
             item._rebuild_paths()
             item.update()
 
-        # V11d: пересчитать позиции привязанных детей
         self._reflow_children(comp_id)
 
-        # Правила — отложенно (setVisible вложенно рвёт Qt)
         from PySide6.QtCore import QTimer
         QTimer.singleShot(0, self._apply_visibility_rules)
+
+    def _on_prop_param_override(
+        self, comp_id: str, name: str, value: float,
+    ) -> None:
+        """Пользователь меняет параметр sub-ассета — через команду."""
+        comp = self._current_composite.get_component(comp_id)
+        if comp is None:
+            return
+
+        old = comp.param_overrides.get(name)
+
+        # Если значение не изменилось — ничего не делаем
+        if old is not None and abs(float(old) - float(value)) < 1e-9:
+            return
+
+        cmd = SetParamOverrideCommand(
+            comp, name, old, value,
+            on_apply=lambda: self._apply_override(comp_id, name),
+        )
+        self._undo_stack.push(cmd)
 
     def _on_prop_delete(self, comp_id: str) -> None:
         """Удалить компонент."""
