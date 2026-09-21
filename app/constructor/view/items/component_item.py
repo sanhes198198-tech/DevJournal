@@ -30,6 +30,10 @@ ORPHAN_SIZE_M = 1.0
 SNAP_THRESHOLD_PX = 40.0
 SNAP_ANCHOR_COLOR = QColor("#FF3333")
 
+# V9d: маркеры слотов (auto_rule группы)
+SLOT_COLOR = QColor("#00B050")
+SLOT_RADIUS_M = 0.08
+
 # Совместимые пары (наш_tag, их_tag)
 SNAP_PAIRS = frozenset({
     ("bottom", "top"),
@@ -412,6 +416,21 @@ class ComponentItem(QGraphicsObject):
                     painter.setBrush(QBrush(QColor("#FFFFFF")))
                     painter.drawEllipse(QPointF(lx, ly), r_m, r_m)
 
+        # V9d: маркеры слотов (auto_rule) — только у выделенного
+        if self.isSelected():
+            slots = self.slots_local()
+            if slots:
+                ppm = abs(painter.transform().m11()) or 50.0
+                slot_r = 5.0 / ppm  # ~5 пикселей экрана
+                pen = QPen(SLOT_COLOR, 1.6)
+                pen.setCosmetic(True)
+                painter.setPen(pen)
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                for key, (lx, ly) in slots.items():
+                    painter.drawEllipse(
+                        QPointF(lx, ly), slot_r, slot_r,
+                    )
+
         # Габариты (B) — только у выделенного
         if self.isSelected():
             self._paint_dimensions(painter)
@@ -553,6 +572,71 @@ class ComponentItem(QGraphicsObject):
                 y + avg_dy - self._center_y,
             )
 
+        return result
+
+    def slots_local(self) -> dict[str, tuple[float, float]]:
+        """V9d: точки из групп с auto_rule — слоты для привязки окон.
+
+        Возвращает {slot_key: (x, y)} в ЛОКАЛЬНЫХ координатах item.
+        Ключ вида "slot_<groupname>_<idx>".
+        Учитывает param_overrides (как anchors_local).
+        """
+        if self._asset is None:
+            return {}
+
+        sg = getattr(self._asset, "semantic_groups", None) or {}
+        rule_groups = [
+            g for g in sg.values()
+            if getattr(g, "auto_rule", None) and g.node_ids
+        ]
+        if not rule_groups:
+            return {}
+
+        # Собрать позиции всех точек по id (main + extra)
+        g = self._asset.geometry or {}
+        pts_by_id: dict[str, tuple[float, float]] = {}
+        contour = g.get("contour", [])
+        node_ids = g.get("node_ids", [])
+        for i, nid in enumerate(node_ids):
+            if i < len(contour):
+                x, y = contour[i]
+                pts_by_id[nid] = (float(x), float(y))
+        extra_pts = g.get("extra_points", [])
+        extra_ids = g.get("extra_node_ids", [])
+        for i, nid in enumerate(extra_ids):
+            if i < len(extra_pts):
+                x, y = extra_pts[i]
+                pts_by_id[nid] = (float(x), float(y))
+
+        # Overrides (та же логика что в anchors_local)
+        overrides = getattr(self._component, "param_overrides", None) or {}
+        deltas_per_node: dict[str, tuple[float, float]] = {}
+        if overrides:
+            params = getattr(self._asset, "parameters", None) or {}
+            for p in params.values():
+                ov = overrides.get(p.name)
+                if ov is None:
+                    continue
+                shift = float(ov) - float(p.value)
+                if abs(shift) < 1e-12:
+                    continue
+                nd = compute_delta_for_parameter(p, shift, sg)
+                for nid, (dx, dy) in nd.items():
+                    px, py = deltas_per_node.get(nid, (0.0, 0.0))
+                    deltas_per_node[nid] = (px + dx, py + dy)
+
+        result: dict[str, tuple[float, float]] = {}
+        for group in rule_groups:
+            for idx, nid in enumerate(group.node_ids):
+                pos = pts_by_id.get(nid)
+                if pos is None:
+                    continue
+                dx, dy = deltas_per_node.get(nid, (0.0, 0.0))
+                key = f"slot_{group.name}_{idx}"
+                result[key] = (
+                    pos[0] + dx - self._center_x,
+                    pos[1] + dy - self._center_y,
+                )
         return result
 
     def set_highlighted_anchor(self, tag: str | None) -> None:
