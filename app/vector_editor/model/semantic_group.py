@@ -21,11 +21,16 @@ class SemanticGroup:
         name: str = "group",
         label: str = "Группа",
         node_ids: list[str] | None = None,
+        auto_rule: dict | None = None,
     ):
         self.id = id or self._generate_id()
         self.name = name          # slug-имя (foundation, left_wall)
         self.label = label        # человекочитаемое
         self.node_ids = list(node_ids or [])
+        # V9: auto-duplicate rule for this group.
+        # { "axis": "y", "step": 3.0,
+        #   "until_group": "top", "skip_groups": [] }
+        self.auto_rule = dict(auto_rule) if auto_rule else None
 
     @staticmethod
     def _generate_id() -> str:
@@ -59,6 +64,7 @@ class SemanticGroup:
             "name": self.name,
             "label": self.label,
             "node_ids": list(self.node_ids),
+            "auto_rule": self.auto_rule,
         }
 
     @classmethod
@@ -68,4 +74,5 @@ class SemanticGroup:
             name=d.get("name", "group"),
             label=d.get("label", "Группа"),
             node_ids=list(d.get("node_ids", [])),
+            auto_rule=d.get("auto_rule"),
         )
