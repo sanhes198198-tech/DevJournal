@@ -59,6 +59,8 @@ class ConstructorWindow(QMainWindow):
         # Стек навигации: [(asset_id, asset_name), ...]
         # Верх стека — откуда пришли. Пусто = верхний уровень.
         self._nav_stack: list = []
+        # Буфер обмена — список компонентов (Copy/Paste/Duplicate)
+        self._clipboard_comps: list = []
         self._init_registry()
         self._undo_stack = QUndoStack(self)
         self._build_ui()
@@ -90,6 +92,18 @@ class ConstructorWindow(QMainWindow):
         QShortcut(
             QKeySequence("Ctrl+Y"), self,
             lambda: self._undo_stack.redo(),
+        )
+        QShortcut(
+            QKeySequence("Ctrl+C"), self,
+            self._on_copy,
+        )
+        QShortcut(
+            QKeySequence("Ctrl+V"), self,
+            self._on_paste,
+        )
+        QShortcut(
+            QKeySequence("Ctrl+D"), self,
+            self._on_duplicate,
         )
 
     def _build_toolbar(self) -> None:
@@ -640,6 +654,87 @@ class ConstructorWindow(QMainWindow):
             on_apply=lambda: self._apply_override(comp_id, name),
         )
         self._undo_stack.push(cmd)
+
+    def _get_selected_comps(self) -> list:
+        """Вернуть список выделенных Component."""
+        result = []
+        for it in self._scene.selectedItems():
+            if isinstance(it, ComponentItem):
+                result.append(it.component)
+        return result
+
+    def _on_copy(self) -> None:
+        comps = self._get_selected_comps()
+        if not comps:
+            return
+        # Копируем через dict — отдельные объекты
+        self._clipboard_comps = [
+            Component.from_dict(c.to_dict()) for c in comps
+        ]
+        n = len(self._clipboard_comps)
+        self.statusBar().showMessage(
+            f"Скопировано: {n} шт.", 2000,
+        )
+
+    def _spawn_components(self, sources: list) -> list:
+        """Создать копии компонентов со сдвигом, через Add команды."""
+        new_ids = []
+        for src_comp in sources:
+            new_comp = Component(
+                asset_id=src_comp.asset_id,
+                x=src_comp.x + 1.0,
+                y=src_comp.y + 1.0,
+                rotation=src_comp.rotation,
+                scale=src_comp.scale,
+                name=src_comp.name,
+                layer=src_comp.layer,
+                filled=src_comp.filled,
+                param_overrides=dict(src_comp.param_overrides),
+            )
+            cmd = AddComponentCommand(
+                composite=self._current_composite,
+                comp=new_comp,
+                on_create_item=self._create_component_item,
+                on_remove_item=self._remove_component_item,
+            )
+            self._undo_stack.push(cmd)
+            new_ids.append(new_comp.id)
+        return new_ids
+
+    def _on_paste(self) -> None:
+        if not self._clipboard_comps:
+            self.statusBar().showMessage("Буфер пуст", 2000)
+            return
+
+        new_ids = self._spawn_components(self._clipboard_comps)
+
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(0, lambda: self._select_components(new_ids))
+
+        self.statusBar().showMessage(
+            f"Вставлено: {len(new_ids)} шт.", 2000,
+        )
+
+    def _on_duplicate(self) -> None:
+        comps = self._get_selected_comps()
+        if not comps:
+            return
+
+        new_ids = self._spawn_components(comps)
+
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(0, lambda: self._select_components(new_ids))
+
+        self.statusBar().showMessage(
+            f"Дублировано: {len(new_ids)} шт.", 2000,
+        )
+
+    def _select_components(self, comp_ids: list) -> None:
+        self._scene.clearSelection()
+        for cid in comp_ids:
+            item = self._items_by_comp_id.get(cid)
+            if item is not None:
+                item.setSelected(True)
 
     def _on_prop_delete(self, comp_id: str) -> None:
         """Удалить компонент через undo-команду."""
