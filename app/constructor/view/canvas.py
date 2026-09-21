@@ -14,6 +14,7 @@ PPM_DEFAULT = 50.0
 
 class ConstructorCanvas(QGraphicsView):
     mouse_moved = Signal(float, float)
+    view_changed = Signal()  # зум / пан / изменение вида
 
     def __init__(self, scene, parent=None):
         super().__init__(scene, parent)
@@ -29,6 +30,10 @@ class ConstructorCanvas(QGraphicsView):
         self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.FullViewportUpdate)
         self._centered_once = False
         self.reset_view()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self.view_changed.emit()
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
@@ -69,6 +74,7 @@ class ConstructorCanvas(QGraphicsView):
         after = self.mapToScene(anchor)
         delta = after - before
         self.translate(delta.x(), delta.y())
+        self.view_changed.emit()
 
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.MiddleButton:
@@ -95,6 +101,7 @@ class ConstructorCanvas(QGraphicsView):
                 self.horizontalScrollBar().value() - delta.x())
             self.verticalScrollBar().setValue(
                 self.verticalScrollBar().value() - delta.y())
+            self.view_changed.emit()
             event.accept()
             return
         sp = self.mapToScene(event.position().toPoint())

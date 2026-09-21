@@ -14,6 +14,7 @@ from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import QGraphicsItem
 
 from .view.canvas import ConstructorCanvas
+from .view.ruler import RulerWidget
 from .view.scene import ConstructorScene
 from .view.palette import AssetPalette
 from .view.properties_panel import PropertiesPanel
@@ -113,9 +114,34 @@ class ConstructorWindow(QMainWindow):
 
         self._properties = PropertiesPanel()
 
+        # Canvas + линейки по краям
+        from PySide6.QtWidgets import QGridLayout, QWidget as _QW
+
+        self._ruler_h = RulerWidget(self._canvas, "h", self)
+        self._ruler_v = RulerWidget(self._canvas, "v", self)
+
+        corner = _QW()
+        corner.setFixedSize(22, 22)
+        corner.setStyleSheet("background: #F0F2F5;")
+
+        canvas_wrap = _QW()
+        gl = QGridLayout(canvas_wrap)
+        gl.setContentsMargins(0, 0, 0, 0)
+        gl.setSpacing(0)
+        gl.addWidget(corner, 0, 0)
+        gl.addWidget(self._ruler_h, 0, 1)
+        gl.addWidget(self._ruler_v, 1, 0)
+        gl.addWidget(self._canvas, 1, 1)
+        gl.setRowStretch(1, 1)
+        gl.setColumnStretch(1, 1)
+
+        # Синхронизация с зумом/паном
+        self._canvas.view_changed.connect(self._ruler_h.update)
+        self._canvas.view_changed.connect(self._ruler_v.update)
+
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.addWidget(self._palette)
-        splitter.addWidget(self._canvas)
+        splitter.addWidget(canvas_wrap)
         splitter.addWidget(self._properties)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
