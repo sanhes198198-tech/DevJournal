@@ -549,24 +549,27 @@ class ConstructorWindow(QMainWindow):
                 )
                 break
 
-    def _reflow_children(self, parent_id: str) -> None:
-        """Пересчитать позиции детей, привязанных к parent_id.
-
-        Ребёнок сдвигается так, чтобы его attach_anchor совпал
-        с parent_anchor родителя (в scene-координатах).
-        """
+    def _reflow_children(
+        self, parent_id: str, visited: set | None = None,
+    ) -> None:
+        """Рекурсивно пересчитать позиции потомков."""
         if self._current_composite is None:
             return
+        if visited is None:
+            visited = set()
+        if parent_id in visited:
+            return
+        visited.add(parent_id)
 
         parent_item = self._items_by_comp_id.get(parent_id)
         if parent_item is None:
             return
 
-        parent_comp = self._current_composite.get_component(parent_id)
-        if parent_comp is None:
-            return
+        from PySide6.QtCore import QPointF
 
         for child_id, child_item in self._items_by_comp_id.items():
+            if child_id in visited:
+                continue
             child_comp = self._current_composite.get_component(child_id)
             if child_comp is None:
                 continue
@@ -575,7 +578,6 @@ class ConstructorWindow(QMainWindow):
             if not child_comp.attach_anchor or not child_comp.parent_anchor:
                 continue
 
-            # Локальные anchors (уже с учётом override родителя)
             parent_anchors = parent_item.anchors_local()
             child_anchors = child_item.anchors_local()
 
@@ -584,14 +586,10 @@ class ConstructorWindow(QMainWindow):
             if p_local is None or c_local is None:
                 continue
 
-            # Scene-позиция anchor родителя
-            from PySide6.QtCore import QPointF
             parent_scene = parent_item.mapToScene(
                 QPointF(p_local[0], p_local[1])
             )
 
-            # Хотим: child.pos() = parent_scene - c_local
-            # (предполагаем, что у ребёнка нет rotation/scale)
             new_x = parent_scene.x() - c_local[0]
             new_y = parent_scene.y() - c_local[1]
 
@@ -599,6 +597,8 @@ class ConstructorWindow(QMainWindow):
             child_comp.y = new_y
             child_item.setPos(new_x, new_y)
             child_item.update()
+
+            self._reflow_children(child_id, visited)
 
     def _apply_visibility_rules(self) -> None:
         """Применить все visibility-правила к items.
