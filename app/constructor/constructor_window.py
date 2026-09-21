@@ -1033,7 +1033,12 @@ class ConstructorWindow(QMainWindow):
             if not child_comp.attach_anchor or not child_comp.parent_anchor:
                 continue
 
-            parent_anchors = parent_item.anchors_local()
+            # V9d-4: если parent_anchor — слот (slot_*),
+            # берём из slots_local вместо anchors_local.
+            if child_comp.parent_anchor.startswith("slot_"):
+                parent_anchors = parent_item.slots_local()
+            else:
+                parent_anchors = parent_item.anchors_local()
             child_anchors = child_item.anchors_local()
 
             p_local = parent_anchors.get(child_comp.parent_anchor)

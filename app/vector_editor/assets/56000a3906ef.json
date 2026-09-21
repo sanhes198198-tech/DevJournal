@@ -18,7 +18,7 @@
       "id": "c_9e3cbe5a",
       "asset_id": "60d7042003d0",
       "x": 0.0,
-      "y": -1.0,
+      "y": -0.9,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "levayahastzamka",
@@ -28,6 +28,40 @@
       "attach_to": "",
       "attach_anchor": "",
       "parent_anchor": ""
+    },
+    "c_48977c25": {
+      "id": "c_48977c25",
+      "asset_id": "4d77b734d939",
+      "x": -2.8697404277184715,
+      "y": 0.735321602330091,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "Okno2",
+      "layer": 0,
+      "filled": false,
+      "param_overrides": {
+        "height": 0.0460944718728129
+      },
+      "attach_to": "c_9e3cbe5a",
+      "attach_anchor": "bottom",
+      "parent_anchor": "slot_window_slot_0"
+    },
+    "c_ff862183": {
+      "id": "c_ff862183",
+      "asset_id": "4d77b734d939",
+      "x": -2.8697404277184715,
+      "y": -2.764678397669909,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "Okno2",
+      "layer": 0,
+      "filled": false,
+      "param_overrides": {
+        "height": 0.0460944718728129
+      },
+      "attach_to": "c_9e3cbe5a",
+      "attach_anchor": "bottom",
+      "parent_anchor": "slot_window_slot_1"
     }
   },
   "visibility_rules": {},

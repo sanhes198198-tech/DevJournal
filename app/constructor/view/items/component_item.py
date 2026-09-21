@@ -575,11 +575,11 @@ class ComponentItem(QGraphicsObject):
         return result
 
     def slots_local(self) -> dict[str, tuple[float, float]]:
-        """V9d: точки из групп с auto_rule — слоты для привязки окон.
+        """V9d-4d: слоты (auto_rule) — пересчитываются на лету
+        с учётом param_overrides.
 
         Возвращает {slot_key: (x, y)} в ЛОКАЛЬНЫХ координатах item.
         Ключ вида "slot_<groupname>_<idx>".
-        Учитывает param_overrides (как anchors_local).
         """
         if self._asset is None:
             return {}
@@ -592,25 +592,25 @@ class ComponentItem(QGraphicsObject):
         if not rule_groups:
             return {}
 
-        # Собрать позиции всех точек по id (main + extra)
-        g = self._asset.geometry or {}
+        # Позиции всех точек по id (main + extra), без override
         pts_by_id: dict[str, tuple[float, float]] = {}
-        contour = g.get("contour", [])
-        node_ids = g.get("node_ids", [])
+        g_geom = self._asset.geometry or {}
+        contour = g_geom.get("contour", [])
+        node_ids = g_geom.get("node_ids", [])
         for i, nid in enumerate(node_ids):
             if i < len(contour):
                 x, y = contour[i]
                 pts_by_id[nid] = (float(x), float(y))
-        extra_pts = g.get("extra_points", [])
-        extra_ids = g.get("extra_node_ids", [])
+        extra_pts = g_geom.get("extra_points", [])
+        extra_ids = g_geom.get("extra_node_ids", [])
         for i, nid in enumerate(extra_ids):
             if i < len(extra_pts):
                 x, y = extra_pts[i]
                 pts_by_id[nid] = (float(x), float(y))
 
-        # Overrides (та же логика что в anchors_local)
+        # Override-сдвиги по узлам
         overrides = getattr(self._component, "param_overrides", None) or {}
-        deltas_per_node: dict[str, tuple[float, float]] = {}
+        deltas: dict[str, tuple[float, float]] = {}
         if overrides:
             params = getattr(self._asset, "parameters", None) or {}
             for p in params.values():
@@ -622,21 +622,89 @@ class ComponentItem(QGraphicsObject):
                     continue
                 nd = compute_delta_for_parameter(p, shift, sg)
                 for nid, (dx, dy) in nd.items():
-                    px, py = deltas_per_node.get(nid, (0.0, 0.0))
-                    deltas_per_node[nid] = (px + dx, py + dy)
+                    px, py = deltas.get(nid, (0.0, 0.0))
+                    deltas[nid] = (px + dx, py + dy)
+
+        def _pos(nid):
+            p = pts_by_id.get(nid)
+            if p is None:
+                return None
+            dx, dy = deltas.get(nid, (0.0, 0.0))
+            return (p[0] + dx, p[1] + dy)
+
+        def _centroid(group):
+            xs, ys = [], []
+            for nid in group.node_ids:
+                pp = _pos(nid)
+                if pp is None:
+                    continue
+                xs.append(pp[0])
+                ys.append(pp[1])
+            if not xs:
+                return None
+            return (sum(xs) / len(xs), sum(ys) / len(ys))
 
         result: dict[str, tuple[float, float]] = {}
+
         for group in rule_groups:
-            for idx, nid in enumerate(group.node_ids):
-                pos = pts_by_id.get(nid)
-                if pos is None:
-                    continue
-                dx, dy = deltas_per_node.get(nid, (0.0, 0.0))
-                key = f"slot_{group.name}_{idx}"
-                result[key] = (
-                    pos[0] + dx - self._center_x,
-                    pos[1] + dy - self._center_y,
+            rule = group.auto_rule
+            axis = rule.get("axis", "y")
+            axis_idx = 0 if axis == "x" else 1
+            step = float(rule.get("step", 1.0))
+            if abs(step) < 1e-9:
+                continue
+
+            # Шаблон = первая точка без префикса e_auto_
+            template_pos = None
+            for nid in group.node_ids:
+                if not nid.startswith("e_auto_"):
+                    template_pos = _pos(nid)
+                    if template_pos is not None:
+                        break
+            if template_pos is None:
+                continue
+
+            # Граница (until_group)
+            until_name = rule.get("until_group") or ""
+            limit_val = None
+            if until_name:
+                limit_group = None
+                for gg in sg.values():
+                    if gg.name == until_name:
+                        limit_group = gg
+                        break
+                if limit_group is not None:
+                    c = _centroid(limit_group)
+                    if c is not None:
+                        limit_val = c[axis_idx]
+
+            # Слот 0 — шаблон
+            result[f"slot_{group.name}_0"] = (
+                template_pos[0] - self._center_x,
+                template_pos[1] - self._center_y,
+            )
+
+            # Без границы — только шаблон
+            if limit_val is None:
+                continue
+
+            max_count = int(rule.get("max_count", 30))
+            current = template_pos[axis_idx] + step
+            idx = 1
+            while idx <= max_count:
+                if step > 0 and current >= limit_val:
+                    break
+                if step < 0 and current <= limit_val:
+                    break
+                new_pt = list(template_pos)
+                new_pt[axis_idx] = current
+                result[f"slot_{group.name}_{idx}"] = (
+                    new_pt[0] - self._center_x,
+                    new_pt[1] - self._center_y,
                 )
+                current += step
+                idx += 1
+
         return result
 
     def set_highlighted_anchor(self, tag: str | None) -> None:
@@ -658,6 +726,15 @@ class ComponentItem(QGraphicsObject):
         for tag, (lx, ly) in self.anchors_local().items():
             sp = self.mapToScene(QPointF(lx, ly))
             result[tag] = (sp.x(), sp.y())
+        return result
+
+    def slots_world(self) -> dict[str, tuple[float, float]]:
+        """V9d-4: слоты (auto_rule) в scene-координатах."""
+        from PySide6.QtCore import QPointF
+        result = {}
+        for key, (lx, ly) in self.slots_local().items():
+            sp = self.mapToScene(QPointF(lx, ly))
+            result[key] = (sp.x(), sp.y())
         return result
 
     def _try_snap(self) -> None:
@@ -696,6 +773,16 @@ class ComponentItem(QGraphicsObject):
                     == self._component.id):
                 continue
 
+            # V9d-4: окно НЕ привязываем к другому окну по anchor.
+            # Окна цепляются только к слотам стен (или к не-окнам).
+            my_type = getattr(self._asset, "type", "") if self._asset else ""
+            their_type = (
+                getattr(other._asset, "type", "")
+                if other._asset else ""
+            )
+            if my_type == "window" and their_type == "window":
+                continue
+
             for my_tag, (mx, my) in my_world.items():
                 for their_tag, (tx, ty) in their_world.items():
                     if (my_tag, their_tag) not in SNAP_PAIRS:
@@ -707,6 +794,66 @@ class ComponentItem(QGraphicsObject):
                         if best is None or dist < best[0]:
                             best = (dist, my_tag, other, their_tag,
                                     dx, dy)
+
+        # V9d-4: поиск слотов (auto_rule) на соседних стенах.
+        # Приоритет у слота — если он ближе, чем anchor-пара.
+        best_slot = None
+        my_bottom = my_world.get("bottom")
+        if my_bottom is not None:
+            mx, my = my_bottom
+
+            # Собрать занятые слоты: {parent_comp_id: {slot_key, ...}}
+            occupied: dict[str, set] = {}
+            for cand in scene.items():
+                if cand is self:
+                    continue
+                if not isinstance(cand, ComponentItem):
+                    continue
+                c_comp = getattr(cand, "_component", None)
+                if c_comp is None or not c_comp.attach_to:
+                    continue
+                if c_comp.parent_anchor.startswith("slot_"):
+                    occupied.setdefault(
+                        c_comp.attach_to, set()
+                    ).add(c_comp.parent_anchor)
+
+            for other in scene.items():
+                if other is self:
+                    continue
+                if not isinstance(other, ComponentItem):
+                    continue
+                their_slots = other.slots_world()
+                if not their_slots:
+                    continue
+
+                o_comp = getattr(other, "_component", None)
+                if o_comp is None:
+                    continue
+                if o_comp.id == self._component.id:
+                    continue
+                # Пропустить, если other привязан к НАМ
+                if o_comp.attach_to == self._component.id:
+                    continue
+
+                taken = occupied.get(o_comp.id, set())
+
+                for slot_key, (sx, sy) in their_slots.items():
+                    if slot_key in taken:
+                        continue
+                    dx = sx - mx
+                    dy = sy - my
+                    dist = (dx * dx + dy * dy) ** 0.5
+                    if dist <= threshold_m:
+                        if best_slot is None or dist < best_slot[0]:
+                            best_slot = (
+                                dist, "bottom", other, slot_key,
+                                dx, dy,
+                            )
+
+        # Выбор: если слот ближе anchor-пары — берём слот
+        if best_slot is not None:
+            if best is None or best_slot[0] < best[0]:
+                best = best_slot
 
         if best is None:
             self.clear_snap_highlight()
