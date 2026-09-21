@@ -60,7 +60,12 @@ def _load_asset_from_file(path: Path):
                     geom.get("extra_node_ids", [])
                 ),
             )
-            fixes = c.sanitize()
+            # Собрать id из семантических групп, чтобы sanitize
+            # не удалил якоря и авто-точки (window_slot и др.).
+            _keep = set()
+            for _g in asset.semantic_groups.values():
+                _keep.update(_g.node_ids)
+            fixes = c.sanitize(keep_extra_ids=_keep)
             if fixes > 0:
                 geom["node_ids"] = list(c.node_ids)
                 geom["extra_edges"] = [

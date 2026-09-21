@@ -1,0 +1,43 @@
+{
+  "id": "56000a3906ef",
+  "name": "Тест2",
+  "type": "tower_body",
+  "geometry": {
+    "contour": [],
+    "closed": true,
+    "units": "m",
+    "node_ids": [],
+    "groups": {},
+    "extra_edges": [],
+    "arcs": [],
+    "extra_points": [],
+    "extra_node_ids": []
+  },
+  "components": {
+    "c_9e3cbe5a": {
+      "id": "c_9e3cbe5a",
+      "asset_id": "60d7042003d0",
+      "x": 0.0,
+      "y": -1.0,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "levayahastzamka",
+      "layer": 0,
+      "filled": false,
+      "param_overrides": {},
+      "attach_to": "",
+      "attach_anchor": "",
+      "parent_anchor": ""
+    }
+  },
+  "visibility_rules": {},
+  "semantic_groups": {},
+  "parameters": {},
+  "reference_image": null,
+  "generation_rules": {
+    "allow_width_variation": false,
+    "allow_height_variation": false,
+    "irregularity": 0.0,
+    "repeatable": false
+  }
+}
