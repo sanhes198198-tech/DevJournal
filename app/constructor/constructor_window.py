@@ -62,6 +62,10 @@ class ConstructorWindow(QMainWindow):
         self._nav_stack: list = []
         # Буфер обмена — список компонентов (Copy/Paste/Duplicate)
         self._clipboard_comps: list = []
+        # Просмотр ассета (preview)
+        self._preview_mode: bool = False
+        # Резервная копия последнего edit-композита
+        self._edit_backup = None  # (asset, asset_id, asset_name) | None
         self._init_registry()
         self._undo_stack = QUndoStack(self)
         self._build_ui()
@@ -105,6 +109,10 @@ class ConstructorWindow(QMainWindow):
         QShortcut(
             QKeySequence("Ctrl+D"), self,
             self._on_duplicate,
+        )
+        QShortcut(
+            QKeySequence("Escape"), self,
+            self._exit_preview,
         )
 
     def _build_toolbar(self) -> None:
@@ -304,6 +312,8 @@ class ConstructorWindow(QMainWindow):
             self._act_back.setEnabled(bool(self._nav_stack))
 
     def _on_new(self) -> None:
+        self._preview_mode = False
+        self._edit_backup = None
         self._reset_scene()
         self.statusBar().showMessage("Новый замок", 3000)
 
@@ -362,6 +372,10 @@ class ConstructorWindow(QMainWindow):
         )
 
     def _on_open(self) -> None:
+        if self._preview_mode:
+            self._preview_mode = False
+            self._edit_backup = None
+
         # Загружаем все ассеты, фильтруем композитные
         try:
             all_assets = list_assets()
@@ -1025,9 +1039,86 @@ class ConstructorWindow(QMainWindow):
         )
         dlg.exec()
 
-    def _on_asset_selected(self, asset_id: str) -> None:
+    def _enter_preview(self, asset_id: str) -> None:
+        """Одиночный клик в палитре — войти в режим просмотра."""
+        if self._registry is None:
+            return
+        asset = self._registry.get(asset_id)
+        if asset is None:
+            return
+
+        # Если уже в preview — просто заменить
+        if not self._preview_mode:
+            # Спросить про несохранённые (если есть композит)
+            if (self._current_composite is not None
+                    and self._current_composite.component_count() > 0):
+                reply = QMessageBox.question(
+                    self, "Несохранённые изменения",
+                    "У тебя в сцене есть несохранённая сборка.\n\n"
+                    "Продолжить просмотр? (Сборка не потеряется — "
+                    "вернётся при выходе из просмотра).",
+                    QMessageBox.StandardButton.Yes
+                    | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes,
+                )
+                if reply != QMessageBox.StandardButton.Yes:
+                    return
+
+            # Сохранить текущий edit
+            self._edit_backup = (
+                self._current_composite,
+                self._current_asset_id,
+                self._current_asset_name,
+            )
+            self._preview_mode = True
+
+        # Очистить сцену и показать один ассет в центре
+        self._reset_scene()
+        self._preview_mode = True
+
+        # Создать временный компонент
+        comp = Component(
+            asset_id=asset.id,
+            x=0.0,
+            y=0.0,
+            rotation=0.0,
+            scale=1.0,
+            name=asset.name,
+        )
+        item = ComponentItem(
+            comp, asset=asset, registry=self._registry,
+        )
+        item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
+        item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
+        self._items_by_comp_id[comp.id] = item
+        self._scene.addItem(item)
+
+        self._current_asset_name = asset.name
+        self._current_asset_id = asset.id
+        self._update_title()
         self.statusBar().showMessage(
-            f"Выбран: {asset_id} (drag&drop в V8b-2)", 3000)
+            f"Просмотр: {asset.name}", 3000,
+        )
+
+    def _exit_preview(self) -> None:
+        """Выйти из режима просмотра и вернуться к edit."""
+        if not self._preview_mode:
+            return
+
+        self._preview_mode = False
+
+        # Восстановить edit
+        if self._edit_backup is not None:
+            asset, asset_id, asset_name = self._edit_backup
+            self._edit_backup = None
+            self._load_composite(asset)
+            self.statusBar().showMessage("Вернулся к сборке", 2000)
+        else:
+            self._reset_scene()
+
+    def _on_asset_selected(self, asset_id: str) -> None:
+        """Одиночный клик — ничего. Добавление только двойным кликом."""
+        pass
 
     def _on_mouse_moved(self, x: float, y: float) -> None:
         self.statusBar().showMessage(f"X={x:.2f} м · Y={y:.2f} м", 0)
