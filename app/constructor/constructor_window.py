@@ -73,6 +73,10 @@ class ConstructorWindow(QMainWindow):
         self._setup_undo_shortcuts()
         self._load_assets()
 
+        # Стартуем в режиме просмотра
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(0, self._start_in_preview)
+
     def _init_registry(self) -> None:
         if AssetRegistry is None:
             return
@@ -83,6 +87,13 @@ class ConstructorWindow(QMainWindow):
         except Exception as e:
             print(f"[Constructor] AssetRegistry error: {e}")
             self._registry = None
+
+    def _start_in_preview(self) -> None:
+        """При старте — сразу режим просмотра."""
+        if not self._preview_mode:
+            if hasattr(self, "_act_preview"):
+                self._act_preview.setChecked(True)
+            self._enter_preview_mode()
 
     def _setup_undo_shortcuts(self) -> None:
         from PySide6.QtGui import QShortcut
@@ -1152,6 +1163,7 @@ class ConstructorWindow(QMainWindow):
         # Показать свойства
         if hasattr(self, "_properties"):
             self._properties.setEnabled(True)
+            self._properties.setVisible(True)
 
         # Восстановить edit
         if self._edit_backup is not None:
@@ -1187,6 +1199,7 @@ class ConstructorWindow(QMainWindow):
         self.setWindowTitle("Constructor — Просмотр")
         if hasattr(self, "_properties"):
             self._properties.setEnabled(False)
+            self._properties.setVisible(False)
 
         self.statusBar().showMessage(
             "Режим просмотра. Клик по ассету — показать.", 5000,
