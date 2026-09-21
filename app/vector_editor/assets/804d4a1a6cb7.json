@@ -6,23 +6,23 @@
     "contour": [
       [
         2.6,
-        12.895458242652305
+        16.996360218956703
       ],
       [
-        2.6647683523420165,
-        12.9
+        3.336,
+        17.048000000000002
       ],
       [
-        2.6647683523420165,
-        12.601034008467474
+        3.336,
+        13.64875667627518
       ],
       [
-        2.633290077525727,
+        2.9782942775748262,
         12.5
       ],
       [
-        2.603852993545155,
-        12.592911960627893
+        2.6437837793720482,
+        13.55640899233914
       ]
     ],
     "closed": true,
@@ -65,14 +65,7 @@
   "visibility_rules": {},
   "semantic_groups": {},
   "parameters": {},
-  "reference_image": {
-    "filename": "804d4a1a6cb7_ref.png",
-    "x": 0.0,
-    "y": 0.0,
-    "pixels_per_meter": 50.0,
-    "opacity": 0.5,
-    "visible": true
-  },
+  "reference_image": null,
   "generation_rules": {
     "allow_width_variation": false,
     "allow_height_variation": false,

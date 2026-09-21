@@ -5,27 +5,27 @@
   "geometry": {
     "contour": [
       [
-        2.9525042569724445,
-        11.938338910463937
+        2.973581954345226,
+        16.12493650235713
       ],
       [
-        3.0347316008029184,
-        11.938338910463937
+        4.008454027874638,
+        16.12493650235713
       ],
       [
-        3.0364185353778916,
-        11.655105369059923
+        4.0296849396393455,
+        12.560637766625492
       ],
       [
-        2.9935517375086187,
+        3.4901849396393456,
         11.576936502357132
       ],
       [
         2.9506849396393457,
-        11.652583792714672
+        12.528905467778136
       ]
     ],
-    "closed": true,
+    "closed": false,
     "units": "m",
     "node_ids": [
       "n_000",
@@ -50,13 +50,14 @@
       "edge_003": [
         "n_003",
         "n_004"
-      ],
-      "edge_004": [
-        "n_004",
-        "n_000"
       ]
     },
-    "extra_edges": [],
+    "extra_edges": [
+      [
+        "n_000",
+        "n_004"
+      ]
+    ],
     "extra_points": [],
     "extra_node_ids": [],
     "arcs": []
@@ -65,14 +66,7 @@
   "visibility_rules": {},
   "semantic_groups": {},
   "parameters": {},
-  "reference_image": {
-    "filename": "9b3e6289538b_ref.png",
-    "x": 0.0,
-    "y": 0.0,
-    "pixels_per_meter": 50.0,
-    "opacity": 0.5,
-    "visible": true
-  },
+  "reference_image": null,
   "generation_rules": {
     "allow_width_variation": false,
     "allow_height_variation": false,

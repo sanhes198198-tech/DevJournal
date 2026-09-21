@@ -323,20 +323,27 @@ class VectorEditor(QMainWindow):
         act_validate.triggered.connect(self._on_validate_contour)
         tb.addAction(act_validate)
 
+        # Второй тулбар — на отдельной строке (всегда видна)
+        tb2 = QToolBar("Edit", self)
+        tb2.setMovable(False)
+        self.addToolBarBreak()
+        self.addToolBar(tb2)
+        self._toolbar2 = tb2
+
         act_stretch = QAction("📏 Растяжка", self)
         act_stretch.setToolTip(
             "Создать параметр-растяжение (высоту) между "
             "низом и верхом"
         )
         act_stretch.triggered.connect(self._on_stretch)
-        tb.addAction(act_stretch)
+        tb2.addAction(act_stretch)
 
         act_arc = QAction("🎯 Изогнуть", self)
         act_arc.setToolTip(
             "Изогнуть выделенное ребро (или ПКМ по ребру)"
         )
         act_arc.triggered.connect(self._on_arc_clicked)
-        tb.addAction(act_arc)
+        tb2.addAction(act_arc)
 
         tb.addSeparator()
 
@@ -345,28 +352,28 @@ class VectorEditor(QMainWindow):
             "Выровнять выделенные узлы по среднему X"
         )
         act_align_x.triggered.connect(self._align_x)
-        tb.addAction(act_align_x)
+        tb2.addAction(act_align_x)
 
         act_align_y = QAction("⇕ Y", self)
         act_align_y.setToolTip(
             "Выровнять выделенные узлы по среднему Y"
         )
         act_align_y.triggered.connect(self._align_y)
-        tb.addAction(act_align_y)
+        tb2.addAction(act_align_y)
 
         act_dist_x = QAction("⇹ X", self)
         act_dist_x.setToolTip(
             "Равномерно распределить 3+ узла по X"
         )
         act_dist_x.triggered.connect(self._distribute_x)
-        tb.addAction(act_dist_x)
+        tb2.addAction(act_dist_x)
 
         act_dist_y = QAction("⇳ Y", self)
         act_dist_y.setToolTip(
             "Равномерно распределить 3+ узла по Y"
         )
         act_dist_y.triggered.connect(self._distribute_y)
-        tb.addAction(act_dist_y)
+        tb2.addAction(act_dist_y)
 
         tb.addSeparator()
 
@@ -375,7 +382,7 @@ class VectorEditor(QMainWindow):
             "Пропорционально масштабировать контур до заданного размера"
         )
         act_scale.triggered.connect(self._on_scale_clicked)
-        tb.addAction(act_scale)
+        tb2.addAction(act_scale)
 
         # Список «дополнительных» actions — их можно скрывать
         self._extra_actions = [
