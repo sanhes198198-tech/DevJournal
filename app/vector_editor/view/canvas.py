@@ -42,6 +42,8 @@ class VectorCanvas(QGraphicsView):
     empty_click = Signal()
     # Extrude-режим: клик в сцене — создать новую точку
     extrude_click = Signal(float, float)
+    # V9c: режим точки — клик по сцене создаёт extra-точку
+    point_click = Signal(float, float)
     # Extrude-режим отменён (Esc) или завершён
     extrude_finished = Signal()
     # Rubber band (ПКМ+drag) — прямоугольник в scene-координатах
@@ -93,7 +95,7 @@ class VectorCanvas(QGraphicsView):
         return self._tool
 
     def set_tool(self, tool: str) -> None:
-        if tool not in ("select", "draw", "extrude"):
+        if tool not in ("select", "draw", "extrude", "point"):
             return
 
         if tool != "draw":
@@ -101,7 +103,7 @@ class VectorCanvas(QGraphicsView):
 
         self._tool = tool
 
-        if tool in ("draw", "extrude"):
+        if tool in ("draw", "extrude", "point"):
             self.setFocus()
             self.setCursor(QCursor(Qt.CursorShape.CrossCursor))
         else:
@@ -188,6 +190,16 @@ class VectorCanvas(QGraphicsView):
             and event.modifiers() & Qt.KeyboardModifier.ShiftModifier
         ):
             self._start_pan(event)
+            return
+
+        # point → клик по сцене создаёт extra-точку
+        if (
+            self._tool == "point"
+            and event.button() == Qt.MouseButton.LeftButton
+        ):
+            scene_pos = self.mapToScene(event.position().toPoint())
+            self.point_click.emit(scene_pos.x(), scene_pos.y())
+            event.accept()
             return
 
         # draw → клик по сцене

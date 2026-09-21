@@ -287,6 +287,16 @@ class VectorEditor(QMainWindow):
         act_ext_node.triggered.connect(self._on_extrude_node)
         tb.addAction(act_ext_node)
 
+        # V9c: режим "точка" — клик по сцене создаёт extra-точку
+        self._act_point = QAction("📍 Точка", self)
+        self._act_point.setCheckable(True)
+        self._act_point.setToolTip(
+            "Клик по сцене — поставить extra-точку "
+            "(шаблон для auto_rule). Esc — выйти."
+        )
+        self._act_point.toggled.connect(self._on_point_mode_toggled)
+        tb.addAction(self._act_point)
+
         act_extra = QAction("🔗 Соединить", self)
         act_extra.setShortcut(QKeySequence("Ctrl+J"))
         act_extra.setShortcutContext(
@@ -461,6 +471,7 @@ class VectorEditor(QMainWindow):
             self._on_rubber_band_finished
         )
         self._canvas.extrude_click.connect(self._on_extrude_click)
+        self._canvas.point_click.connect(self._on_point_click)
         self._canvas.extrude_finished.connect(
             self._on_extrude_finished
         )
@@ -672,6 +683,35 @@ class VectorEditor(QMainWindow):
         if added > 0:
             self._contour_item._rebuild_extra_nodes()
             self._contour_item._rebuild_path()
+
+    def _on_point_mode_toggled(self, checked: bool) -> None:
+        """Переключить режим "📍 Точка"."""
+        if self._canvas is None:
+            return
+        if checked:
+            self._canvas.set_tool("point")
+        else:
+            self._canvas.set_tool("select")
+
+    def _on_point_click(self, x: float, y: float) -> None:
+        """V9c: создать extra-точку по клику на сцене."""
+        if self._contour_item is None:
+            return
+        c = self._contour_item.contour
+        try:
+            c.add_extra_point(float(x), float(y))
+        except Exception as e:
+            self.statusBar().showMessage(
+                f"Не удалось создать точку: {e}", 3000,
+            )
+            return
+        self._contour_item._rebuild_extra_nodes()
+        self._contour_item._rebuild_path()
+        self._mark_modified()
+        self.statusBar().showMessage(
+            "Точка добавлена. Выдели её и создай группу "
+            "(+ в панели Группы).", 4000,
+        )
 
     def _on_groups_changed(self) -> None:
         """Пользователь изменил группы — отметить Asset как изменённый."""

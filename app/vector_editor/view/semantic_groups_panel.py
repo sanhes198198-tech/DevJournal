@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
 )
 
 from .semantic_group_dialog import SemanticGroupDialog
+from .auto_rule_dialog import AutoRuleDialog
 from ..model.analysis import (
     AUTO_GROUP_TYPES,
     generate_auto_group,
@@ -134,10 +135,21 @@ class SemanticGroupsPanel(QWidget):
         self._btn_del.clicked.connect(self._on_delete)
         buttons.addWidget(self._btn_del)
 
+        # V9c: кнопка правила авто-размножения
+        self._btn_rule = QPushButton("⚙ Правило")
+        self._btn_rule.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_rule.setToolTip(
+            "Правило авто-размножения точек группы (нужна "
+            "группа с ровно одной extra-точкой-шаблоном)"
+        )
+        self._btn_rule.clicked.connect(self._on_rule)
+        buttons.addWidget(self._btn_rule)
+
         self._style_button(self._btn_add)
         self._style_button(self._btn_edit)
         self._style_button(self._btn_add_sel)
         self._style_button(self._btn_del)
+        self._style_button(self._btn_rule)
 
         layout.addLayout(buttons)
 
@@ -226,7 +238,8 @@ class SemanticGroupsPanel(QWidget):
             return
 
         for g in sorted(groups, key=lambda x: (x.label or x.name).lower()):
-            text = f"{g.label}  ({len(g.node_ids)} узлов)"
+            rule_mark = " ⚙" if getattr(g, "auto_rule", None) else ""
+            text = f"{g.label}  ({len(g.node_ids)} узлов){rule_mark}"
             item = QListWidgetItem(text)
             item.setData(Qt.ItemDataRole.UserRole, g.id)
             self._list.addItem(item)
@@ -253,6 +266,30 @@ class SemanticGroupsPanel(QWidget):
             and has_selection
             and len(self._selected_node_ids) > 0
         )
+
+        # V9c: активна если выбрана группа с ровно одной
+        # extra-точкой-шаблоном (e_* но не e_auto_*)
+        self._btn_rule.setEnabled(
+            has_groups and has_selection and self._can_set_rule()
+        )
+
+    def _can_set_rule(self) -> bool:
+        """Проверить, можно ли задать auto_rule для выбранной группы."""
+        if self._asset is None:
+            return False
+        gid = self._current_group_id()
+        if gid is None:
+            return False
+        group = self._asset.get_semantic_group(gid)
+        if group is None:
+            return False
+        non_auto = [
+            nid for nid in group.node_ids
+            if not nid.startswith("e_auto_")
+        ]
+        if len(non_auto) != 1:
+            return False
+        return non_auto[0].startswith("e_")
 
     # ------------------------------------------------------------
 
@@ -414,4 +451,46 @@ class SemanticGroupsPanel(QWidget):
         self.refresh()
         # Снять подсветку узлов удалённой группы в сцене
         self.group_selected.emit("")
+        self.groups_changed.emit()
+
+    # ------------------------------------------------------------
+    # V9c: ПРАВИЛО АВТО-РАЗМНОЖЕНИЯ
+    # ------------------------------------------------------------
+
+    def _on_rule(self) -> None:
+        """Открыть диалог правила авто-размножения для группы."""
+        if self._asset is None:
+            return
+
+        gid = self._current_group_id()
+        if gid is None:
+            return
+
+        group = self._asset.get_semantic_group(gid)
+        if group is None:
+            return
+
+        if not self._can_set_rule():
+            QMessageBox.information(
+                self,
+                "Правило недоступно",
+                "Для настройки правила нужна группа с ровно "
+                "одной extra-точкой (шаблоном). Создайте точку "
+                "в сцене и добавьте её в группу.",
+            )
+            return
+
+        all_groups = list(self._asset.semantic_groups.values())
+        dlg = AutoRuleDialog(group=group, all_groups=all_groups,
+                             parent=self)
+        if dlg.exec() != AutoRuleDialog.DialogCode.Accepted:
+            return
+
+        # result_rule=None означает "удалить правило"
+        if dlg.result_rule is None:
+            group.auto_rule = None
+        else:
+            group.auto_rule = dict(dlg.result_rule)
+
+        self.refresh()
         self.groups_changed.emit()
