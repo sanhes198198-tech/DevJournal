@@ -408,8 +408,8 @@ class ConstructorWindow(QMainWindow):
             )
             item.moved.connect(self._on_item_moved)
             item.enter_requested.connect(self._on_enter_composite)
-            item.param_changed.connect(self._on_prop_param_override)
             item.drag_finished.connect(self._on_item_drag_finished)
+            item.param_changed.connect(self._on_prop_param_override)
             self._items_by_comp_id[comp.id] = item
             self._scene.addItem(item)
 
@@ -608,8 +608,8 @@ class ConstructorWindow(QMainWindow):
         )
         item.moved.connect(self._on_item_moved)
         item.enter_requested.connect(self._on_enter_composite)
-        item.param_changed.connect(self._on_prop_param_override)
         item.drag_finished.connect(self._on_item_drag_finished)
+        item.param_changed.connect(self._on_prop_param_override)
 
         self._items_by_comp_id[comp.id] = item
         self._scene.addItem(item)
