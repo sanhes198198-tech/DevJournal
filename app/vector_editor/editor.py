@@ -1926,6 +1926,7 @@ class VectorEditor(QMainWindow):
             self._contour_item._selected_extra = None
             self._contour_item._hover_edge_idx = None
             self._contour_item._hover_extra = None
+            self._contour_item._update_handle_visibility()
             self._contour_item.update()
 
         self._scene.clearSelection()

@@ -31,10 +31,13 @@ from ...model.contour import VectorContour
 from ...model.geometry import dist_point_to_segment
 from ...model.operations import extrude_face
 from .node_item import NodeItem
+from .arc_handle_item import ArcHandleItem
 from .extra_node_item import ExtraNodeItem
 
 
 class ContourItem(QGraphicsObject):
+    # Максимальная кривизна (1.0 = дуга радиусом ~половина хорды)
+    MAX_BULGE = 2.0
     """Визуализация VectorContour."""
 
     changed = Signal()
@@ -70,6 +73,8 @@ class ContourItem(QGraphicsObject):
         self._hover_edge_idx: int | None = None
 
         self._selected_extra: tuple[str, str] | None = None
+        # Ручки для перетаскивания кривизны рёбер: {edge_idx: ArcHandleItem}
+        self._arc_handles: dict = {}
         self._hover_extra: tuple[str, str] | None = None
 
         self._path = QPainterPath()
@@ -206,11 +211,11 @@ class ContourItem(QGraphicsObject):
         )
 
         # --- 1. Основной контур ---
-        base_color = (
-            self.LINE_COLOR_SELECTED
-            if self.isSelected()
-            else self.LINE_COLOR
-        )
+        # Основной цвет контура всегда тёмный.
+        # Подсветка — только через _selected_edge_idx / _selected_extra.
+        # isSelected() намеренно не учитываем: клик по узлу
+        # выделяет родителя, и раньше это красило весь контур.
+        base_color = self.LINE_COLOR
         pen_base = QPen(QColor(base_color), self.LINE_WIDTH)
         pen_base.setCosmetic(True)
         pen_base.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
@@ -262,8 +267,12 @@ class ContourItem(QGraphicsObject):
             and self._selected_edge_idx in segments
         ):
             i = self._selected_edge_idx
+            j = (i + 1) % n
             p1 = pts[i]
-            p2 = pts[(i + 1) % n]
+            p2 = pts[j]
+            ids = self._contour.node_ids
+            a_id = ids[i] if i < len(ids) else None
+            b_id = ids[j] if j < len(ids) else None
 
             pen = QPen(
                 QColor(self.LINE_COLOR_SELECTED),
@@ -271,7 +280,11 @@ class ContourItem(QGraphicsObject):
             )
             pen.setCosmetic(True)
             painter.setPen(pen)
-            painter.drawLine(QPointF(*p1), QPointF(*p2))
+
+            sub = QPainterPath()
+            sub.moveTo(p1[0], p1[1])
+            self._segment_to(sub, a_id, b_id, p1, p2)
+            painter.drawPath(sub)
 
         # --- 4. Hover main edge (если не совпадает с selected) ---
         elif (
@@ -280,8 +293,12 @@ class ContourItem(QGraphicsObject):
             and self._hover_edge_idx != self._selected_edge_idx
         ):
             i = self._hover_edge_idx
+            j = (i + 1) % n
             p1 = pts[i]
-            p2 = pts[(i + 1) % n]
+            p2 = pts[j]
+            ids = self._contour.node_ids
+            a_id = ids[i] if i < len(ids) else None
+            b_id = ids[j] if j < len(ids) else None
 
             pen = QPen(
                 QColor(self.LINE_COLOR_HOVER),
@@ -289,7 +306,11 @@ class ContourItem(QGraphicsObject):
             )
             pen.setCosmetic(True)
             painter.setPen(pen)
-            painter.drawLine(QPointF(*p1), QPointF(*p2))
+
+            sub = QPainterPath()
+            sub.moveTo(p1[0], p1[1])
+            self._segment_to(sub, a_id, b_id, p1, p2)
+            painter.drawPath(sub)
 
     # ============================================================
     # REBUILD
@@ -330,7 +351,176 @@ class ContourItem(QGraphicsObject):
 
         path.quadTo(cx, cy, x2, y2)
 
-    def _rebuild_path(self) -> None:
+    def _arc_handle_pos(self, edge_idx: int):
+        """Позиция ручки для ребра — контрольная точка дуги."""
+        pts = self._contour.points
+        n = len(pts)
+        if not (0 <= edge_idx < n):
+            return None
+        i = edge_idx
+        j = (i + 1) % n
+        p1 = pts[i]
+        p2 = pts[j]
+
+        ids = self._contour.node_ids
+        a_id = ids[i] if i < len(ids) else None
+        b_id = ids[j] if j < len(ids) else None
+
+        bulge = 0.0
+        if a_id and b_id:
+            bulge = self._contour.get_arc(a_id, b_id)
+
+        x1, y1 = p1
+        x2, y2 = p2
+        dx = x2 - x1
+        dy = y2 - y1
+        L = (dx * dx + dy * dy) ** 0.5
+        if L < 1e-9:
+            return ((x1 + x2) / 2, (y1 + y2) / 2)
+
+        mx = (x1 + x2) / 2
+        my = (y1 + y2) / 2
+        nx = -dy / L
+        ny = dx / L
+        # Контрольная точка C = M + 2*bulge*L*n
+        k = 2.0 * bulge * L
+        cx = mx + nx * k
+        cy = my + ny * k
+        # Середина квадратичной Безье: B(0.5) = (M + C)/2
+        bx = (mx + cx) / 2
+        by = (my + cy) / 2
+        return (bx, by)
+
+    def _rebuild_arc_handles(self) -> None:
+        """Пересобрать ручки для изогнутых рёбер."""
+        # Удалить все
+        for h in self._arc_handles.values():
+            h.setParentItem(None)
+            if h.scene() is not None:
+                h.scene().removeItem(h)
+        self._arc_handles.clear()
+
+        # Только когда редактируем
+        if not self._editable:
+            return
+
+        pts = self._contour.points
+        n = len(pts)
+        if n < 2:
+            return
+
+        segments = (
+            list(range(n)) if self._contour.closed
+            else list(range(n - 1))
+        )
+
+        ids = self._contour.node_ids
+
+        for i in segments:
+            j = (i + 1) % n
+            a_id = ids[i] if i < len(ids) else None
+            b_id = ids[j] if j < len(ids) else None
+            if not (a_id and b_id):
+                continue
+            bulge = self._contour.get_arc(a_id, b_id)
+            if abs(bulge) < 1e-9:
+                continue
+
+            pos = self._arc_handle_pos(i)
+            if pos is None:
+                continue
+
+            handle = ArcHandleItem(i, pos[0], pos[1], parent=self)
+            handle.moved.connect(self._on_arc_handle_moved)
+            handle.released.connect(self._on_arc_handle_released)
+            handle.setVisible(False)   # скрыт по умолчанию
+            self._arc_handles[i] = handle
+
+        # Обновить видимость по текущему состоянию
+        self._update_handle_visibility()
+
+    def _update_handle_visibility(self) -> None:
+        """Показать кружок только для выделенного ребра (по клику)."""
+        if not self._arc_handles:
+            return
+        shown = set()
+        if self._selected_edge_idx is not None:
+            shown.add(self._selected_edge_idx)
+        for idx_h, h in self._arc_handles.items():
+            h.setVisible(idx_h in shown)
+
+    def _on_arc_handle_moved(self, edge_idx: int) -> None:
+        """Ручку перетащили — пересчитать bulge и перерисовать path."""
+        handle = self._arc_handles.get(edge_idx)
+        if handle is None:
+            return
+
+        pts = self._contour.points
+        n = len(pts)
+        if not (0 <= edge_idx < n):
+            return
+        i = edge_idx
+        j = (i + 1) % n
+        p1 = pts[i]
+        p2 = pts[j]
+
+        ids = self._contour.node_ids
+        a_id = ids[i] if i < len(ids) else None
+        b_id = ids[j] if j < len(ids) else None
+        if not (a_id and b_id):
+            return
+
+        x1, y1 = p1
+        x2, y2 = p2
+        dx = x2 - x1
+        dy = y2 - y1
+        L = (dx * dx + dy * dy) ** 0.5
+        if L < 1e-9:
+            return
+
+        mx = (x1 + x2) / 2
+        my = (y1 + y2) / 2
+        nx = -dy / L
+        ny = dx / L
+
+        # handle.pos() — середина кривой. Восстановим C:
+        # C = 2*handle - M
+        hx = handle.pos().x()
+        hy = handle.pos().y()
+
+        cx = 2 * hx - mx
+        cy = 2 * hy - my
+
+        # C = M + 2*bulge*L*n  =>  bulge = (C - M)·n / (2L)
+        vx = cx - mx
+        vy = cy - my
+        proj = vx * nx + vy * ny
+        bulge = proj / (2.0 * L)
+
+        # Ограничить кривизну — иначе хендл уйдёт далеко и path
+        # станет огромным → зависание при перерисовке
+        clamped = False
+        if bulge > self.MAX_BULGE:
+            bulge = self.MAX_BULGE
+            clamped = True
+        elif bulge < -self.MAX_BULGE:
+            bulge = -self.MAX_BULGE
+            clamped = True
+
+        self._contour.set_arc(a_id, b_id, bulge)
+        self._rebuild_path(keep_handles=True)
+
+        # Если ограничили — вернуть хендл на границу
+        if clamped:
+            pos = self._arc_handle_pos(edge_idx)
+            if pos is not None:
+                handle.setPos(pos[0], pos[1])
+
+    def _on_arc_handle_released(self, edge_idx: int) -> None:
+        """Отпустили ручку — сообщить об изменениях (для undo)."""
+        self.changed.emit()
+
+    def _rebuild_path(self, keep_handles: bool = False) -> None:
         self.prepareGeometryChange()
 
         path = QPainterPath()
@@ -361,6 +551,8 @@ class ContourItem(QGraphicsObject):
                 self._segment_to(path, a_id, b_id, pts[i], pts[i + 1])
 
         self._path = path
+        if not keep_handles:
+            self._rebuild_arc_handles()
         self.update()
 
     def _rebuild_nodes(self) -> None:
@@ -444,6 +636,60 @@ class ContourItem(QGraphicsObject):
     # HIT-TEST: main edges
     # ============================================================
 
+    def _is_point_in_arc_handle(self, scene_pos) -> bool:
+        """Попадает ли точка клика в зону кружка-ручки."""
+        if not self._arc_handles:
+            return False
+        local = self.mapFromScene(scene_pos)
+        for handle in self._arc_handles.values():
+            hpos = handle.pos()
+            dx = local.x() - hpos.x()
+            dy = local.y() - hpos.y()
+            r = handle.RADIUS_M + 0.05
+            d2 = dx * dx + dy * dy
+            if d2 <= r * r:
+                return True
+        return False
+
+    def _dist_to_arc(
+        self, px: float, py: float,
+        p1, p2, bulge: float, segments: int = 16,
+    ) -> float:
+        """Минимальное расстояние от точки до квадратичной Безье."""
+        x1, y1 = p1
+        x2, y2 = p2
+        dx = x2 - x1
+        dy = y2 - y1
+        L = (dx * dx + dy * dy) ** 0.5
+        if L < 1e-9:
+            return ((px - x1) ** 2 + (py - y1) ** 2) ** 0.5
+
+        mx = (x1 + x2) / 2
+        my = (y1 + y2) / 2
+        nx = -dy / L
+        ny = dx / L
+        k = 2.0 * bulge * L
+        cx = mx + nx * k
+        cy = my + ny * k
+
+        # Разбиваем Безье на segments кусков, ищем минимум по ним
+        best = float("inf")
+        prev_x = x1
+        prev_y = y1
+        for s in range(1, segments + 1):
+            t = s / segments
+            u = 1 - t
+            bx = u * u * x1 + 2 * u * t * cx + t * t * x2
+            by = u * u * y1 + 2 * u * t * cy + t * t * y2
+            d, _ = dist_point_to_segment(
+                px, py, prev_x, prev_y, bx, by,
+            )
+            if d < best:
+                best = d
+            prev_x = bx
+            prev_y = by
+        return best
+
     def _find_edge_at(self, scene_x: float, scene_y: float) -> int | None:
         pts = self._contour.points
         n = len(pts)
@@ -458,13 +704,32 @@ class ContourItem(QGraphicsObject):
         best_dist = float("inf")
         best_idx: int | None = None
 
+        ids = self._contour.node_ids
+
         for i in segments:
             p1 = pts[i]
             p2 = pts[(i + 1) % n]
-            d, _ = dist_point_to_segment(
-                scene_x, scene_y,
-                p1[0], p1[1], p2[0], p2[1],
-            )
+
+            j = (i + 1) % n
+            a_id = ids[i] if i < len(ids) else None
+            b_id = ids[j] if j < len(ids) else None
+
+            bulge = 0.0
+            if a_id and b_id:
+                bulge = self._contour.get_arc(a_id, b_id)
+
+            if abs(bulge) < 1e-9:
+                # Прямой отрезок
+                d, _ = dist_point_to_segment(
+                    scene_x, scene_y,
+                    p1[0], p1[1], p2[0], p2[1],
+                )
+            else:
+                # Дуга — считаем минимальное расстояние до кривой
+                d = self._dist_to_arc(
+                    scene_x, scene_y, p1, p2, bulge,
+                )
+
             if d < best_dist:
                 best_dist = d
                 best_idx = i
@@ -537,6 +802,13 @@ class ContourItem(QGraphicsObject):
 
     def mousePressEvent(self, event) -> None:
         """Клик по грани — выделить. Приоритет: Extra > Main."""
+        # Пропускаем клик в зону кружка-ручки — чтобы ArcHandleItem
+        # получил событие первым (Qt отдаёт родителю раньше child)
+        if event.button() == Qt.MouseButton.LeftButton:
+            if self._is_point_in_arc_handle(event.scenePos()):
+                event.ignore()
+                return
+
         if event.button() == Qt.MouseButton.LeftButton:
             scene_pos = event.scenePos()
 
@@ -556,6 +828,7 @@ class ContourItem(QGraphicsObject):
             if idx is not None:
                 self._selected_edge_idx = idx
                 self._selected_extra = None
+                self._update_handle_visibility()
                 self.update()
                 event.accept()
                 return
@@ -567,6 +840,7 @@ class ContourItem(QGraphicsObject):
             )
             self._selected_edge_idx = None
             self._selected_extra = None
+            self._update_handle_visibility()
             if changed:
                 self.update()
 
