@@ -1,6 +1,6 @@
 {
-  "id": "a4e74df758aa",
-  "name": "ТЕСТ9",
+  "id": "1bba5022d024",
+  "name": "Тест1",
   "type": "tower_body",
   "geometry": {
     "contour": [],
@@ -13,88 +13,67 @@
     "extra_node_ids": []
   },
   "components": {
-    "c_bac6f0f4": {
-      "id": "c_bac6f0f4",
+    "c_b258ce26": {
+      "id": "c_b258ce26",
       "asset_id": "c2dd0d912a21",
-      "x": -0.1,
-      "y": -0.8,
+      "x": 0.4,
+      "y": 0.5,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Сторожевая башня",
-      "layer": 2,
+      "layer": 3,
       "filled": true,
       "param_overrides": {
-        "height": 0.98983282500512,
-        "width": 0.374
+        "height": -2.477182799999987
       },
       "attach_to": "",
       "attach_anchor": "",
       "parent_anchor": ""
     },
-    "c_2b0130fc": {
-      "id": "c_2b0130fc",
+    "c_516b68e3": {
+      "id": "c_516b68e3",
       "asset_id": "4a02a5eeace1",
-      "x": -0.20084285064609056,
-      "y": -10.968337990790504,
+      "x": 0.2971845715311009,
+      "y": -8.303349639731637,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "крыша вытянутая",
-      "layer": 0,
+      "layer": 1,
       "filled": true,
       "param_overrides": {
-        "height": -0.8037157079176911
+        "height": -0.5215441438989217
       },
-      "attach_to": "c_53c539de",
+      "attach_to": "c_e6fae5c2",
       "attach_anchor": "bottom",
       "parent_anchor": "top"
     },
-    "c_53c539de": {
-      "id": "c_53c539de",
-      "asset_id": "3ec907f2b564",
-      "x": -0.1932246034719544,
-      "y": -7.461673506972006,
-      "rotation": 0.0,
-      "scale": 1.0,
-      "name": "часть башни3",
-      "layer": 0,
-      "filled": true,
-      "param_overrides": {
-        "height": -1.1802607874617426,
-        "width": 0.1
-      },
-      "attach_to": "c_27242522",
-      "attach_anchor": "bottom",
-      "parent_anchor": "top"
-    },
-    "c_ee60a046": {
-      "id": "c_ee60a046",
+    "c_5de75fbd": {
+      "id": "c_5de75fbd",
       "asset_id": "2d7f96953f11",
-      "x": -0.16790953879529838,
-      "y": -16.034958075935787,
+      "x": 0.3301178833818931,
+      "y": -13.087798160858153,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Луковичная крыша",
-      "layer": -2,
+      "layer": 0,
       "filled": true,
       "param_overrides": {},
-      "attach_to": "c_2b0130fc",
+      "attach_to": "c_516b68e3",
       "attach_anchor": "bottom",
       "parent_anchor": "top"
     },
-    "c_27242522": {
-      "id": "c_27242522",
+    "c_e6fae5c2": {
+      "id": "c_e6fae5c2",
       "asset_id": "0b83487c4eea",
-      "x": -0.14230844621886654,
-      "y": -3.246286510392024,
+      "x": 0.3576915537811335,
+      "y": -5.413302135397132,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Часть башни2",
-      "layer": 0,
+      "layer": 2,
       "filled": true,
-      "param_overrides": {
-        "height": -1.5430870443393427
-      },
-      "attach_to": "c_bac6f0f4",
+      "param_overrides": {},
+      "attach_to": "c_b258ce26",
       "attach_anchor": "bottom",
       "parent_anchor": "top"
     }

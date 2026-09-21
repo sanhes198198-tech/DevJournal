@@ -148,6 +148,14 @@ class ConstructorWindow(QMainWindow):
 
         tb.addSeparator()
 
+        self._act_preview = QAction("Просмотр", self)
+        self._act_preview.setCheckable(True)
+        self._act_preview.setShortcut(QKeySequence("F2"))
+        self._act_preview.triggered.connect(self._on_toggle_preview)
+        tb.addAction(self._act_preview)
+
+        tb.addSeparator()
+
         act_rules = QAction("Правила", self)
         act_rules.setShortcut(QKeySequence("Ctrl+R"))
         act_rules.triggered.connect(self._on_rules_clicked)
@@ -267,6 +275,10 @@ class ConstructorWindow(QMainWindow):
 
     def _on_add_asset(self, asset_id: str) -> None:
         """Двойной клик в палитре — добавить компонент на сцену."""
+        # Если в preview — выйти
+        if self._preview_mode:
+            self._exit_preview()
+
         if self._registry is None:
             self.statusBar().showMessage("Реестр ассетов недоступен", 3000)
             return
@@ -350,6 +362,11 @@ class ConstructorWindow(QMainWindow):
             )
             return
 
+        # Обновить реестр и палитру — новый/изменённый ассет
+        if self._registry is not None:
+            self._registry.load_all()
+        self._load_assets()
+
         self.statusBar().showMessage(
             f"Сохранено: {self._current_asset_name}", 3000,
         )
@@ -383,6 +400,11 @@ class ConstructorWindow(QMainWindow):
         self._current_asset_id = new_asset.id
         self._current_asset_name = name
         self._update_title()
+
+        # Обновить реестр и палитру — новый ассет
+        if self._registry is not None:
+            self._registry.load_all()
+        self._load_assets()
 
         self.statusBar().showMessage(
             f"Создан: {name} (id={new_asset.id[:8]})", 3000,
@@ -1124,6 +1146,13 @@ class ConstructorWindow(QMainWindow):
 
         self._preview_mode = False
 
+        if hasattr(self, "_act_preview"):
+            self._act_preview.setChecked(False)
+
+        # Показать свойства
+        if hasattr(self, "_properties"):
+            self._properties.setEnabled(True)
+
         # Восстановить edit
         if self._edit_backup is not None:
             asset, asset_id, asset_name = self._edit_backup
@@ -1133,9 +1162,71 @@ class ConstructorWindow(QMainWindow):
         else:
             self._reset_scene()
 
+    def _on_toggle_preview(self) -> None:
+        """Переключить режим просмотра."""
+        if self._preview_mode:
+            self._act_preview.setChecked(False)
+            self._exit_preview()
+        else:
+            self._act_preview.setChecked(True)
+            self._enter_preview_mode()
+
+    def _enter_preview_mode(self) -> None:
+        """Сохранить текущий композит и очистить сцену."""
+        if not self._preview_mode:
+            self._edit_backup = (
+                self._current_composite,
+                self._current_asset_id,
+                self._current_asset_name,
+            )
+            self._preview_mode = True
+
+        self._reset_scene()
+        self._preview_mode = True
+
+        self.setWindowTitle("Constructor — Просмотр")
+        if hasattr(self, "_properties"):
+            self._properties.setEnabled(False)
+
+        self.statusBar().showMessage(
+            "Режим просмотра. Клик по ассету — показать.", 5000,
+        )
+
+    def _show_asset_preview(self, asset_id: str) -> None:
+        """Показать один ассет в режиме просмотра."""
+        if self._registry is None:
+            return
+        asset = self._registry.get(asset_id)
+        if asset is None:
+            return
+
+        for item in list(self._scene.items()):
+            self._scene.removeItem(item)
+        self._items_by_comp_id.clear()
+
+        comp = Component(
+            asset_id=asset.id,
+            x=0.0,
+            y=0.0,
+            rotation=0.0,
+            scale=1.0,
+            name=asset.name,
+        )
+        item = ComponentItem(
+            comp, asset=asset, registry=self._registry,
+        )
+        item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
+        item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
+        self._items_by_comp_id[comp.id] = item
+        self._scene.addItem(item)
+
+        self.setWindowTitle(f"Constructor — Просмотр: {asset.name}")
+        self.statusBar().showMessage(f"Просмотр: {asset.name}", 3000)
     def _on_asset_selected(self, asset_id: str) -> None:
-        """Одиночный клик — ничего. Добавление только двойным кликом."""
-        pass
+        """Одиночный клик: в режиме просмотра — показать ассет."""
+        if self._preview_mode:
+            self._show_asset_preview(asset_id)
+        # В обычном режиме — ничего
 
     def _on_mouse_moved(self, x: float, y: float) -> None:
         self.statusBar().showMessage(f"X={x:.2f} м · Y={y:.2f} м", 0)

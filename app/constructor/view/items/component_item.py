@@ -321,6 +321,30 @@ class ComponentItem(QGraphicsObject):
         pad = 2.5 if self.isSelected() else 0.3
         return r.adjusted(-pad, -pad, pad, pad)
 
+    def shape(self) -> QPainterPath:
+        """Область для клика — контур + штрих 1.5 м.
+
+        Залитый контур: клик внутри детали работает.
+        Штрих по контуру: клик рядом с тонкой линией работает.
+        Не выходит за контур — соседние детали не мешают.
+        """
+        from PySide6.QtGui import QPainterPathStroker
+
+        result = QPainterPath()
+        if self._path.isEmpty() and self._extra_path.isEmpty():
+            return result
+
+        stroker = QPainterPathStroker()
+        stroker.setWidth(1.5)
+
+        for p in (self._path, self._extra_path):
+            if p.isEmpty():
+                continue
+            result.addPath(p)
+            result.addPath(stroker.createStroke(p))
+
+        return result
+
     def paint(self, painter, option, widget=None) -> None:
         painter.setRenderHint(painter.RenderHint.Antialiasing, True)
 
