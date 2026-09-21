@@ -26,6 +26,7 @@ from .commands import (
     MoveComponentCommand,
     AddComponentCommand,
     DeleteComponentCommand,
+    SetPropertyCommand,
 )
 from PySide6.QtGui import QUndoStack
 from app.vector_editor.model import Asset, Component
@@ -509,44 +510,68 @@ class ConstructorWindow(QMainWindow):
 
         self._properties.show_component(comp, ref_asset=ref_asset)
 
+    def _apply_property(self, comp_id: str) -> None:
+        """После undo/redo свойства — обновить item + панель."""
+        comp = self._current_composite.get_component(comp_id)
+        item = self._items_by_comp_id.get(comp_id)
+        if item is not None:
+            item.apply_from_component()
+
+        if (self._properties._current_comp is not None
+                and self._properties._current_comp.id == comp_id):
+            self._properties.update_values(
+                comp.x, comp.y, comp.rotation, comp.scale,
+            )
+            if hasattr(self._properties, "_layer_spin"):
+                self._properties._muted = True
+                self._properties._layer_spin.setValue(
+                    int(getattr(comp, "layer", 0))
+                )
+                self._properties._muted = False
+
     def _on_prop_value_changed(
         self, comp_id: str, field: str, value: float,
     ) -> None:
-        """Панель изменила свойство — применить к item."""
+        """Панель изменила свойство — через undo-команду."""
         comp = self._current_composite.get_component(comp_id)
         item = self._items_by_comp_id.get(comp_id)
         if comp is None or item is None:
             return
 
-        if field == "x":
-            comp.x = value
-        elif field == "y":
-            comp.y = value
-        elif field == "rotation":
-            comp.rotation = value
-        elif field == "scale":
-            comp.scale = value
-        elif field == "layer":
-            comp.layer = int(value)
+        if field not in ("x", "y", "rotation", "scale", "layer"):
+            return
 
-        item.apply_from_component()
+        old = getattr(comp, field, None)
+        if old is None:
+            return
+
+        new = int(value) if field == "layer" else float(value)
+
+        if abs(float(old) - float(new)) < 1e-9:
+            return
+
+        cmd = SetPropertyCommand(
+            comp, field, old, new,
+            on_apply=lambda: self._apply_property(comp_id),
+        )
+        self._undo_stack.push(cmd)
 
     def _on_prop_layer_shift(
         self, comp_id: str, direction: int,
     ) -> None:
-        """Сдвинуть слой на +1 / -1."""
+        """Сдвинуть слой на +1 / -1 — через undo-команду."""
         comp = self._current_composite.get_component(comp_id)
-        item = self._items_by_comp_id.get(comp_id)
-        if comp is None or item is None:
+        if comp is None:
             return
 
-        comp.layer = int(getattr(comp, "layer", 0)) + direction
-        item.apply_from_component()
+        old = int(getattr(comp, "layer", 0))
+        new = old + int(direction)
 
-        if hasattr(self._properties, "_layer_spin"):
-            self._properties._muted = True
-            self._properties._layer_spin.setValue(int(comp.layer))
-            self._properties._muted = False
+        cmd = SetPropertyCommand(
+            comp, "layer", old, new,
+            on_apply=lambda: self._apply_property(comp_id),
+        )
+        self._undo_stack.push(cmd)
 
     def _on_prop_filled_changed(
         self, comp_id: str, filled: bool,

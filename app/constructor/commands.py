@@ -139,3 +139,39 @@ class DeleteComponentCommand(QUndoCommand):
     def undo(self) -> None:
         self._composite.add_component(self._comp)
         self._on_create_item(self._comp)
+
+class SetPropertyCommand(QUndoCommand):
+    """Универсальная команда для скалярных полей Component.
+
+    Используется для x/y/rotation/scale/layer — когда значение
+    меняется из панели свойств (спинбоксы).
+
+    mergeWith объединяет подряд идущие изменения одного поля,
+    чтобы Ctrl+Z откатывал всю серию за один раз.
+    """
+
+    def __init__(
+        self,
+        target,
+        field: str,
+        old_value,
+        new_value,
+        on_apply,
+    ):
+        super().__init__(f"Изменить {field}")
+        self._target = target
+        self._field = field
+        self._old = old_value
+        self._new = new_value
+        self._on_apply = on_apply
+
+    def redo(self) -> None:
+        setattr(self._target, self._field, self._new)
+        self._on_apply()
+
+    def undo(self) -> None:
+        setattr(self._target, self._field, self._old)
+        self._on_apply()
+
+    # mergeWith НЕ реализуем — каждая команда отдельная,
+    # чтобы Ctrl+Z откатывал по одному шагу.
