@@ -1,5 +1,5 @@
 """
-AssetPalette — дерево Asset'ов с папками для Constructor.
+AssetPalette — дерево Asset'ов с папками (вложенные).
 Структура папок хранится в _folders.json.
 """
 from __future__ import annotations
@@ -27,6 +27,12 @@ def _load_folders() -> dict:
             return {"folders": {}, "placement": {}}
         data.setdefault("folders", {})
         data.setdefault("placement", {})
+        # Миграция: у папок без parent → parent = None
+        for fid, fdata in data["folders"].items():
+            if not isinstance(fdata, dict):
+                data["folders"][fid] = {"name": "Папка", "parent": None}
+            else:
+                fdata.setdefault("parent", None)
         return data
     except Exception:
         return {"folders": {}, "placement": {}}
@@ -45,38 +51,34 @@ def _save_folders(data: dict) -> None:
 class _AssetTree(QTreeWidget):
     """QTreeWidget с кастомным drop для сохранения id."""
 
-    dropped = Signal(list, object)  # (moving_ids, target_folder_id|None)
+    dropped = Signal(list, object)  # (moving_ids, target_id|None)
 
     def dropEvent(self, event) -> None:
         target = self.itemAt(event.position().toPoint())
 
-        target_folder_id = None
+        target_id = None
         if target is not None:
-            nid = target.data(0, Qt.ItemDataRole.UserRole)
-            if nid and isinstance(nid, str) and nid.startswith("f_"):
-                target_folder_id = nid
-            elif nid:
-                parent = target.parent()
-                if parent is not None:
-                    pfid = parent.data(0, Qt.ItemDataRole.UserRole)
-                    if pfid and isinstance(pfid, str) and pfid.startswith("f_"):
-                        target_folder_id = pfid
+            target_id = target.data(0, Qt.ItemDataRole.UserRole)
 
         moving_ids = []
         for it in self.selectedItems():
             nid = it.data(0, Qt.ItemDataRole.UserRole)
-            if nid and isinstance(nid, str) and not nid.startswith("f_"):
+            if isinstance(nid, str):
                 moving_ids.append(nid)
 
-        print(f"[DROP] target_folder={target_folder_id} moving={moving_ids}")
+        print(f"[DROP] target={target_id} moving={moving_ids}")
 
         if not moving_ids:
             event.ignore()
             return
 
-        # НЕ вызываем super().dropEvent — сами управляем
+        # Не даём ронять папку в саму себя
+        if target_id in moving_ids:
+            event.ignore()
+            return
+
         event.accept()
-        self.dropped.emit(moving_ids, target_folder_id)
+        self.dropped.emit(moving_ids, target_id)
 
 
 class AssetPalette(QWidget):
@@ -138,7 +140,7 @@ class AssetPalette(QWidget):
         hint = QLabel(
             "Двойной клик — добавить\n"
             "F2 или ПКМ — переименовать\n"
-            "Drag — переместить в папку"
+            "Drag — переместить"
         )
         hint.setStyleSheet("color: #888888; font-size: 10px;")
         layout.addWidget(hint)
@@ -164,18 +166,55 @@ class AssetPalette(QWidget):
         btn_del.clicked.connect(self._on_delete_clicked)
         layout.addWidget(btn_del)
 
-    def _on_dropped(self, moving_ids: list, target_folder_id) -> None:
-        print(f"[PALETTE] _on_dropped: moving={moving_ids} "
-              f"target={target_folder_id}")
+    def _on_dropped(self, moving_ids: list, target_id) -> None:
+        print(f"[PALETTE] _on_dropped: moving={moving_ids} target={target_id}")
+
+        # Разделяем на ассеты и папки
+        folders = self._folders.get("folders", {})
         placement = self._folders.setdefault("placement", {})
-        for aid in moving_ids:
-            if target_folder_id:
-                placement[aid] = target_folder_id
+
+        # target_id может быть ассетом → берём его родителя-папку
+        target_folder_id = None
+        if target_id:
+            if target_id.startswith("f_"):
+                target_folder_id = target_id
             else:
-                placement.pop(aid, None)
+                # target — ассет → в его папку
+                target_folder_id = placement.get(target_id)
+
+        for mid in moving_ids:
+            if mid.startswith("f_"):
+                # Перемещение папки — меняем parent
+                if mid == target_folder_id:
+                    continue
+                # Проверка цикла: target_folder_id не должен быть потомком mid
+                if target_folder_id is not None:
+                    if self._is_descendant(target_folder_id, mid):
+                        continue
+                folders[mid]["parent"] = target_folder_id
+            else:
+                # Перемещение ассета
+                if target_folder_id:
+                    placement[mid] = target_folder_id
+                else:
+                    placement.pop(mid, None)
+
         _save_folders(self._folders)
         self._rebuild_tree()
         self._select_by_ids(moving_ids)
+
+    def _is_descendant(self, maybe_child_fid: str, ancestor_fid: str) -> bool:
+        """True, если maybe_child находится внутри ancestor (или = ancestor)."""
+        folders = self._folders.get("folders", {})
+        cur = maybe_child_fid
+        seen = set()
+        while cur and cur not in seen:
+            if cur == ancestor_fid:
+                return True
+            seen.add(cur)
+            fdata = folders.get(cur) or {}
+            cur = fdata.get("parent")
+        return False
 
     def set_assets(self, assets: list) -> None:
         self._assets_cache = list(assets)
@@ -205,13 +244,16 @@ class AssetPalette(QWidget):
             parent.addChild(item)
 
     def _rebuild_tree(self) -> None:
+        # Запомнить раскрытые папки
         expanded = set()
+        def walk_expand(item):
+            fid = self._get_item_id(item)
+            if isinstance(fid, str) and fid.startswith("f_") and item.isExpanded():
+                expanded.add(fid)
+            for j in range(item.childCount()):
+                walk_expand(item.child(j))
         for i in range(self._tree.topLevelItemCount()):
-            it = self._tree.topLevelItem(i)
-            if it.isExpanded():
-                fid = self._get_item_id(it)
-                if isinstance(fid, str) and fid.startswith("f_"):
-                    expanded.add(fid)
+            walk_expand(self._tree.topLevelItem(i))
 
         self._tree.blockSignals(True)
         self._tree.clear()
@@ -219,20 +261,27 @@ class AssetPalette(QWidget):
         folders = self._folders.get("folders", {})
         placement = self._folders.get("placement", {})
 
-        assets_in_folder = {fid: [] for fid in folders}
+        # Индекс: parent_fid → [child_fids]
+        children_of = {None: []}
+        for fid, fdata in folders.items():
+            p = fdata.get("parent")
+            if p and p not in folders:
+                p = None
+            children_of.setdefault(p, []).append(fid)
+
+        # Индекс: folder_fid → [asset_objects]
+        assets_in = {fid: [] for fid in folders}
         root_assets = []
         for a in self._assets_cache:
             fid = placement.get(a.id)
             if fid and fid in folders:
-                assets_in_folder[fid].append(a)
+                assets_in[fid].append(a)
             else:
                 root_assets.append(a)
 
-        folder_items = {}
-        for fid, fdata in sorted(
-            folders.items(),
-            key=lambda kv: (kv[1].get("name") or "").lower(),
-        ):
+        # Рекурсивное построение
+        def build_folder(fid, parent_item):
+            fdata = folders[fid]
             item = QTreeWidgetItem([fdata.get("name", "Папка")])
             item.setData(0, Qt.ItemDataRole.UserRole, fid)
             item.setFlags(
@@ -241,23 +290,49 @@ class AssetPalette(QWidget):
                 | Qt.ItemFlag.ItemIsDropEnabled
                 | Qt.ItemFlag.ItemIsDragEnabled
             )
-            self._tree.addTopLevelItem(item)
-            folder_items[fid] = item
+            if parent_item is None:
+                self._tree.addTopLevelItem(item)
+            else:
+                parent_item.addChild(item)
 
-        for fid, items in assets_in_folder.items():
-            parent = folder_items.get(fid)
-            if parent is None:
-                continue
-            for a in items:
-                self._add_asset_item(parent, a)
+            # Вложенные папки
+            for child_fid in sorted(
+                children_of.get(fid, []),
+                key=lambda x: (folders[x].get("name") or "").lower(),
+            ):
+                build_folder(child_fid, item)
 
-        for a in root_assets:
+            # Ассеты
+            for a in sorted(
+                assets_in.get(fid, []),
+                key=lambda x: (x.name or "").lower(),
+            ):
+                self._add_asset_item(item, a)
+
+            return item
+
+        # Корневые папки + корневые ассеты
+        root_folder_items = {}
+        for fid in sorted(
+            children_of.get(None, []),
+            key=lambda x: (folders[x].get("name") or "").lower(),
+        ):
+            root_folder_items[fid] = build_folder(fid, None)
+
+        for a in sorted(
+            root_assets, key=lambda x: (x.name or "").lower(),
+        ):
             self._add_asset_item(None, a)
 
-        for fid in expanded:
-            parent = folder_items.get(fid)
-            if parent is not None:
-                parent.setExpanded(True)
+        # Восстановить раскрытые
+        def walk_restore(item):
+            fid = self._get_item_id(item)
+            if isinstance(fid, str) and fid.startswith("f_") and fid in expanded:
+                item.setExpanded(True)
+            for j in range(item.childCount()):
+                walk_restore(item.child(j))
+        for i in range(self._tree.topLevelItemCount()):
+            walk_restore(self._tree.topLevelItem(i))
 
         self._tree.blockSignals(False)
 
@@ -288,6 +363,12 @@ class AssetPalette(QWidget):
             self.asset_add_requested.emit(nid)
 
     def _on_new_folder(self) -> None:
+        # Если выделена папка — она родитель новой
+        parent_fid = None
+        folder_ids = self._get_selected_folders()
+        if folder_ids:
+            parent_fid = folder_ids[0]
+
         name, ok = QInputDialog.getText(
             self, "Новая папка", "Имя папки:",
         )
@@ -298,29 +379,84 @@ class AssetPalette(QWidget):
             return
 
         fid = "f_" + uuid.uuid4().hex[:8]
-        self._folders.setdefault("folders", {})[fid] = {"name": name}
+        self._folders.setdefault("folders", {})[fid] = {
+            "name": name,
+            "parent": parent_fid,
+        }
         _save_folders(self._folders)
         self._rebuild_tree()
+
+    def _folder_size(self, fid: str) -> dict:
+        """Сколько вложенных папок и ассетов внутри (рекурсивно)."""
+        folders = self._folders.get("folders", {})
+        placement = self._folders.get("placement", {})
+
+        n_folders = 0
+        n_assets = 0
+
+        def walk(f):
+            nonlocal n_folders, n_assets
+            for cfid, cfdata in folders.items():
+                if cfdata.get("parent") == f:
+                    n_folders += 1
+                    walk(cfid)
+            for aid, pfid in placement.items():
+                if pfid == f:
+                    n_assets += 1
+
+        walk(fid)
+        return {"folders": n_folders, "assets": n_assets}
 
     def _on_delete_clicked(self) -> None:
         folder_ids = self._get_selected_folders()
         if folder_ids:
+            # Посчитать содержимое
+            total_folders = 0
+            total_assets = 0
+            for fid in folder_ids:
+                sz = self._folder_size(fid)
+                total_folders += 1 + sz["folders"]
+                total_assets += sz["assets"]
+
+            msg = f"Удалить {len(folder_ids)} папок?"
+            if total_folders > len(folder_ids) or total_assets > 0:
+                msg += (
+                    f"\n\nВнутри: {total_folders - len(folder_ids)} "
+                    f"вложенных папок, {total_assets} ассетов.\n"
+                    f"Ассеты вернутся в корень."
+                )
+
             reply = QMessageBox.question(
-                self, "Удалить папки",
-                f"Удалить {len(folder_ids)} папок? "
-                f"Содержимое вернётся в корень.",
+                self, "Удалить папки", msg,
                 QMessageBox.StandardButton.Yes
                 | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )
             if reply != QMessageBox.StandardButton.Yes:
                 return
+
+            folders = self._folders.get("folders", {})
+            placement = self._folders.get("placement", {})
+
+            # Собрать все вложенные папки
+            to_remove = set()
+            def collect(fid):
+                to_remove.add(fid)
+                for cfid, cfdata in folders.items():
+                    if cfdata.get("parent") == fid:
+                        collect(cfid)
+
             for fid in folder_ids:
-                self._folders.get("folders", {}).pop(fid, None)
-                placement = self._folders.get("placement", {})
-                for aid, pfid in list(placement.items()):
-                    if pfid == fid:
-                        placement.pop(aid, None)
+                collect(fid)
+
+            for fid in to_remove:
+                folders.pop(fid, None)
+
+            # Ассеты из удалённых папок → в корень
+            for aid, pfid in list(placement.items()):
+                if pfid in to_remove:
+                    placement.pop(aid, None)
+
             _save_folders(self._folders)
             self._rebuild_tree()
             return
@@ -339,6 +475,10 @@ class AssetPalette(QWidget):
             nid = self._get_item_id(item)
             if isinstance(nid, str) and nid.startswith("f_"):
                 menu.addAction(
+                    "Новая папка внутри",
+                    lambda: self._new_folder_inside(nid),
+                )
+                menu.addAction(
                     "Переименовать папку",
                     lambda: self._rename_folder(nid),
                 )
@@ -352,6 +492,25 @@ class AssetPalette(QWidget):
 
         if menu.actions():
             menu.exec(self._tree.mapToGlobal(pos))
+
+    def _new_folder_inside(self, parent_fid: str) -> None:
+        folders = self._folders.get("folders", {})
+        if parent_fid not in folders:
+            return
+
+        name, ok = QInputDialog.getText(
+            self, "Новая папка", "Имя папки:",
+        )
+        if not ok or not name.strip():
+            return
+
+        fid = "f_" + uuid.uuid4().hex[:8]
+        folders[fid] = {
+            "name": name.strip(),
+            "parent": parent_fid,
+        }
+        _save_folders(self._folders)
+        self._rebuild_tree()
 
     def _rename_folder(self, fid: str) -> None:
         fdata = self._folders.get("folders", {}).get(fid)
