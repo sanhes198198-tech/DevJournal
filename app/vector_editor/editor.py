@@ -22,6 +22,9 @@ from PySide6.QtWidgets import (
     QSplitter,
     QToolBar,
     QStatusBar,
+    QSizePolicy,
+    QPushButton,
+    QWidget,
     QFileDialog,
     QLabel,
 )
@@ -38,6 +41,7 @@ from .io import (
 from .view.scene import VectorScene
 from .view.canvas import VectorCanvas
 from .view.asset_browser import AssetBrowser
+from .view.scale_dialog import ScaleDialog
 from .view.semantic_groups_panel import SemanticGroupsPanel
 from .view.arc_dialog import ArcDialog
 from .view.parameters_panel import ParametersPanel
@@ -172,10 +176,12 @@ class VectorEditor(QMainWindow):
         )
         self.statusBar().addPermanentWidget(self._size_label)
 
+
     def _build_toolbar(self) -> None:
         tb = QToolBar("Main", self)
         tb.setMovable(False)
         self.addToolBar(tb)
+        self._toolbar = tb
 
         act_new = QAction("Новый", self)
         act_new.setShortcut(QKeySequence.StandardKey.New)
@@ -361,6 +367,26 @@ class VectorEditor(QMainWindow):
         )
         act_dist_y.triggered.connect(self._distribute_y)
         tb.addAction(act_dist_y)
+
+        tb.addSeparator()
+
+        act_scale = QAction("📐 Масштаб", self)
+        act_scale.setToolTip(
+            "Пропорционально масштабировать контур до заданного размера"
+        )
+        act_scale.triggered.connect(self._on_scale_clicked)
+        tb.addAction(act_scale)
+
+        # Список «дополнительных» actions — их можно скрывать
+        self._extra_actions = [
+            act_stretch,
+            act_arc,
+            act_align_x,
+            act_align_y,
+            act_dist_x,
+            act_dist_y,
+            act_scale,
+        ]
 
     def _on_arc_clicked(self) -> None:
         """Изогнуть выделенное ребро (main или extra)."""
@@ -1961,6 +1987,80 @@ class VectorEditor(QMainWindow):
         w = max(xs) - min(xs)
         h = max(ys) - min(ys)
         self._size_label.setText(f"Размер: {w:.2f} × {h:.2f} м")
+
+    def _on_scale_clicked(self) -> None:
+        """Масштабировать контур пропорционально."""
+        if self._contour_item is None:
+            self.statusBar().showMessage(
+                "Сначала открой ассет", 3000,
+            )
+            return
+
+        c = self._contour_item.contour
+        all_pts = list(c.points) + list(c.extra_points)
+        if not all_pts:
+            self.statusBar().showMessage(
+                "Контур пустой", 3000,
+            )
+            return
+
+        xs = [p[0] for p in all_pts]
+        ys = [p[1] for p in all_pts]
+        w = max(xs) - min(xs)
+        h = max(ys) - min(ys)
+        if w < 1e-9 and h < 1e-9:
+            self.statusBar().showMessage(
+                "Контур вырожденный", 3000,
+            )
+            return
+
+        dlg = ScaleDialog(w, h, self)
+        if dlg.exec() != ScaleDialog.DialogCode.Accepted:
+            return
+
+        target_w = dlg.result_w
+        target_h = dlg.result_h
+        if target_w <= 0 or target_h <= 0:
+            return
+
+        kx = target_w / w if w > 1e-9 else 1.0
+        ky = target_h / h if h > 1e-9 else 1.0
+
+        min_x = min(xs)
+        min_y = min(ys)
+
+        self._push_contour_snapshot()
+
+        def scale_pt(p):
+            return (
+                min_x + (p[0] - min_x) * kx,
+                min_y + (p[1] - min_y) * ky,
+            )
+
+        c.points = [scale_pt(p) for p in c.points]
+        c.extra_points = [scale_pt(p) for p in c.extra_points]
+
+        self._contour_item._rebuild_nodes()
+        self._contour_item._rebuild_extra_nodes()
+        self._contour_item._rebuild_path()
+        self._mark_modified()
+
+        self.statusBar().showMessage(
+            f"Масштабировано: {target_w:.2f} × {target_h:.2f} м", 3000,
+        )
+
+    def _toggle_extra_actions(self, checked: bool) -> None:
+        """Показать / скрыть дополнительные кнопки."""
+        actions = getattr(self, "_extra_actions", [])
+        tb = getattr(self, "_toolbar", None)
+        if tb is None:
+            return
+        if checked:
+            for a in actions:
+                tb.addAction(a)
+        else:
+            for a in actions:
+                tb.removeAction(a)
 
     def _on_undo(self) -> None:
         if not self._undo_stack:

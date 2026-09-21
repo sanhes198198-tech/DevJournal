@@ -128,6 +128,7 @@ class SidebarHoverController(QFrame):
         )
 
         self._expanded = False
+        self._pinned = False
 
         self.move(
             0,
@@ -145,6 +146,14 @@ class SidebarHoverController(QFrame):
         self._position_handle()
 
         self.handle.raise_()
+
+    def toggle_pin(self) -> None:
+        """Переключить закрепление панели."""
+        self._pinned = not self._pinned
+        if self._pinned:
+            self.show_sidebar()
+        else:
+            self._check_mouse_position()
 
     def _position_handle(
         self,
@@ -164,7 +173,7 @@ class SidebarHoverController(QFrame):
             handle_y,
         )
 
-        if not self._expanded:
+        if not self._expanded and not self._pinned:
             self.handle.show()
             self.handle.raise_()
 
@@ -196,6 +205,9 @@ class SidebarHoverController(QFrame):
     def hide_sidebar(
         self,
     ):
+        if self._pinned:
+            return
+
         if not self._expanded:
             return
 
@@ -273,6 +285,10 @@ class SidebarHoverController(QFrame):
     def _check_mouse_position(
         self,
     ):
+        if self._pinned:
+            self.show_sidebar()
+            return
+
         cursor_pos = self.window.mapFromGlobal(
             self.window.cursor().pos()
         )
@@ -403,6 +419,48 @@ def build_sidebar(
 
     sidebar_layout.addWidget(
         window.project_name_label
+    )
+
+    # Кнопка «Закрепить»
+    window.pin_button = QPushButton("📌 Закрепить")
+    window.pin_button.setCursor(
+        Qt.CursorShape.PointingHandCursor
+    )
+    window.pin_button.setCheckable(True)
+    window.pin_button.setStyleSheet(
+        """
+        QPushButton {
+            text-align: left;
+            padding: 6px 10px;
+            border: 1px solid #DCDCD7;
+            border-radius: 4px;
+            background: #FFFFFF;
+            color: #333;
+            font-size: 11px;
+        }
+        QPushButton:hover {
+            background: #F2F2EF;
+        }
+        QPushButton:checked {
+            background: #E8F0FE;
+            color: #0055CC;
+            border-color: #0055CC;
+        }
+        """
+    )
+
+    def _toggle_pin(checked=False):
+        ctrl = getattr(window, "sidebar_hover_controller", None)
+        if ctrl is not None:
+            ctrl.toggle_pin()
+            window.pin_button.setText(
+                "📌 Закреплено" if ctrl._pinned else "📌 Закрепить"
+            )
+
+    window.pin_button.clicked.connect(_toggle_pin)
+
+    sidebar_layout.addWidget(
+        window.pin_button
     )
 
     sidebar_layout.addSpacing(
