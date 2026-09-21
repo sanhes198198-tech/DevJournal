@@ -365,9 +365,7 @@ class ConstructorWindow(QMainWindow):
         # Применить правила сразу при загрузке
         self._apply_visibility_rules()
 
-        # V11d: применить reflow ко всем привязанным после загрузки
-        for cid in list(self._items_by_comp_id.keys()):
-            self._reflow_children(cid)
+
 
     # ============================================================
     # NAVIGATION (вход в composite)

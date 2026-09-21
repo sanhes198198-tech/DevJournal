@@ -142,6 +142,7 @@ class ComponentItem(QGraphicsObject):
 
         g = asset.geometry
         contour = list(g.get("contour", []))
+        orig_contour = list(contour)  # база для центра (до override)
         node_ids = list(g.get("node_ids", []))
         extra_pts = list(g.get("extra_points", []))
         extra_ids = list(g.get("extra_node_ids", []))
@@ -210,6 +211,7 @@ class ComponentItem(QGraphicsObject):
                     continue
                 sub_main, sub_extra, _ = self._collect_asset_paths(
                     sub, depth + 1,
+                    param_overrides=comp.param_overrides,
                 )
 
                 t = QTransform()
@@ -222,18 +224,16 @@ class ComponentItem(QGraphicsObject):
                 if not sub_extra.isEmpty():
                     extra.addPath(t.map(sub_extra))
 
-        # --- Центрируем по общему bbox и возвращаем центр ---
-        # Центр — только по main-контуру.
-        # Extra (якоря, декор) НЕ влияет на bbox — иначе
-        # далёкая якорная точка сдвигает весь item.
-        r = QRectF()
-        if not main.isEmpty():
-            r = main.boundingRect()
-
-        if not r.isEmpty():
+        # --- Центрируем по БАЗОВОМУ bbox (до override) ---
+        # Фикс: центр не должен сдвигаться при растяжении.
+        # Иначе низ детали (привязанный к родителю) уезжает —
+        # и вся цепочка внизу едет за ним.
+        if orig_contour:
+            xs = [float(p[0]) for p in orig_contour]
+            ys = [float(p[1]) for p in orig_contour]
+            cx = (min(xs) + max(xs)) / 2
+            cy = (min(ys) + max(ys)) / 2
             from PySide6.QtGui import QTransform
-            cx = r.center().x()
-            cy = r.center().y()
             shift = QTransform()
             shift.translate(-cx, -cy)
             main = shift.map(main)

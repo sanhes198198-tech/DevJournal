@@ -1,0 +1,42 @@
+{
+  "id": "142981753d8e",
+  "name": "Новый замок",
+  "type": "tower_body",
+  "geometry": {
+    "contour": [],
+    "closed": true,
+    "units": "m",
+    "node_ids": [],
+    "groups": {},
+    "extra_edges": [],
+    "extra_points": [],
+    "extra_node_ids": []
+  },
+  "components": {
+    "c_2be125e8": {
+      "id": "c_2be125e8",
+      "asset_id": "bf308b782884",
+      "x": 0.2,
+      "y": 0.0,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "ТЕСТ 6",
+      "layer": 0,
+      "filled": false,
+      "param_overrides": {},
+      "attach_to": "",
+      "attach_anchor": "",
+      "parent_anchor": ""
+    }
+  },
+  "visibility_rules": {},
+  "semantic_groups": {},
+  "parameters": {},
+  "reference_image": null,
+  "generation_rules": {
+    "allow_width_variation": false,
+    "allow_height_variation": false,
+    "irregularity": 0.0,
+    "repeatable": false
+  }
+}
