@@ -33,6 +33,10 @@ class VectorContour:
     # Живут отдельно, main не трогают. id с префиксом "e_".
     extra_points: list[tuple[float, float]] = field(default_factory=list)
     extra_node_ids: list[str] = field(default_factory=list)
+    # Кривизна рёбер: {(node_a, node_b): bulge}
+    # bulge=0 → прямой отрезок, >0/<0 → выпуклый в разные стороны
+    # Ключ — упорядоченная пара соседей (порядок как в контуре)
+    arcs: dict[tuple[str, str], float] = field(default_factory=dict)
 
     def __post_init__(self):
         if self.points and not self.node_ids:
@@ -108,6 +112,11 @@ class VectorContour:
                 for (a, b) in self.extra_edges
                 if a != removed_id and b != removed_id
             ]
+            # Убрать arcs, ссылающиеся на удалённый узел
+            self.arcs = {
+                (a, b): v for (a, b), v in self.arcs.items()
+                if a != removed_id and b != removed_id
+            }
 
     def get_node_id(self, idx: int) -> str | None:
         if 0 <= idx < len(self.node_ids):
@@ -329,6 +338,45 @@ class VectorContour:
 
         return problems
 
+    # ------------------------------------------------------------
+    # ARCS (кривизна рёбер)
+    # ------------------------------------------------------------
+
+    def set_arc(self, a_id: str, b_id: str, bulge: float) -> None:
+        """Установить кривизну ребра. bulge=0 → удалить (прямой)."""
+        if not a_id or not b_id or a_id == b_id:
+            return
+        if abs(bulge) < 1e-9:
+            self.remove_arc(a_id, b_id)
+            return
+        # Нормализуем: убираем старую запись в обратном порядке
+        self.arcs.pop((b_id, a_id), None)
+        self.arcs[(a_id, b_id)] = float(bulge)
+
+    def get_arc(self, a_id: str, b_id: str) -> float:
+        """Кривизна ребра (0 если прямой)."""
+        if (a_id, b_id) in self.arcs:
+            return self.arcs[(a_id, b_id)]
+        if (b_id, a_id) in self.arcs:
+            return self.arcs[(b_id, a_id)]
+        return 0.0
+
+    def has_arc(self, a_id: str, b_id: str) -> bool:
+        return (a_id, b_id) in self.arcs or (b_id, a_id) in self.arcs
+
+    def remove_arc(self, a_id: str, b_id: str) -> bool:
+        """Убрать кривизну. True если что-то было."""
+        if (a_id, b_id) in self.arcs:
+            self.arcs.pop((a_id, b_id))
+            return True
+        if (b_id, a_id) in self.arcs:
+            self.arcs.pop((b_id, a_id))
+            return True
+        return False
+
+    def clear_arcs(self) -> None:
+        self.arcs.clear()
+
     def snapshot(self) -> dict:
         """Полный снимок состояния контура для undo."""
         return {
@@ -337,6 +385,7 @@ class VectorContour:
             "extra_edges": list(self.extra_edges),
             "extra_points": list(self.extra_points),
             "extra_node_ids": list(self.extra_node_ids),
+            "arcs": dict(self.arcs),
         }
 
     def restore(self, snap: dict) -> None:
@@ -348,6 +397,7 @@ class VectorContour:
         self.extra_node_ids = list(
             snap.get("extra_node_ids", [])
         )
+        self.arcs = dict(snap.get("arcs", {}))
 
     def count(self) -> int:
         return len(self.points)
@@ -483,6 +533,9 @@ class VectorContour:
                 [x, y] for (x, y) in self.extra_points
             ],
             "extra_node_ids": list(self.extra_node_ids),
+            "arcs": [
+                [a, b, v] for (a, b), v in self.arcs.items()
+            ],
         }
 
     @classmethod
@@ -555,6 +608,27 @@ class VectorContour:
 
             extra_edges.append((a, b))
 
+        # Парсим arcs: [[a, b, bulge], ...]
+        raw_arcs = d.get("arcs") or []
+        arcs: dict[tuple[str, str], float] = {}
+        for raw in raw_arcs:
+            if not isinstance(raw, (list, tuple)) or len(raw) != 3:
+                continue
+            a, b, v = raw
+            if not isinstance(a, str) or not isinstance(b, str):
+                continue
+            if a == b:
+                continue
+            if a not in valid_ids or b not in valid_ids:
+                continue
+            try:
+                bulge = float(v)
+            except (TypeError, ValueError):
+                continue
+            if abs(bulge) < 1e-9:
+                continue
+            arcs[(a, b)] = bulge
+
         return cls(
             points=pts,
             node_ids=nids,
@@ -563,6 +637,7 @@ class VectorContour:
             extra_edges=extra_edges,
             extra_points=extra_pts,
             extra_node_ids=extra_nids,
+            arcs=arcs,
         )
 
     @classmethod

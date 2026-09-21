@@ -38,6 +38,7 @@ from .view.scene import VectorScene
 from .view.canvas import VectorCanvas
 from .view.asset_browser import AssetBrowser
 from .view.semantic_groups_panel import SemanticGroupsPanel
+from .view.arc_dialog import ArcDialog
 from .view.parameters_panel import ParametersPanel
 from .view.stretch_dialog import StretchDialog
 from .model.parameter import (
@@ -54,6 +55,29 @@ from .model.reference_image import ReferenceImage
 
 
 EXTRUDE_TEST_DISTANCE = 2.0
+
+
+def _parse_arcs(raw) -> dict:
+    """Разобрать arcs из JSON: [[a, b, bulge], ...]."""
+    result = {}
+    if not isinstance(raw, list):
+        return result
+    for item in raw:
+        if not isinstance(item, (list, tuple)) or len(item) != 3:
+            continue
+        a, b, v = item
+        if not isinstance(a, str) or not isinstance(b, str):
+            continue
+        if a == b:
+            continue
+        try:
+            bulge = float(v)
+        except (TypeError, ValueError):
+            continue
+        if abs(bulge) < 1e-9:
+            continue
+        result[(a, b)] = bulge
+    return result
 
 
 class VectorEditor(QMainWindow):
@@ -293,6 +317,71 @@ class VectorEditor(QMainWindow):
         )
         act_stretch.triggered.connect(self._on_stretch)
         tb.addAction(act_stretch)
+
+        act_arc = QAction("🎯 Изогнуть", self)
+        act_arc.setToolTip(
+            "Изогнуть выделенное ребро (или ПКМ по ребру)"
+        )
+        act_arc.triggered.connect(self._on_arc_clicked)
+        tb.addAction(act_arc)
+
+    def _on_arc_clicked(self) -> None:
+        """Изогнуть выделенное ребро (main или extra)."""
+        if self._contour_item is None:
+            self.statusBar().showMessage(
+                "Сначала открой ассет", 3000,
+            )
+            return
+
+        item = self._contour_item
+        contour = item.contour
+
+        edge_idx = item.selected_edge_idx
+        extra = item.selected_extra()
+
+        if edge_idx is None and extra is None:
+            self.statusBar().showMessage(
+                "Кликни по грани контура (линия), потом Изогнуть",
+                4000,
+            )
+            return
+
+        if extra is not None:
+            a_id, b_id = extra
+        else:
+            n = len(contour.points)
+            if not (0 <= edge_idx < n):
+                return
+            ids = contour.node_ids
+            a_id = ids[edge_idx] if edge_idx < len(ids) else None
+            b_id = ids[(edge_idx + 1) % n] if (edge_idx + 1) % n < len(ids) else None
+            if a_id is None or b_id is None:
+                return
+
+        current = contour.get_arc(a_id, b_id)
+
+        dlg = ArcDialog(current, self)
+
+        def on_changed(v):
+            contour.set_arc(a_id, b_id, v)
+            item._rebuild_path()
+
+        dlg.value_changed.connect(on_changed)
+
+        result = dlg.exec()
+
+        if result != ArcDialog.DialogCode.Accepted:
+            contour.set_arc(a_id, b_id, current)
+            item._rebuild_path()
+            return
+
+        final = dlg.value()
+        contour.set_arc(a_id, b_id, final)
+        item._rebuild_path()
+
+        self.statusBar().showMessage(
+            f"Изогнуто: {final:+.2f}", 3000,
+        )
 
     def _connect_signals(self) -> None:
         self._canvas.contour_created.connect(self._on_contour_created)
@@ -1333,6 +1422,7 @@ class VectorEditor(QMainWindow):
             extra_node_ids=list(
                 geometry.get("extra_node_ids", [])
             ),
+            arcs=_parse_arcs(geometry.get("arcs")),
         )
 
         # Автоочистка: если старый JSON битый (дубли, висящие

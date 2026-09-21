@@ -1,0 +1,72 @@
+{
+  "id": "e7e2065b393f",
+  "name": "Тест дуги",
+  "type": "other",
+  "geometry": {
+    "contour": [
+      [
+        0.0,
+        0.0
+      ],
+      [
+        10.0,
+        0.0
+      ],
+      [
+        10.0,
+        10.0
+      ],
+      [
+        0.0,
+        10.0
+      ]
+    ],
+    "closed": true,
+    "units": "m",
+    "node_ids": [
+      "n_000",
+      "n_001",
+      "n_002",
+      "n_003"
+    ],
+    "groups": {
+      "edge_000": [
+        "n_000",
+        "n_001"
+      ],
+      "edge_001": [
+        "n_001",
+        "n_002"
+      ],
+      "edge_002": [
+        "n_002",
+        "n_003"
+      ],
+      "edge_003": [
+        "n_003",
+        "n_000"
+      ]
+    },
+    "extra_edges": [],
+    "extra_points": [],
+    "extra_node_ids": [],
+    "arcs": [
+      [
+        "n_000",
+        "n_001",
+        -0.41
+      ]
+    ]
+  },
+  "components": {},
+  "visibility_rules": {},
+  "semantic_groups": {},
+  "parameters": {},
+  "reference_image": null,
+  "generation_rules": {
+    "allow_width_variation": false,
+    "allow_height_variation": false,
+    "irregularity": 0.0,
+    "repeatable": false
+  }
+}

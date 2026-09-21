@@ -88,6 +88,7 @@ class Asset:
             "node_ids": [],
             "groups": {},
             "extra_edges": [],
+            "arcs": [],
             "extra_points": [],
             "extra_node_ids": [],
         }
@@ -161,6 +162,12 @@ class Asset:
                 [float(x), float(y)] for (x, y) in extra_points
             ],
             "extra_node_ids": extra_node_ids,
+            "arcs": [
+                [a, b, float(v)]
+                for (a, b), v in getattr(contour, "arcs", {}).items()
+                if a in valid_all_ids and b in valid_all_ids
+                and abs(v) > 1e-9
+            ],
         }
 
         return cls(

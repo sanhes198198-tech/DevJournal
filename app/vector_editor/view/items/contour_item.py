@@ -173,6 +173,7 @@ class ContourItem(QGraphicsObject):
         stroker = QPainterPathStroker()
         stroker.setWidth(stroke_w_m)
 
+        # self._path уже содержит дуги — используем как есть
         path = QPainterPath(self._path)
 
         for a_id, b_id in self._contour.extra_edges:
@@ -181,7 +182,8 @@ class ContourItem(QGraphicsObject):
             if p1 is None or p2 is None:
                 continue
             path.moveTo(p1[0], p1[1])
-            path.lineTo(p2[0], p2[1])
+            # Extra edges — тоже могут быть дугами
+            self._segment_to(path, a_id, b_id, p1, p2)
 
         return stroker.createStroke(path)
 
@@ -293,21 +295,70 @@ class ContourItem(QGraphicsObject):
     # REBUILD
     # ============================================================
 
+    def _segment_to(self, path, a_id, b_id, p1, p2) -> None:
+        """Добавить отрезок в path — прямой или дугу (по arcs)."""
+        bulge = 0.0
+        if a_id and b_id:
+            bulge = self._contour.get_arc(a_id, b_id)
+
+        if abs(bulge) < 1e-9:
+            path.lineTo(p2[0], p2[1])
+            return
+
+        x1, y1 = p1
+        x2, y2 = p2
+        dx = x2 - x1
+        dy = y2 - y1
+        length = (dx * dx + dy * dy) ** 0.5
+        if length < 1e-9:
+            path.lineTo(x2, y2)
+            return
+
+        # Середина
+        mx = (x1 + x2) * 0.5
+        my = (y1 + y2) * 0.5
+
+        # Перпендикуляр (нормаль)
+        nx = -dy / length
+        ny = dx / length
+
+        # Контрольная точка квадратичной Безье
+        # C = M + 2 * perp * bulge * L
+        k = 2.0 * bulge * length
+        cx = mx + nx * k
+        cy = my + ny * k
+
+        path.quadTo(cx, cy, x2, y2)
+
     def _rebuild_path(self) -> None:
         self.prepareGeometryChange()
 
         path = QPainterPath()
         pts = self._contour.points
+        n = len(pts)
         if not pts:
             self._path = path
             self.update()
             return
 
+        node_ids = self._contour.node_ids
+
         path.moveTo(pts[0][0], pts[0][1])
-        for (x, y) in pts[1:]:
-            path.lineTo(x, y)
+
         if self._contour.closed:
+            for i in range(n):
+                j = (i + 1) % n
+                a_id = node_ids[i] if i < len(node_ids) else None
+                b_id = node_ids[j] if j < len(node_ids) else None
+                # Для замыкающего ребра path уже в точке pts[0]
+                self._segment_to(path, a_id, b_id, pts[i], pts[j])
+            # После quadTo к pts[0] path уже замкнут
             path.closeSubpath()
+        else:
+            for i in range(n - 1):
+                a_id = node_ids[i] if i < len(node_ids) else None
+                b_id = node_ids[i + 1] if i + 1 < len(node_ids) else None
+                self._segment_to(path, a_id, b_id, pts[i], pts[i + 1])
 
         self._path = path
         self.update()
