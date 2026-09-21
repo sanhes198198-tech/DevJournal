@@ -56,6 +56,9 @@ class NodeItem(QGraphicsObject):
         )
 
         self.setZValue(10.0)
+        self._dragging = False
+        self._snap_enabled = True
+        self._snap_step = 0.1
         self.setPos(QPointF(x, y))
 
         self._hover = False
@@ -134,10 +137,13 @@ class NodeItem(QGraphicsObject):
     # ------------------------------------------------------------
 
     def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._dragging = True
         super().mousePressEvent(event)
         self.drag_started.emit()
 
     def mouseReleaseEvent(self, event):
+        self._dragging = False
         super().mouseReleaseEvent(event)
         self.drag_finished.emit()
 
@@ -156,7 +162,29 @@ class NodeItem(QGraphicsObject):
     # ------------------------------------------------------------
 
     def itemChange(self, change, value):
-        if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
+        if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange:
+            # Мягкий snap: прилипаем только если близко к линии сетки
+            if self._dragging and self._snap_enabled:
+                scene = self.scene()
+                ppm = 50.0
+                if scene is not None:
+                    views = scene.views()
+                    if views:
+                        ppm = abs(views[0].transform().m11()) or 50.0
+                # Порог: 3 пикселя экрана в метрах
+                threshold_m = 3.0 / ppm
+                step = self._snap_step
+
+                x = value.x()
+                y = value.y()
+                nx = round(x / step) * step
+                ny = round(y / step) * step
+                if abs(nx - x) <= threshold_m:
+                    x = nx
+                if abs(ny - y) <= threshold_m:
+                    y = ny
+                return QPointF(x, y)
+        elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
             self.node_moved.emit(self._idx, value.x(), value.y())
         elif change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
             self.update()

@@ -12,10 +12,14 @@ from PySide6.QtWidgets import QGraphicsItem, QGraphicsObject
 class ArcHandleItem(QGraphicsObject):
     """Кружок для изменения кривизны одного ребра."""
 
-    moved = Signal(int)   # индекс ребра (main)
+    moved = Signal(int)
     released = Signal(int)
 
-    RADIUS_M = 0.40   # ~20 px при ppm=50
+    # Радиус в ПИКСЕЛЯХ на экране — пересчитывается в метры динамически
+    RADIUS_PX = 8.0
+    # Ограничения в метрах (защита от экстрим-зума)
+    MIN_RADIUS_M = 0.03
+    MAX_RADIUS_M = 0.60
 
     def __init__(self, edge_index: int, x: float, y: float, parent=None):
         super().__init__(parent)
@@ -32,8 +36,6 @@ class ArcHandleItem(QGraphicsObject):
         self.setZValue(200.0)
         self.setAcceptedMouseButtons(Qt.MouseButton.LeftButton)
         self.setAcceptHoverEvents(True)
-        # Кружок рисуется всегда 8 px, независимо от зума сцены
-        # Работает в сцене (метры), не пикселях — иначе hit-test ломается
 
         self.setPos(x, y)
 
@@ -44,15 +46,63 @@ class ArcHandleItem(QGraphicsObject):
         self.prepareGeometryChange()
         self.setPos(x, y)
 
+    def radius_m(self) -> float:
+        """Текущий радиус в метрах — 8 px на экране."""
+        scene = self.scene()
+        if scene is None:
+            return 0.16
+        views = scene.views()
+        if not views:
+            return 0.16
+        ppm = abs(views[0].transform().m11()) or 50.0
+        r = self.RADIUS_PX / ppm
+        if r < self.MIN_RADIUS_M:
+            return self.MIN_RADIUS_M
+        if r > self.MAX_RADIUS_M:
+            return self.MAX_RADIUS_M
+        return r
+
+    # Радиус для клика (в пикселях) — чуть больше визуального
+    CLICK_RADIUS_PX = 14.0
+
+    def click_radius_m(self) -> float:
+        """Радиус для hit-test — 14 px на экране."""
+        scene = self.scene()
+        if scene is None:
+            return 0.28
+        views = scene.views()
+        if not views:
+            return 0.28
+        ppm = abs(views[0].transform().m11()) or 50.0
+        r = self.CLICK_RADIUS_PX / ppm
+        if r < 0.05:
+            return 0.05
+        if r > self.MAX_RADIUS_M:
+            return self.MAX_RADIUS_M
+        return r
+
     def boundingRect(self) -> QRectF:
-        r = self.RADIUS_M
-        pad = r + 0.05
-        return QRectF(-pad, -pad, 2 * pad, 2 * pad)
+        # Покрывает максимально возможный радиус + запас
+        r = self.MAX_RADIUS_M + 0.05
+        return QRectF(-r, -r, 2 * r, 2 * r)
+
+    def shape(self) -> "QPainterPath":
+        """Точная зона клика — маленький круг, не весь bbox.
+
+        Без этого Qt считает клик «по хендлу» в радиусе 0.6 м —
+        даже если визуально далеко от кружка.
+        """
+        from PySide6.QtGui import QPainterPath
+        path = QPainterPath()
+        r = self.click_radius_m()
+        path.addEllipse(QPointF(0, 0), r, r)
+        return path
 
     def paint(self, painter, option, widget=None) -> None:
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
-        r = self.RADIUS_M
+        r = self.radius_m()
+        ppm = r and (self.RADIUS_PX / r) or 50.0
 
         if self._dragging:
             pen_color = QColor("#FF6B00")
@@ -61,7 +111,7 @@ class ArcHandleItem(QGraphicsObject):
             pen_color = QColor("#0055CC")
             fill_color = QColor("#FFFFFF")
 
-        pen = QPen(pen_color, 0.03)
+        pen = QPen(pen_color, 2.0 / ppm)
         pen.setCosmetic(True)
         painter.setPen(pen)
         painter.setBrush(QBrush(fill_color))

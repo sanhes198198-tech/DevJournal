@@ -1,0 +1,82 @@
+{
+  "id": "086eaef551e8",
+  "name": "okno_bok",
+  "type": "window",
+  "geometry": {
+    "contour": [
+      [
+        3.311723284127449,
+        12.9
+      ],
+      [
+        3.386670990865339,
+        12.89059971973628
+      ],
+      [
+        3.3838819736113344,
+        12.598596996921803
+      ],
+      [
+        3.353676010571568,
+        12.499588562513681
+      ],
+      [
+        3.315079502242978,
+        12.600275105979568
+      ]
+    ],
+    "closed": true,
+    "units": "m",
+    "node_ids": [
+      "n_000",
+      "n_001",
+      "n_002",
+      "n_003",
+      "n_004"
+    ],
+    "groups": {
+      "edge_000": [
+        "n_000",
+        "n_001"
+      ],
+      "edge_001": [
+        "n_001",
+        "n_002"
+      ],
+      "edge_002": [
+        "n_002",
+        "n_003"
+      ],
+      "edge_003": [
+        "n_003",
+        "n_004"
+      ],
+      "edge_004": [
+        "n_004",
+        "n_000"
+      ]
+    },
+    "extra_edges": [],
+    "extra_points": [],
+    "extra_node_ids": [],
+    "arcs": []
+  },
+  "components": {},
+  "visibility_rules": {},
+  "semantic_groups": {},
+  "parameters": {},
+  "reference_image": {
+    "filename": "086eaef551e8_ref.png",
+    "x": 0.0,
+    "y": 0.0,
+    "pixels_per_meter": 50.0,
+    "opacity": 0.5,
+    "visible": true
+  },
+  "generation_rules": {
+    "allow_width_variation": false,
+    "allow_height_variation": false,
+    "irregularity": 0.0,
+    "repeatable": false
+  }
+}

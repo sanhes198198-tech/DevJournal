@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QToolBar,
     QStatusBar,
     QFileDialog,
+    QLabel,
 )
 
 from .model.contour import VectorContour
@@ -164,6 +165,12 @@ class VectorEditor(QMainWindow):
 
         self.setCentralWidget(splitter)
         self.setStatusBar(QStatusBar(self))
+        # V9-A1: показ размера bbox в метрах
+        self._size_label = QLabel("")
+        self._size_label.setStyleSheet(
+            "color: #888; padding-right: 12px;"
+        )
+        self.statusBar().addPermanentWidget(self._size_label)
 
     def _build_toolbar(self) -> None:
         tb = QToolBar("Main", self)
@@ -324,6 +331,36 @@ class VectorEditor(QMainWindow):
         )
         act_arc.triggered.connect(self._on_arc_clicked)
         tb.addAction(act_arc)
+
+        tb.addSeparator()
+
+        act_align_x = QAction("⇔ X", self)
+        act_align_x.setToolTip(
+            "Выровнять выделенные узлы по среднему X"
+        )
+        act_align_x.triggered.connect(self._align_x)
+        tb.addAction(act_align_x)
+
+        act_align_y = QAction("⇕ Y", self)
+        act_align_y.setToolTip(
+            "Выровнять выделенные узлы по среднему Y"
+        )
+        act_align_y.triggered.connect(self._align_y)
+        tb.addAction(act_align_y)
+
+        act_dist_x = QAction("⇹ X", self)
+        act_dist_x.setToolTip(
+            "Равномерно распределить 3+ узла по X"
+        )
+        act_dist_x.triggered.connect(self._distribute_x)
+        tb.addAction(act_dist_x)
+
+        act_dist_y = QAction("⇳ Y", self)
+        act_dist_y.setToolTip(
+            "Равномерно распределить 3+ узла по Y"
+        )
+        act_dist_y.triggered.connect(self._distribute_y)
+        tb.addAction(act_dist_y)
 
     def _on_arc_clicked(self) -> None:
         """Изогнуть выделенное ребро (main или extra)."""
@@ -1200,7 +1237,9 @@ class VectorEditor(QMainWindow):
         """Проверить инварианты. Печатает проблемы в консоль.
 
         Возвращает True если всё ок.
+        Побочно обновляет размер в статусбаре.
         """
+        self._update_size_display()
         if self._contour_item is None:
             return True
 
@@ -1449,6 +1488,7 @@ class VectorEditor(QMainWindow):
 
         self._groups_panel.set_asset(asset)
         self._parameters_panel.set_asset(asset)
+        self._update_size_display()
 
         # Подложка (если есть в Asset'е)
         self._rebuild_reference_item()
@@ -1770,6 +1810,157 @@ class VectorEditor(QMainWindow):
     # ============================================================
     # UNDO
     # ============================================================
+
+    def _get_selected_main_nodes(self) -> list:
+        """Вернуть [(idx, x, y)] выделенных main-узлов (не extra)."""
+        from .view.items.node_item import NodeItem
+        result = []
+        for it in self._scene.selectedItems():
+            if isinstance(it, NodeItem):
+                result.append(it)
+        if not result:
+            return []
+        contour = self._contour_item.contour if self._contour_item else None
+        if contour is None:
+            return []
+        items = []
+        for node in result:
+            idx = node.idx
+            if 0 <= idx < len(contour.points):
+                x, y = contour.points[idx]
+                items.append((idx, x, y))
+        return items
+
+    def _push_contour_snapshot(self) -> None:
+        """Сохранить snapshot для undo."""
+        if self._contour_item is None:
+            return
+        snapshot = self._contour_item.contour.snapshot()
+        self._undo_stack.append((self._contour_item, snapshot))
+
+    def _align_x(self) -> None:
+        """Выровнять выделенные узлы по среднему X."""
+        items = self._get_selected_main_nodes()
+        if len(items) < 2:
+            self.statusBar().showMessage(
+                "Выдели 2+ узла для выравнивания", 3000,
+            )
+            return
+
+        avg_x = sum(x for _, x, _ in items) / len(items)
+        contour = self._contour_item.contour
+
+        self._push_contour_snapshot()
+        for idx, _, y in items:
+            contour.set_point(idx, avg_x, y)
+
+        self._contour_item._rebuild_nodes()
+        self._contour_item._rebuild_path()
+        self._mark_modified()
+        self.statusBar().showMessage(
+            f"Выровнено по X ({len(items)} узлов)", 2000,
+        )
+
+    def _align_y(self) -> None:
+        """Выровнять выделенные узлы по среднему Y."""
+        items = self._get_selected_main_nodes()
+        if len(items) < 2:
+            self.statusBar().showMessage(
+                "Выдели 2+ узла для выравнивания", 3000,
+            )
+            return
+
+        avg_y = sum(y for _, _, y in items) / len(items)
+        contour = self._contour_item.contour
+
+        self._push_contour_snapshot()
+        for idx, x, _ in items:
+            contour.set_point(idx, x, avg_y)
+
+        self._contour_item._rebuild_nodes()
+        self._contour_item._rebuild_path()
+        self._mark_modified()
+        self.statusBar().showMessage(
+            f"Выровнено по Y ({len(items)} узлов)", 2000,
+        )
+
+    def _distribute_x(self) -> None:
+        """Равномерно распределить узлы по X (крайние стоят)."""
+        items = self._get_selected_main_nodes()
+        if len(items) < 3:
+            self.statusBar().showMessage(
+                "Выдели 3+ узла для распределения", 3000,
+            )
+            return
+
+        items_sorted = sorted(items, key=lambda t: t[1])
+        xs = [x for _, x, _ in items_sorted]
+        x_min, x_max = xs[0], xs[-1]
+        n = len(items_sorted)
+        step = (x_max - x_min) / (n - 1)
+
+        contour = self._contour_item.contour
+        self._push_contour_snapshot()
+
+        for i, (idx, _, y) in enumerate(items_sorted):
+            new_x = x_min + step * i
+            contour.set_point(idx, new_x, y)
+
+        self._contour_item._rebuild_nodes()
+        self._contour_item._rebuild_path()
+        self._mark_modified()
+        self.statusBar().showMessage(
+            f"Распределено по X ({n} узлов)", 2000,
+        )
+
+    def _distribute_y(self) -> None:
+        """Равномерно распределить узлы по Y."""
+        items = self._get_selected_main_nodes()
+        if len(items) < 3:
+            self.statusBar().showMessage(
+                "Выдели 3+ узла для распределения", 3000,
+            )
+            return
+
+        items_sorted = sorted(items, key=lambda t: t[2])
+        ys = [y for _, _, y in items_sorted]
+        y_min, y_max = ys[0], ys[-1]
+        n = len(items_sorted)
+        step = (y_max - y_min) / (n - 1)
+
+        contour = self._contour_item.contour
+        self._push_contour_snapshot()
+
+        for i, (idx, x, _) in enumerate(items_sorted):
+            new_y = y_min + step * i
+            contour.set_point(idx, x, new_y)
+
+        self._contour_item._rebuild_nodes()
+        self._contour_item._rebuild_path()
+        self._mark_modified()
+        self.statusBar().showMessage(
+            f"Распределено по Y ({n} узлов)", 2000,
+        )
+
+    def _update_size_display(self) -> None:
+        """Показать размер bbox контура в метрах."""
+        if not hasattr(self, "_size_label"):
+            return
+        if self._contour_item is None:
+            self._size_label.setText("")
+            return
+
+        c = self._contour_item.contour
+        all_pts = list(c.points) + list(c.extra_points)
+        if not all_pts:
+            self._size_label.setText("")
+            return
+
+        xs = [p[0] for p in all_pts]
+        ys = [p[1] for p in all_pts]
+        w = max(xs) - min(xs)
+        h = max(ys) - min(ys)
+        self._size_label.setText(f"Размер: {w:.2f} × {h:.2f} м")
 
     def _on_undo(self) -> None:
         if not self._undo_stack:

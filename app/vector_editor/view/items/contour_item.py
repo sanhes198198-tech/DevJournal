@@ -648,7 +648,7 @@ class ContourItem(QGraphicsObject):
             hpos = h.pos()
             dx = local.x() - hpos.x()
             dy = local.y() - hpos.y()
-            r = h.RADIUS_M + 0.05
+            r = h.radius_m() + 0.05
             if dx * dx + dy * dy <= r * r:
                 return h
         return None
