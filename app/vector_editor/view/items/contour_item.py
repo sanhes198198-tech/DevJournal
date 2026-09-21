@@ -73,6 +73,7 @@ class ContourItem(QGraphicsObject):
         self._hover_edge_idx: int | None = None
 
         self._selected_extra: tuple[str, str] | None = None
+        self._active_handle = None   # ArcHandleItem под drag
         # Ручки для перетаскивания кривизны рёбер: {edge_idx: ArcHandleItem}
         self._arc_handles: dict = {}
         self._hover_extra: tuple[str, str] | None = None
@@ -636,20 +637,21 @@ class ContourItem(QGraphicsObject):
     # HIT-TEST: main edges
     # ============================================================
 
-    def _is_point_in_arc_handle(self, scene_pos) -> bool:
-        """Попадает ли точка клика в зону кружка-ручки."""
+    def _find_arc_handle_at(self, scene_pos):
+        """Найти хендл под точкой клика, или None."""
         if not self._arc_handles:
-            return False
+            return None
         local = self.mapFromScene(scene_pos)
-        for handle in self._arc_handles.values():
-            hpos = handle.pos()
+        for h in self._arc_handles.values():
+            if not h.isVisible():
+                continue
+            hpos = h.pos()
             dx = local.x() - hpos.x()
             dy = local.y() - hpos.y()
-            r = handle.RADIUS_M + 0.05
-            d2 = dx * dx + dy * dy
-            if d2 <= r * r:
-                return True
-        return False
+            r = h.RADIUS_M + 0.05
+            if dx * dx + dy * dy <= r * r:
+                return h
+        return None
 
     def _dist_to_arc(
         self, px: float, py: float,
@@ -800,13 +802,31 @@ class ContourItem(QGraphicsObject):
     # EVENTS
     # ============================================================
 
+    def mouseMoveEvent(self, event) -> None:
+        if self._active_handle is not None:
+            self._active_handle.mouseMoveEvent(event)
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event) -> None:
+        if self._active_handle is not None:
+            self._active_handle.mouseReleaseEvent(event)
+            self._active_handle = None
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
     def mousePressEvent(self, event) -> None:
         """Клик по грани — выделить. Приоритет: Extra > Main."""
         # Пропускаем клик в зону кружка-ручки — чтобы ArcHandleItem
         # получил событие первым (Qt отдаёт родителю раньше child)
         if event.button() == Qt.MouseButton.LeftButton:
-            if self._is_point_in_arc_handle(event.scenePos()):
-                event.ignore()
+            h = self._find_arc_handle_at(event.scenePos())
+            if h is not None:
+                self._active_handle = h
+                h.mousePressEvent(event)
+                event.accept()
                 return
 
         if event.button() == Qt.MouseButton.LeftButton:
