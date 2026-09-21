@@ -1193,7 +1193,7 @@ class ConstructorWindow(QMainWindow):
         )
 
     def _show_asset_preview(self, asset_id: str) -> None:
-        """Показать один ассет в режиме просмотра."""
+        """Показать ассет в режиме просмотра (со слоями и заливкой)."""
         if self._registry is None:
             return
         asset = self._registry.get(asset_id)
@@ -1204,21 +1204,39 @@ class ConstructorWindow(QMainWindow):
             self._scene.removeItem(item)
         self._items_by_comp_id.clear()
 
-        comp = Component(
-            asset_id=asset.id,
-            x=0.0,
-            y=0.0,
-            rotation=0.0,
-            scale=1.0,
-            name=asset.name,
-        )
-        item = ComponentItem(
-            comp, asset=asset, registry=self._registry,
-        )
-        item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
-        item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
-        self._items_by_comp_id[comp.id] = item
-        self._scene.addItem(item)
+        # Если композит — отдельные items на каждый sub-компонент,
+        # как в обычном редакторе (заливка и слои работают)
+        if asset.components:
+            for comp in asset.components.values():
+                ref = self._registry.get(comp.asset_id)
+                item = ComponentItem(
+                    comp, asset=ref, registry=self._registry,
+                )
+                item.setFlag(
+                    QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False,
+                )
+                item.setFlag(
+                    QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False,
+                )
+                self._scene.addItem(item)
+        else:
+            # Простой ассет
+            comp = Component(
+                asset_id=asset.id,
+                x=0.0, y=0.0,
+                rotation=0.0, scale=1.0,
+                name=asset.name,
+            )
+            item = ComponentItem(
+                comp, asset=asset, registry=self._registry,
+            )
+            item.setFlag(
+                QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False,
+            )
+            item.setFlag(
+                QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False,
+            )
+            self._scene.addItem(item)
 
         self.setWindowTitle(f"Constructor — Просмотр: {asset.name}")
         self.statusBar().showMessage(f"Просмотр: {asset.name}", 3000)
