@@ -1,0 +1,45 @@
+{
+  "version": 3,
+  "dialogue": {
+    "id": "fe0905b8-de09-470b-a4ab-c32c334627fb",
+    "name": "Новый диалог",
+    "description": "",
+    "tags": [],
+    "entry_conditions": null,
+    "nodes": [
+      {
+        "id": "175a47f1-52a8-429a-a844-1b066683b5be",
+        "type": "end",
+        "x": 486.25,
+        "y": -8.75,
+        "outcome_type": "return_to_game",
+        "outcome_id": null,
+        "target_dialogue_id": null
+      },
+      {
+        "id": "b2c428b9-d226-4dc9-af16-2b7c6021f9bb",
+        "type": "start",
+        "x": -287.75,
+        "y": -10.75
+      },
+      {
+        "id": "fa753ff7-37e2-45d3-a40d-df46d92c8915",
+        "type": "reply",
+        "x": 60.25,
+        "y": -190.75,
+        "speaker_id": "irina",
+        "text": "",
+        "presentation": {}
+      }
+    ],
+    "connections": [
+      {
+        "id": "7dae8f66-e2bf-44a0-a9c5-7348dd3bfd3a",
+        "source_node_id": "b2c428b9-d226-4dc9-af16-2b7c6021f9bb",
+        "source_port": "output",
+        "target_node_id": "fa753ff7-37e2-45d3-a40d-df46d92c8915",
+        "target_port": "input"
+      }
+    ]
+  }
+}

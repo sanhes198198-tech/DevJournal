@@ -1,0 +1,54 @@
+{
+    "version": 12,
+    "project_name": "тест 5",
+    "grid_mode": "dots",
+    "view": {
+        "zoom": 1.0,
+        "scroll_x": -607,
+        "scroll_y": -441
+    },
+    "items": [
+        {
+            "type": "card",
+            "card_id": "7470e213-a3d5-4ffd-b555-4e73e7985239",
+            "x": -234.0,
+            "y": -55.0,
+            "width": 280.0,
+            "height": 71.0,
+            "color": "#ffffffff",
+            "card_type": "comment",
+            "title": "",
+            "title_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:12pt; font-weight:600; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>",
+            "text": "",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>"
+        },
+        {
+            "type": "card",
+            "card_id": "2edd5e2e-5de5-4dbf-9589-cafbd903db99",
+            "x": 62.0,
+            "y": -248.0,
+            "width": 320.0,
+            "height": 150.0,
+            "color": "#ffffffff",
+            "card_type": "heading",
+            "title": "",
+            "title_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:14pt; font-weight:600; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>",
+            "text": "",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>"
+        },
+        {
+            "type": "card",
+            "card_id": "e8810dad-07cc-4ba4-872e-9c99f2ba5c45",
+            "x": -460.0,
+            "y": -316.5,
+            "width": 280.0,
+            "height": 220.0,
+            "title": "",
+            "text": "",
+            "color": "#ffffffff",
+            "card_type": "color"
+        }
+    ],
+    "arrows": [],
+    "frames": []
+}

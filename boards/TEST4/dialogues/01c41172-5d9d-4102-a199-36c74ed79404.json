@@ -1,0 +1,28 @@
+{
+  "version": 3,
+  "dialogue": {
+    "id": "01c41172-5d9d-4102-a199-36c74ed79404",
+    "name": "Новый диалог",
+    "description": "Василиса ",
+    "nodes": [
+      {
+        "id": "0316c74a-b6c6-4dd2-97d1-41f04c5f1f63",
+        "type": "start",
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "id": "2d30c04c-008e-44bc-b19b-1283ad5fae95",
+        "type": "end",
+        "x": 400.0,
+        "y": 0.0,
+        "target_dialogue_id": null,
+        "outcome_type": "return_to_game",
+        "outcome_id": null
+      }
+    ],
+    "connections": [],
+    "tags": [],
+    "entry_conditions": null
+  }
+}

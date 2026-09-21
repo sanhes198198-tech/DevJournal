@@ -1,0 +1,28 @@
+{
+  "version": 3,
+  "dialogue": {
+    "id": "f4100dcf-70b0-4e3e-bf0f-bdff84b50009",
+    "name": "Приветсвие",
+    "description": "ФФФФФФФФФФФФФ",
+    "tags": [],
+    "entry_conditions": null,
+    "nodes": [
+      {
+        "id": "eaca12ca-bb73-42d9-bfbf-258b830f1e31",
+        "type": "start",
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "id": "489894e5-76fc-4c02-97e2-6399ebe02b75",
+        "type": "end",
+        "x": 400.0,
+        "y": 0.0,
+        "outcome_type": "return_to_game",
+        "outcome_id": null,
+        "target_dialogue_id": null
+      }
+    ],
+    "connections": []
+  }
+}

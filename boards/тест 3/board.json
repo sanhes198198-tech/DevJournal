@@ -1,0 +1,81 @@
+{
+    "version": 12,
+    "project_name": "тест 3",
+    "grid_mode": "dots",
+    "view": {
+        "zoom": 0.6,
+        "scroll_x": -511,
+        "scroll_y": -472
+    },
+    "items": [
+        {
+            "type": "card",
+            "card_id": "b681e2f9-9814-4caf-ad26-2bab6c9110fb",
+            "x": 152.71428571428567,
+            "y": -215.57142857142864,
+            "width": 280.0,
+            "height": 140.0,
+            "color": "#ffffffff",
+            "card_type": "text",
+            "title": "",
+            "title_html": "",
+            "text": "",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>"
+        },
+        {
+            "type": "card",
+            "card_id": "061daff8-0ff2-4e14-9f9c-96cfa6165eaa",
+            "x": 425.9763847263848,
+            "y": 169.00000000000003,
+            "width": 280.0,
+            "height": 140.0,
+            "color": "#ffffffff",
+            "card_type": "text",
+            "title": "",
+            "title_html": "",
+            "text": "",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>"
+        },
+        {
+            "type": "card",
+            "card_id": "66d61919-43d3-4095-b51f-bfdc1664aa4c",
+            "x": 1.0,
+            "y": -26.0,
+            "width": 280.0,
+            "height": 71.0,
+            "color": "#ffffffff",
+            "card_type": "comment",
+            "title": "",
+            "title_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:12pt; font-weight:600; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>",
+            "text": "",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>"
+        }
+    ],
+    "arrows": [
+        {
+            "type": "arrow",
+            "source_id": "b681e2f9-9814-4caf-ad26-2bab6c9110fb",
+            "target_id": "061daff8-0ff2-4e14-9f9c-96cfa6165eaa",
+            "bend_offset": -145.39122156189754,
+            "free_end": null
+        }
+    ],
+    "frames": [
+        {
+            "type": "frame",
+            "frame_id": "3df7b854-6d28-47a3-9f99-ad8d325bfab1",
+            "title": "Рамка",
+            "title_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:10pt; font-weight:400; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Рамка</p></body></html>",
+            "frame_color": "#B0B0B0",
+            "frame_fill": "transparent",
+            "locked": true,
+            "x": -25.0,
+            "y": -52.0,
+            "width": 332.0,
+            "height": 318.0,
+            "members": [
+                "66d61919-43d3-4095-b51f-bfdc1664aa4c"
+            ]
+        }
+    ]
+}

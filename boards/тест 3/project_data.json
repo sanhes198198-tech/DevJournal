@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "characters": [
+    {
+      "id": "vasilisa",
+      "name": "Василиса",
+      "description": "",
+      "portrait_default": null
+    },
+    {
+      "id": "miloslava",
+      "name": "Милослава",
+      "description": "",
+      "portrait_default": null
+    },
+    {
+      "id": "irina",
+      "name": "Ирина",
+      "description": "",
+      "portrait_default": null
+    },
+    {
+      "id": "dmitriy",
+      "name": "Дмитрий",
+      "description": "",
+      "portrait_default": null
+    },
+    {
+      "id": "rostislav",
+      "name": "Ростислав",
+      "description": "",
+      "portrait_default": null
+    }
+  ],
+  "variables": [],
+  "flags": []
+}

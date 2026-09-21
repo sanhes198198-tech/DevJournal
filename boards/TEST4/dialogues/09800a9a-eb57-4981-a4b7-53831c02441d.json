@@ -1,0 +1,28 @@
+{
+  "version": 3,
+  "dialogue": {
+    "id": "09800a9a-eb57-4981-a4b7-53831c02441d",
+    "name": "Новый диалог",
+    "description": "",
+    "nodes": [
+      {
+        "id": "8905cedc-0711-4a5e-9547-3b6ee6e1fa6c",
+        "type": "start",
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "id": "824060c9-9283-4f84-8890-f6c9e8d2495e",
+        "type": "end",
+        "x": 400.0,
+        "y": 0.0,
+        "target_dialogue_id": null,
+        "outcome_type": "return_to_game",
+        "outcome_id": null
+      }
+    ],
+    "connections": [],
+    "tags": [],
+    "entry_conditions": null
+  }
+}

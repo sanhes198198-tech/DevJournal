@@ -1,0 +1,122 @@
+{
+    "version": 12,
+    "project_name": "TEST4",
+    "grid_mode": "grid",
+    "view": {
+        "zoom": 0.45,
+        "scroll_x": -541,
+        "scroll_y": -223
+    },
+    "items": [
+        {
+            "type": "card",
+            "card_id": "c2e1918e-84b3-4d3b-b5b9-c9e962d21ec5",
+            "x": -122.31878431889356,
+            "y": 445.6299617573201,
+            "width": 389.5238095238095,
+            "height": 551.7460317460318,
+            "title": "",
+            "text": "",
+            "color": "#ff121b22",
+            "card_type": "color"
+        },
+        {
+            "type": "file",
+            "card_id": "5f478fff-f0b1-407b-bfa2-2a27b26b4a09",
+            "x": 640.857903103186,
+            "y": 445.1299617573201,
+            "path": "files\\1b1791cd-01e5-41f8-93ac-a38f4a4e1cf4.docx",
+            "name": "стартап (1).docx"
+        },
+        {
+            "type": "card",
+            "card_id": "82c52ddd-a4d7-440b-ac48-46341721cd9b",
+            "x": 810.1070318570318,
+            "y": 447.1299617573201,
+            "width": 320.0,
+            "height": 375.0,
+            "color": "#fff2f2f2",
+            "card_type": "heading",
+            "title": "Описание сценария",
+            "title_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:14pt; font-weight:600; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Описание сценария</p></body></html>",
+            "text": "Сюжет игры — это не прямая линия, а ветвящееся древо, где вы своими решениями срезаете одни ветви и взращиваете другие. Несколько ключевых моментов в истории поставят вас перед выбором, который навсегда изменит политическую карту княжества. Пощадите врага, и он может вернуться, чтобы вонзить вам нож в спину. Уничтожьте его, и вы можете породить нового, ещё более опасного мстителя. Концовка этой мрачной сказки не предопределена. Её напишете",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Сюжет игры — это не прямая линия, а ветвящееся древо, где вы своими решениями срезаете одни ветви и взращиваете другие. Несколько ключевых моментов в истории поставят вас перед выбором, который навсегда изменит политическую карту княжества. Пощадите врага, и он может вернуться, чтобы вонзить вам нож в спину. Уничтожьте его, и вы можете породить нового, ещё более опасного мстителя. Концовка этой мрачной сказки не предопределена. Её напишете</p></body></html>"
+        },
+        {
+            "type": "card",
+            "card_id": "df164684-8e24-4f1b-b3e9-f1036f316961",
+            "x": -134.2136752136753,
+            "y": -47.62535632155743,
+            "width": 280.0,
+            "height": 372.0,
+            "color": "#fff2f2f2",
+            "card_type": "text",
+            "title": "",
+            "title_html": "",
+            "text": "Сюжет игры — это не прямая линия, а ветвящееся древо, где вы своими решениями срезаете одни ветви и взращиваете другие. Несколько ключевых моментов в истории поставят вас перед выбором, который навсегда изменит политическую карту княжества. Пощадите врага, и он может вернуться, чтобы вонзить вам нож в спину. Уничтожьте его, и вы можете породить нового, ещё более опасного мстителя. Концовка этой мрачной сказки не предопределена. Её напишете",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Сюжет игры — это не прямая линия, а ветвящееся древо, где вы своими решениями срезаете одни ветви и взращиваете другие. Несколько ключевых моментов в истории поставят вас перед выбором, который навсегда изменит политическую карту княжества. Пощадите врага, и он может вернуться, чтобы вонзить вам нож в спину. Уничтожьте его, и вы можете породить нового, ещё более опасного мстителя. Концовка этой мрачной сказки не предопределена. Её напишете</p></body></html>"
+        },
+        {
+            "type": "card",
+            "card_id": "aaa86cd4-91b9-4772-9600-a65f8a6e9a5e",
+            "x": -490.61858686386984,
+            "y": 350.31402497571486,
+            "width": 1209.4764899670558,
+            "height": 71.0,
+            "color": "#ffff7bac",
+            "card_type": "comment",
+            "title": "Александр \n",
+            "title_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:12pt; font-weight:600; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Александр </p>\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>",
+            "text": "Доработать",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Доработать</p></body></html>"
+        },
+        {
+            "type": "card",
+            "card_id": "dd20ad0a-1c43-4b41-af30-b554d00ba8b9",
+            "x": 281.4581738002199,
+            "y": -50.50191180589036,
+            "width": 320.0,
+            "height": 375.0,
+            "color": "#fff2f2f2",
+            "card_type": "heading",
+            "title": "Описание сценария",
+            "title_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:14pt; font-weight:600; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Описание сценария</p></body></html>",
+            "text": "Сюжет игры — это не прямая линия, а ветвящееся древо, где вы своими решениями срезаете одни ветви и взращиваете другие. Несколько ключевых моментов в истории поставят вас перед выбором, который навсегда изменит политическую карту княжества. Пощадите врага, и он может вернуться, чтобы вонзить вам нож в спину. Уничтожьте его, и вы можете породить нового, ещё более опасного мстителя. Концовка этой мрачной сказки не предопределена. Её напишете",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Сюжет игры — это не прямая линия, а ветвящееся древо, где вы своими решениями срезаете одни ветви и взращиваете другие. Несколько ключевых моментов в истории поставят вас перед выбором, который навсегда изменит политическую карту княжества. Пощадите врага, и он может вернуться, чтобы вонзить вам нож в спину. Уничтожьте его, и вы можете породить нового, ещё более опасного мстителя. Концовка этой мрачной сказки не предопределена. Её напишете</p></body></html>"
+        },
+        {
+            "type": "image",
+            "card_id": "7e27c054-f2a1-4e7b-b372-f487fa74961a",
+            "x": 279.9581738002199,
+            "y": 445.6299617573201,
+            "path": "images\\014de8e2-7c57-4b06-887b-c1e8ed9ca687.jpg",
+            "width": 333,
+            "height": 500,
+            "color": "#00000000"
+        }
+    ],
+    "arrows": [
+        {
+            "type": "arrow",
+            "source_id": "dd20ad0a-1c43-4b41-af30-b554d00ba8b9",
+            "target_id": "82c52ddd-a4d7-440b-ac48-46341721cd9b",
+            "bend_offset": -129.0136875643367,
+            "free_end": null
+        },
+        {
+            "type": "arrow",
+            "source_id": "dd20ad0a-1c43-4b41-af30-b554d00ba8b9",
+            "target_id": "7e27c054-f2a1-4e7b-b372-f487fa74961a",
+            "bend_offset": 0.0,
+            "free_end": null
+        },
+        {
+            "type": "arrow",
+            "source_id": "df164684-8e24-4f1b-b3e9-f1036f316961",
+            "target_id": "dd20ad0a-1c43-4b41-af30-b554d00ba8b9",
+            "bend_offset": -56.31944586308214,
+            "free_end": null
+        }
+    ],
+    "frames": []
+}

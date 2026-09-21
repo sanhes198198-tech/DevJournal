@@ -1,0 +1,91 @@
+{
+  "version": 3,
+  "dialogue": {
+    "id": "e917ea31-a2a0-43fd-998a-b43f3a7f1152",
+    "name": "Прощание",
+    "description": "",
+    "tags": [],
+    "entry_conditions": null,
+    "nodes": [
+      {
+        "id": "76aa2ee2-2669-488d-9d36-8ea1a974dfad",
+        "type": "end",
+        "x": 906.271910637304,
+        "y": -37.59444880970078,
+        "outcome_type": "return_to_game",
+        "outcome_id": null,
+        "target_dialogue_id": null
+      },
+      {
+        "id": "9b81c9dc-1391-4b1f-be43-12147f9b6ca9",
+        "type": "start",
+        "x": -101.57603686635942,
+        "y": -6.64516129032258
+      },
+      {
+        "id": "b131a71c-5277-4649-9e4e-08b2d088c4af",
+        "type": "reply",
+        "x": 242.1566820276497,
+        "y": -198.40552995391707,
+        "speaker_id": "vasilisa",
+        "text": "Прощай, до скорых встречь",
+        "presentation": {}
+      },
+      {
+        "id": "e54a74c3-cc23-46f5-872f-99ab116f7e63",
+        "type": "choice",
+        "x": 562.1566820276497,
+        "y": -198.40552995391707,
+        "question": "Прощание",
+        "options": [
+          {
+            "id": "706340a5-93a8-44f1-88f7-6e25d80a4da0",
+            "text": "Прощай надесюь не свидимся ",
+            "order": 0,
+            "conditions": null,
+            "effects": [],
+            "is_default": false
+          },
+          {
+            "id": "854026b0-bd22-4944-a27c-28f1d7bfae04",
+            "text": "Конечно до скорых встречь",
+            "order": 1,
+            "conditions": null,
+            "effects": [],
+            "is_default": false
+          }
+        ]
+      }
+    ],
+    "connections": [
+      {
+        "id": "cbbffff4-78cf-4911-aac7-95eed5f7351f",
+        "source_node_id": "9b81c9dc-1391-4b1f-be43-12147f9b6ca9",
+        "source_port": "output",
+        "target_node_id": "b131a71c-5277-4649-9e4e-08b2d088c4af",
+        "target_port": "input"
+      },
+      {
+        "id": "5710508a-70fc-4ee2-8fed-8aeee7c500c0",
+        "source_node_id": "b131a71c-5277-4649-9e4e-08b2d088c4af",
+        "source_port": "output",
+        "target_node_id": "e54a74c3-cc23-46f5-872f-99ab116f7e63",
+        "target_port": "input"
+      },
+      {
+        "id": "fb92c58b-87b6-4b7a-a6e2-100a051993e9",
+        "source_node_id": "e54a74c3-cc23-46f5-872f-99ab116f7e63",
+        "source_port": "opt_706340a5-93a8-44f1-88f7-6e25d80a4da0",
+        "target_node_id": "76aa2ee2-2669-488d-9d36-8ea1a974dfad",
+        "target_port": "input"
+      },
+      {
+        "id": "897beb24-ce61-4c85-94b3-2848f7aa8b2d",
+        "source_node_id": "e54a74c3-cc23-46f5-872f-99ab116f7e63",
+        "source_port": "opt_854026b0-bd22-4944-a27c-28f1d7bfae04",
+        "target_node_id": "76aa2ee2-2669-488d-9d36-8ea1a974dfad",
+        "target_port": "input"
+      }
+    ]
+  }
+}

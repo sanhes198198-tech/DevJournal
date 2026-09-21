@@ -1,0 +1,13 @@
+{
+    "version": 12,
+    "project_name": "тест 3",
+    "grid_mode": "grid",
+    "view": {
+        "zoom": 0.65,
+        "scroll_x": -575,
+        "scroll_y": -231
+    },
+    "items": [],
+    "arrows": [],
+    "frames": []
+}

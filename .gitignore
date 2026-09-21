@@ -31,6 +31,4 @@ Thumbs.db
 .DS_Store
 *.tmp
 
-# Проекты пользователя
-boards/
 _debug.log

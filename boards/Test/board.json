@@ -1,0 +1,122 @@
+{
+    "version": 12,
+    "project_name": "Test",
+    "grid_mode": "dots",
+    "view": {
+        "zoom": 0.5,
+        "scroll_x": -777,
+        "scroll_y": -383
+    },
+    "items": [
+        {
+            "type": "card",
+            "card_id": "89add6a2-7c30-41e3-970a-7f0314111488",
+            "x": -562.6190476190476,
+            "y": -505.71428571428567,
+            "width": 428.75,
+            "height": 232.0,
+            "color": "#ffffffff",
+            "card_type": "text",
+            "title": "",
+            "title_html": "",
+            "text": "Каждый рассвет в Светояре приносит не только свет, но и выбор. День короток, а враги не дремлют. Вы не сможете быть везде и успеть всё. Потратить ли драгоценный вечер на то, чтобы укрепить доверие мужа за тихим ужином? Или рискнуть всем на тайной встрече в туманных переулках Нижнего Посада? Каждое ваше решение — это не только шаг вперёд, но и упущенная возможность. Планируйте мудро, ведь время, потраченное впустую, работает на ваших врагов.",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Каждый рассвет в Светояре приносит не только свет, но и выбор. День короток, а враги не дремлют. Вы не сможете быть везде и успеть всё. Потратить ли драгоценный вечер на то, чтобы укрепить доверие мужа за тихим ужином? Или рискнуть всем на тайной встрече в туманных переулках Нижнего Посада? Каждое ваше решение — это не только шаг вперёд, но и упущенная возможность. Планируйте мудро, ведь время, потраченное впустую, работает на ваших врагов.</p></body></html>"
+        },
+        {
+            "type": "card",
+            "card_id": "de7326db-0ae9-4151-b0ac-21a5aa736196",
+            "x": -129.8690476190476,
+            "y": -505.7142857142856,
+            "width": 320.0,
+            "height": 375.0,
+            "color": "#ffffffff",
+            "card_type": "heading",
+            "title": "",
+            "title_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:14pt; font-weight:600; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>",
+            "text": "Каждый рассвет в Светояре приносит не только свет, но и выбор. День короток, а враги не дремлют. Вы не сможете быть везде и успеть всё. Потратить ли драгоценный вечер на то, чтобы укрепить доверие мужа за тихим ужином? Или рискнуть всем на тайной встрече в туманных переулках Нижнего Посада? Каждое ваше решение — это не только шаг вперёд, но и упущенная возможность. Планируйте мудро, ведь время, потраченное впустую, работает на ваших врагов.",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Каждый рассвет в Светояре приносит не только свет, но и выбор. День короток, а враги не дремлют. Вы не сможете быть везде и успеть всё. Потратить ли драгоценный вечер на то, чтобы укрепить доверие мужа за тихим ужином? Или рискнуть всем на тайной встрече в туманных переулках Нижнего Посада? Каждое ваше решение — это не только шаг вперёд, но и упущенная возможность. Планируйте мудро, ведь время, потраченное впустую, работает на ваших врагов.</p></body></html>"
+        },
+        {
+            "type": "image",
+            "card_id": "1cc1ef74-c201-4262-920e-15daeb3c2b0f",
+            "x": 198.63095238095246,
+            "y": -503.1547619047619,
+            "path": "images\\80e83dc7-431e-4743-ac75-df103e63c3b7.jpg",
+            "width": 430,
+            "height": 500,
+            "color": "#00000000"
+        },
+        {
+            "type": "card",
+            "card_id": "26b33b58-55f7-4fd2-b524-5389327e7d28",
+            "x": -413.5119047619047,
+            "y": -271.72619047619054,
+            "width": 278.57142857142856,
+            "height": 351.42857142857144,
+            "title": "",
+            "text": "",
+            "color": "#ff151e25",
+            "card_type": "color"
+        },
+        {
+            "type": "file",
+            "card_id": "7a3a76b8-24e7-442b-b5eb-2338fef2dc55",
+            "x": -567.7976190476189,
+            "y": -242.79761904761904,
+            "path": "files\\c155fba3-90e3-4b6e-8f8d-d0566c66cac9.docx",
+            "name": "personal-1345484.docx"
+        },
+        {
+            "type": "card",
+            "card_id": "158bf58a-baeb-48cd-bce2-a334e223b786",
+            "x": -366.0,
+            "y": 322.0,
+            "width": 280.0,
+            "height": 140.0,
+            "color": "#ffffffff",
+            "card_type": "text",
+            "title": "",
+            "title_html": "",
+            "text": "",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>"
+        },
+        {
+            "type": "card",
+            "card_id": "b990c979-beb0-47a4-b798-1eaff81fbc77",
+            "x": -929.7976190476189,
+            "y": 238.0,
+            "width": 360.0,
+            "height": 607.1946072684643,
+            "color": "#ffffffff",
+            "card_type": "image_text",
+            "image_path": "images\\add98bc6-2eaf-4996-9821-d8c7e305c91a.jpg",
+            "title": "",
+            "title_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:14pt; font-weight:600; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>",
+            "text": "",
+            "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>"
+        }
+    ],
+    "arrows": [],
+    "frames": [
+        {
+            "type": "frame",
+            "frame_id": "66fd6b3d-a94f-49a3-b15c-687f5ec0daa1",
+            "title": "Рамка",
+            "title_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:10pt; font-weight:400; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\">Рамка</p></body></html>",
+            "frame_color": "#B0B0B0",
+            "frame_fill": "gray",
+            "locked": true,
+            "x": -591.7976190476189,
+            "y": -531.7142857142857,
+            "width": 1244.9285714285716,
+            "height": 635.9166666666665,
+            "members": [
+                "1cc1ef74-c201-4262-920e-15daeb3c2b0f",
+                "7a3a76b8-24e7-442b-b5eb-2338fef2dc55",
+                "26b33b58-55f7-4fd2-b524-5389327e7d28",
+                "de7326db-0ae9-4151-b0ac-21a5aa736196",
+                "89add6a2-7c30-41e3-970a-7f0314111488"
+            ]
+        }
+    ]
+}

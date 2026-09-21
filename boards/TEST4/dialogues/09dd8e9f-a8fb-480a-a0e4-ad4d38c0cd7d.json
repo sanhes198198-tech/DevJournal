@@ -1,0 +1,91 @@
+{
+  "version": 3,
+  "dialogue": {
+    "id": "09dd8e9f-a8fb-480a-a0e4-ad4d38c0cd7d",
+    "name": "тоня",
+    "description": "василиса \n",
+    "tags": [],
+    "entry_conditions": null,
+    "nodes": [
+      {
+        "id": "df7193c2-41e5-4079-8551-4c30ed62101a",
+        "type": "start",
+        "x": -203.0,
+        "y": -16.0
+      },
+      {
+        "id": "dfa92d80-b461-4f4e-9e05-b9c8ef28b033",
+        "type": "end",
+        "x": 828.237152835523,
+        "y": -289.3845002494595,
+        "outcome_type": "return_to_game",
+        "outcome_id": null,
+        "target_dialogue_id": null
+      },
+      {
+        "id": "1cae4d62-d011-4bd6-ad49-4aba6560285a",
+        "type": "reply",
+        "x": 88.0,
+        "y": -184.0,
+        "speaker_id": "irina",
+        "text": "привет, можешь помочь?",
+        "presentation": {}
+      },
+      {
+        "id": "107a6dd4-d29a-4048-9c0f-bce930514e18",
+        "type": "choice",
+        "x": 477.79494428737735,
+        "y": -301.17628471644775,
+        "question": "Ответ",
+        "options": [
+          {
+            "id": "0738b8d9-9ca4-4e2a-a99e-65bb1fbb2155",
+            "text": "Не знаю",
+            "order": 0,
+            "conditions": null,
+            "effects": [],
+            "is_default": false
+          },
+          {
+            "id": "8c18948f-6bed-474e-bbfd-6607dcce7be2",
+            "text": "Конечно ",
+            "order": 1,
+            "conditions": null,
+            "effects": [],
+            "is_default": false
+          }
+        ]
+      }
+    ],
+    "connections": [
+      {
+        "id": "5aa9fed3-6b0f-437e-bfc6-18af4cca7a28",
+        "source_node_id": "df7193c2-41e5-4079-8551-4c30ed62101a",
+        "source_port": "output",
+        "target_node_id": "1cae4d62-d011-4bd6-ad49-4aba6560285a",
+        "target_port": "input"
+      },
+      {
+        "id": "47a58851-07ff-4e36-9937-02611c45f5e8",
+        "source_node_id": "1cae4d62-d011-4bd6-ad49-4aba6560285a",
+        "source_port": "output",
+        "target_node_id": "107a6dd4-d29a-4048-9c0f-bce930514e18",
+        "target_port": "input"
+      },
+      {
+        "id": "e82a1542-9e1c-4e82-9b4d-8046976e26b9",
+        "source_node_id": "107a6dd4-d29a-4048-9c0f-bce930514e18",
+        "source_port": "opt_0738b8d9-9ca4-4e2a-a99e-65bb1fbb2155",
+        "target_node_id": "dfa92d80-b461-4f4e-9e05-b9c8ef28b033",
+        "target_port": "input"
+      },
+      {
+        "id": "8d806a46-95a2-4d09-80cd-9445010cc43f",
+        "source_node_id": "107a6dd4-d29a-4048-9c0f-bce930514e18",
+        "source_port": "opt_8c18948f-6bed-474e-bbfd-6607dcce7be2",
+        "target_node_id": "dfa92d80-b461-4f4e-9e05-b9c8ef28b033",
+        "target_port": "input"
+      }
+    ]
+  }
+}

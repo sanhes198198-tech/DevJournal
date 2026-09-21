@@ -1,0 +1,52 @@
+{
+  "version": 3,
+  "dialogue": {
+    "id": "ad560cf0-3509-4391-a309-817f82aa19b0",
+    "name": "Новый диалог",
+    "description": "",
+    "nodes": [
+      {
+        "id": "10846de1-3669-4233-8a1e-b5660ecd0efe",
+        "type": "start",
+        "x": -155.71428571428572,
+        "y": -82.85714285714286
+      },
+      {
+        "id": "bf223558-79a9-4ee6-899b-2e898dd8c3b8",
+        "type": "end",
+        "x": 603.1746031746031,
+        "y": -135.87301587301593,
+        "target_dialogue_id": null,
+        "outcome_type": "return_to_game",
+        "outcome_id": null
+      },
+      {
+        "id": "cfe71b55-4b84-44c0-a6c7-49c9d02e86e5",
+        "type": "reply",
+        "x": 201.03548085901014,
+        "y": -327.40522875816987,
+        "text": "",
+        "presentation": {},
+        "speaker_id": ""
+      }
+    ],
+    "connections": [
+      {
+        "id": "9923c528-c076-4295-987c-01c5e9a69554",
+        "source_node_id": "10846de1-3669-4233-8a1e-b5660ecd0efe",
+        "source_port": "output",
+        "target_node_id": "cfe71b55-4b84-44c0-a6c7-49c9d02e86e5",
+        "target_port": "input"
+      },
+      {
+        "id": "cb229567-28ee-4632-b6af-d3b29677db6d",
+        "source_node_id": "cfe71b55-4b84-44c0-a6c7-49c9d02e86e5",
+        "source_port": "output",
+        "target_node_id": "bf223558-79a9-4ee6-899b-2e898dd8c3b8",
+        "target_port": "input"
+      }
+    ],
+    "tags": [],
+    "entry_conditions": null
+  }
+}

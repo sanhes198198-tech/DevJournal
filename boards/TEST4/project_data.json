@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "characters": [
+    {
+      "id": "vasilisa",
+      "name": "Василиса",
+      "description": "",
+      "portrait_default": null
+    },
+    {
+      "id": "irina",
+      "name": "Ирина",
+      "description": "",
+      "portrait_default": null
+    },
+    {
+      "id": "miloslava",
+      "name": "Милослава",
+      "description": "",
+      "portrait_default": null
+    }
+  ],
+  "variables": [
+    {
+      "id": "reputatsiya",
+      "type": "int",
+      "default": 0,
+      "label": "Репутация"
+    }
+  ],
+  "flags": [
+    {
+      "id": "znaet_sekret",
+      "default": false,
+      "label": "Знает секрет"
+    }
+  ]
+}

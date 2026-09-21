@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "meta": {
+    "name": "Архитектура — TEST4",
+    "units": "m",
+    "created": "2026-09-19T22:36:24",
+    "modified": "2026-09-20T17:35:32",
+    "notes": ""
+  },
+  "building": {
+    "id": "main",
+    "name": "Main",
+    "defaults": {}
+  },
+  "elements": {
+    "1e9f01ee913e": {
+      "id": "1e9f01ee913e",
+      "type": "asset_instance",
+      "floor": 4,
+      "notes": "",
+      "asset_id": "4a02a5eeace1",
+      "x": 0.0,
+      "y": -2.2,
+      "rotation": 15.0,
+      "scale": 1.0
+    },
+    "9325bbb3f3ec": {
+      "id": "9325bbb3f3ec",
+      "type": "asset_instance",
+      "floor": 1,
+      "notes": "",
+      "asset_id": "686f10c9d1e0",
+      "x": -7.1,
+      "y": -12.0,
+      "rotation": 0.0,
+      "scale": 1.0
+    },
+    "84786f0e44aa": {
+      "id": "84786f0e44aa",
+      "type": "asset_instance",
+      "floor": 1,
+      "notes": "",
+      "asset_id": "c2dd0d912a21",
+      "x": -7.7,
+      "y": 10.1,
+      "rotation": 0.0,
+      "scale": 1.0
+    }
+  },
+  "helpers": {
+    "humans": [],
+    "measures": []
+  }
+}
