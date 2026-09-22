@@ -194,6 +194,14 @@ class VectorEditor(QMainWindow):
         )
         self.statusBar().addPermanentWidget(self._size_label)
 
+        # V16: координаты выделенного узла(ов)
+        self._coord_label = QLabel("")
+        self._coord_label.setStyleSheet(
+            "color: #0066CC; padding-right: 12px; "
+            "font-weight: 600;"
+        )
+        self.statusBar().addPermanentWidget(self._coord_label)
+
 
     def _build_toolbar(self) -> None:
         tb = QToolBar("Main", self)
@@ -505,6 +513,10 @@ class VectorEditor(QMainWindow):
 
         self._scene.selectionChanged.connect(
             self._on_scene_selection_changed
+        )
+        # V16: координаты выделенного узла
+        self._scene.selectionChanged.connect(
+            self._update_node_coords
         )
         self._groups_panel.group_selected.connect(
             self._on_group_selected
@@ -2211,6 +2223,44 @@ class VectorEditor(QMainWindow):
         else:
             for a in actions:
                 tb.removeAction(a)
+
+    def _update_node_coords(self) -> None:
+        """V16: показать X/Y одного узла или W×H группы."""
+        if self._scene is None:
+            return
+        from .view.items.node_item import NodeItem
+        from .view.items.extra_node_item import ExtraNodeItem
+
+        selected = self._scene.selectedItems()
+        main_nodes = [it for it in selected if isinstance(it, NodeItem)]
+        extra_nodes = [
+            it for it in selected if isinstance(it, ExtraNodeItem)
+        ]
+        total = len(main_nodes) + len(extra_nodes)
+
+        if total == 0:
+            self._coord_label.setText("")
+            return
+
+        if total == 1:
+            n = main_nodes[0] if main_nodes else extra_nodes[0]
+            p = n.pos()
+            self._coord_label.setText(
+                f"X: {p.x():.3f}  Y: {p.y():.3f} м"
+            )
+            return
+
+        # Несколько — W×H
+        xs, ys = [], []
+        for n in main_nodes + extra_nodes:
+            p = n.pos()
+            xs.append(p.x())
+            ys.append(p.y())
+        w = max(xs) - min(xs)
+        h = max(ys) - min(ys)
+        self._coord_label.setText(
+            f"Узлов: {total}   W×H: {w:.2f} × {h:.2f} м"
+        )
 
     def _on_undo(self) -> None:
         if not self._undo_stack:
