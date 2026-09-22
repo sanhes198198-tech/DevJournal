@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -17,6 +18,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QVBoxLayout,
+    QWidget,
 )
 
 
@@ -38,7 +40,7 @@ class AutoRuleDialog(QDialog):
         self.result_rule: dict | None = None
 
         self.setWindowTitle("Правило размножения точек")
-        self.resize(420, 320)
+        self.resize(440, 520)
 
         self._build_ui()
         self._load_existing()
@@ -99,6 +101,53 @@ class AutoRuleDialog(QDialog):
         form.addRow("До группы:", self._until_combo)
 
         layout.addLayout(form)
+
+        # V15: вторая ось (сетка точек)
+        self._axis2_check = QCheckBox(
+            "Размножать и по второй оси (сетка)"
+        )
+        self._axis2_check.setChecked(False)
+        layout.addWidget(self._axis2_check)
+
+        self._axis2_container = QWidget()
+        form2 = QFormLayout(self._axis2_container)
+        form2.setSpacing(8)
+        form2.setContentsMargins(0, 0, 0, 0)
+
+        self._axis2_combo = QComboBox()
+        self._axis2_combo.addItem("X (горизонталь)", "x")
+        self._axis2_combo.addItem("Y (вертикаль)", "y")
+        form2.addRow("Ось 2:", self._axis2_combo)
+
+        self._dir2_combo = QComboBox()
+        self._dir2_combo.addItem("Влево / Вверх (−)", -1)
+        self._dir2_combo.addItem("Вправо / Вниз (+)", +1)
+        form2.addRow("Направление 2:", self._dir2_combo)
+
+        self._step2_spin = QDoubleSpinBox()
+        self._step2_spin.setRange(0.001, 10000.0)
+        self._step2_spin.setDecimals(3)
+        self._step2_spin.setSingleStep(0.1)
+        self._step2_spin.setValue(2.0)
+        self._step2_spin.setSuffix(" м")
+        form2.addRow("Шаг 2:", self._step2_spin)
+
+        self._until2_combo = QComboBox()
+        self._until2_combo.addItem("— без границы —", "")
+        for g in self._all_groups:
+            if g.id == self._group.id:
+                continue
+            self._until2_combo.addItem(
+                f"{g.label}  ({g.name})", g.name,
+            )
+        form2.addRow("До группы 2:", self._until2_combo)
+
+        layout.addWidget(self._axis2_container)
+        self._axis2_container.setVisible(False)
+
+        self._axis2_check.toggled.connect(
+            self._axis2_container.setVisible
+        )
 
         layout.addStretch()
 
@@ -170,6 +219,25 @@ class AutoRuleDialog(QDialog):
             if idx >= 0:
                 self._until_combo.setCurrentIndex(idx)
 
+        # V15: вторая ось
+        axis_x = rule.get("axis_x") or ""
+        if axis_x:
+            self._axis2_check.setChecked(True)
+            idx = self._axis2_combo.findData(axis_x)
+            if idx >= 0:
+                self._axis2_combo.setCurrentIndex(idx)
+            step_x = float(rule.get("step_x", 2.0))
+            dir_x = -1 if step_x < 0 else +1
+            idx = self._dir2_combo.findData(dir_x)
+            if idx >= 0:
+                self._dir2_combo.setCurrentIndex(idx)
+            self._step2_spin.setValue(abs(step_x))
+            until_x = rule.get("until_group_x") or ""
+            if until_x:
+                idx = self._until2_combo.findData(until_x)
+                if idx >= 0:
+                    self._until2_combo.setCurrentIndex(idx)
+
     # ------------------------------------------------------------
 
     def _on_remove(self) -> None:
@@ -188,10 +256,23 @@ class AutoRuleDialog(QDialog):
 
         step = step_abs * dir_val
 
-        self.result_rule = {
+        rule = {
             "axis": axis,
             "step": step,
             "until_group": until,
             "skip_groups": [],
         }
+
+        # V15: вторая ось (если включена)
+        if self._axis2_check.isChecked():
+            axis2 = self._axis2_combo.currentData()
+            dir2 = self._dir2_combo.currentData() or -1
+            step2_abs = float(self._step2_spin.value())
+            until2 = self._until2_combo.currentData() or ""
+            if step2_abs > 0 and axis2:
+                rule["axis_x"] = axis2
+                rule["step_x"] = step2_abs * dir2
+                rule["until_group_x"] = until2
+
+        self.result_rule = rule
         self.accept()

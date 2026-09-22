@@ -100,37 +100,83 @@ def recalculate_auto_points(contour, semantic_groups) -> int:
         if not templates:
             continue
 
+        # V15: вторая ось (для сетки точек).
+        axis2_name = rule.get("axis_x") or ""
+        step2 = float(rule.get("step_x", 0.0))
+        until2_name = rule.get("until_group_x") or ""
+
+        axis2_idx = None
+        limit2_val = None
+        if axis2_name and abs(step2) > 1e-9 and until2_name:
+            axis2_idx = 0 if axis2_name == "x" else 1
+            # Если axis2 совпадает с axis1 — не дублируем.
+            if axis2_idx != axis_idx:
+                limit2_val = _find_limit(
+                    until2_name, axis2_idx,
+                    semantic_groups, pts_by_id,
+                )
+                if limit2_val is None:
+                    axis2_idx = None
+
         for tpl_idx, template_id in enumerate(templates):
             template_pos = pts_by_id.get(template_id)
             if template_pos is None:
                 continue
 
-            current = template_pos[axis_idx] + step
-            counter = 0
-            while counter < max_count:
-                if limit_val is not None:
-                    # Граница — эксклюзивная.
+            # Сначала построить список позиций по первой оси.
+            # Каждая позиция — точка-предок, от которой пойдёт
+            # вторая ось.
+            chain1 = [template_pos]
+            if limit_val is not None:
+                current = template_pos[axis_idx] + step
+                counter = 0
+                while counter < max_count:
                     if step > 0 and current >= limit_val:
                         break
                     if step < 0 and current <= limit_val:
                         break
+                    pt = list(template_pos)
+                    pt[axis_idx] = current
+                    chain1.append(tuple(pt))
+                    current += step
+                    counter += 1
 
-                new_pt = list(template_pos)
-                new_pt[axis_idx] = current
+            # Теперь для каждой точки chain1 — генерим по второй
+            # оси (если задана). Иначе только сама точка.
+            for i1, base_pos in enumerate(chain1):
+                # Список точек для второй оси.
+                chain2 = [base_pos]
+                if axis2_idx is not None and limit2_val is not None:
+                    cur2 = base_pos[axis2_idx] + step2
+                    c2 = 0
+                    while c2 < max_count:
+                        if step2 > 0 and cur2 >= limit2_val:
+                            break
+                        if step2 < 0 and cur2 <= limit2_val:
+                            break
+                        pt2 = list(base_pos)
+                        pt2[axis2_idx] = cur2
+                        chain2.append(tuple(pt2))
+                        cur2 += step2
+                        c2 += 1
 
-                if not _in_skip_boxes(new_pt, skip_boxes):
+                for i2, pt in enumerate(chain2):
+                    # Шаблонную точку не дублируем в extra
+                    # (она уже в contour.extra_points как e_XXX).
+                    if (i1 == 0 and i2 == 0
+                            and tuple(pt) == tuple(template_pos)):
+                        continue
+                    if _in_skip_boxes(list(pt), skip_boxes):
+                        continue
                     new_id = (
                         f"{AUTO_PREFIX}{gid}_"
-                        f"t{tpl_idx:02d}_{counter:02d}"
+                        f"t{tpl_idx:02d}_{i1:02d}_{i2:02d}"
                     )
-                    contour.extra_points.append(new_pt)
+                    contour.extra_points.append(list(pt))
                     contour.extra_node_ids.append(new_id)
                     group.node_ids.append(new_id)
-                    pts_by_id[new_id] = tuple(new_pt)
+                    pts_by_id[new_id] = tuple(pt)
                     added += 1
-
-                current += step
-                counter += 1
 
     return added
 
