@@ -25,12 +25,16 @@ class VectorLayer:
         locked: bool = False,
         color: str = "#1A1A1A",
         geometry: dict | None = None,
+        fillable: bool = True,
     ):
         self.id = id or self._generate_id()
         self.name = name
         self.visible = bool(visible)
         self.locked = bool(locked)
         self.color = str(color or "#1A1A1A")
+        # V16: слой заливается текстурой (fill_pattern) или
+        # остаётся только контуром. Рама поверх окна — fillable=False.
+        self.fillable = bool(fillable)
         # geometry — dict той же структуры что и Asset.geometry
         # (contour, node_ids, groups, extra_points, extra_node_ids,
         #  extra_edges, arcs, closed, units)
@@ -61,6 +65,7 @@ class VectorLayer:
             "visible": self.visible,
             "locked": self.locked,
             "color": self.color,
+            "fillable": self.fillable,
             "geometry": self.geometry,
         }
 
@@ -72,5 +77,6 @@ class VectorLayer:
             visible=bool(d.get("visible", True)),
             locked=bool(d.get("locked", False)),
             color=str(d.get("color", "#1A1A1A")),
+            fillable=bool(d.get("fillable", True)),
             geometry=d.get("geometry") or cls._empty_geometry(),
         )

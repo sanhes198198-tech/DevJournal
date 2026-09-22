@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QHBoxLayout,
     QLabel,
     QListWidget,
@@ -28,6 +29,8 @@ class LayersPanel(QWidget):
     layer_visibility_toggled = Signal(str, bool)
     # (layer_id) — удалить
     layer_delete_requested = Signal(str)
+    # (layer_id, fillable) — заливать ли текстурой
+    layer_fillable_changed = Signal(str, bool)
     # добавить новый слой
     layer_add_requested = Signal()
 
@@ -106,6 +109,23 @@ class LayersPanel(QWidget):
 
         layout.addLayout(buttons)
 
+        # V16: чекбокс «Заливать текстурой»
+        self._fillable_check = QCheckBox("Заливать текстурой")
+        self._fillable_check.setStyleSheet(
+            "QCheckBox { color: #E5E5E5; font-size: 11px; "
+            "padding-top: 6px; }"
+            "QCheckBox:disabled { color: #5A5F68; }"
+        )
+        self._fillable_check.setToolTip(
+            "Если снята — слой не заливается текстурой "
+            "(используй для рам поверх окна)."
+        )
+        self._fillable_check.toggled.connect(
+            self._on_fillable_toggled
+        )
+        self._fillable_check.setEnabled(False)
+        layout.addWidget(self._fillable_check)
+
     @staticmethod
     def _style_button(btn: QPushButton) -> None:
         btn.setStyleSheet(
@@ -170,8 +190,42 @@ class LayersPanel(QWidget):
                     break
             self._restore_selection_id = None
 
+        # Синхронизировать чекбокс с текущим выделением
+        self._sync_fillable_check()
+
         self._update_buttons()
         self._muted = False
+
+    def _sync_fillable_check(self) -> None:
+        """Обновить состояние чекбокса по текущему выделению."""
+        lid = self._current_layer_id()
+        self._muted = True
+        if lid is None or self._asset is None:
+            self._fillable_check.setEnabled(False)
+            self._fillable_check.setChecked(True)
+        else:
+            for l in self._asset.layers:
+                if l.id == lid:
+                    self._fillable_check.setEnabled(True)
+                    self._fillable_check.setChecked(
+                        bool(getattr(l, "fillable", True))
+                    )
+                    break
+        self._muted = False
+
+    def _on_fillable_toggled(self, checked: bool) -> None:
+        if self._muted:
+            return
+        lid = self._current_layer_id()
+        if lid is None or self._asset is None:
+            return
+        for l in self._asset.layers:
+            if l.id == lid:
+                l.fillable = bool(checked)
+                self.layer_fillable_changed.emit(
+                    str(lid), bool(checked),
+                )
+                break
 
     def _update_buttons(self) -> None:
         has_asset = self._asset is not None
@@ -196,6 +250,7 @@ class LayersPanel(QWidget):
         lid = item.data(Qt.ItemDataRole.UserRole)
         if lid:
             self.layer_selected.emit(str(lid))
+        self._sync_fillable_check()
         self._update_buttons()
 
     def _on_item_double(self, item: QListWidgetItem) -> None:

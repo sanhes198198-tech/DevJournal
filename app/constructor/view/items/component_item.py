@@ -62,6 +62,7 @@ class ComponentItem(QGraphicsObject):
         self._asset = asset
         self._registry = registry
         self._path = QPainterPath()
+        self._stroke_path = QPainterPath()  # V16: слои с fillable=False
         self._extra_path = QPainterPath()
 
         # Смещение контура, чтобы его ЦЕНТР был в (0,0).
@@ -231,158 +232,191 @@ class ComponentItem(QGraphicsObject):
 
     def _rebuild_paths(self) -> None:
         self._path = QPainterPath()
+        self._stroke_path = QPainterPath()
         self._extra_path = QPainterPath()
 
         if self._asset is None:
             return
 
-        # Рекурсивная сборка (центрирование внутри)
+        # V16: сборка возвращает 4 пути —
+        # fill (заливается), stroke (только контур),
+        # extra (рёбра), center.
         overrides = getattr(self._component, "param_overrides", None) or {}
-        main, extra, center = self._collect_asset_paths(
+        fill, stroke, extra, center = self._collect_asset_paths(
             self._asset, depth=0, param_overrides=overrides,
         )
-        self._path = main
+        self._path = fill
+        self._stroke_path = stroke
         self._extra_path = extra
-        # Запоминаем центр bbox — он же используется для anchor'ов
         self._center_x, self._center_y = center
 
     def _collect_asset_paths(
         self, asset, depth: int, param_overrides: dict | None = None,
-    ) -> tuple[QPainterPath, QPainterPath, tuple[float, float]]:
-        """Собрать main + extra из asset'а рекурсивно.
+    ) -> tuple[
+        QPainterPath, QPainterPath, QPainterPath, tuple[float, float]
+    ]:
+        """V16: собрать пути из asset'а рекурсивно.
 
-        Возвращает (main_path, extra_path, (cx, cy)) — центр bbox,
-        на который пути смещены.
+        Возвращает (fill_path, stroke_path, extra_path, (cx, cy)):
+          - fill_path   — слои с fillable=True (заливаются текстурой)
+          - stroke_path — слои с fillable=False (только контур)
+          - extra_path  — extra-рёбра всех слоёв
+          - center      — центр bbox первого слоя (для anchor'ов)
         """
-        main = QPainterPath()
+        fill = QPainterPath()
+        stroke = QPainterPath()
         extra = QPainterPath()
 
         if asset is None:
-            return main, extra, (0.0, 0.0)
+            return fill, stroke, extra, (0.0, 0.0)
 
         if depth > self.MAX_DEPTH:
-            return main, extra, (0.0, 0.0)
+            return fill, stroke, extra, (0.0, 0.0)
 
-        g = asset.geometry
-        contour = list(g.get("contour", []))
-        orig_contour = list(contour)  # база для центра (до override)
-        node_ids = list(g.get("node_ids", []))
-        extra_pts = list(g.get("extra_points", []))
-        extra_ids = list(g.get("extra_node_ids", []))
-        extra_edges = g.get("extra_edges", [])
-
-        # --- V10: применить override параметров sub-ассета ---
-        if param_overrides:
-            params = getattr(asset, "parameters", None) or {}
-            sem_groups = getattr(asset, "semantic_groups", None) or {}
-            for p in params.values():
-                ov = param_overrides.get(p.name)
-                if ov is None:
+        # V16: список слоёв. Старые ассеты без layers →
+        # единственный fillable-слой из asset.geometry.
+        layer_items: list[tuple[dict, bool]] = []
+        asset_layers = getattr(asset, "layers", None) or []
+        if asset_layers:
+            for layer in asset_layers:
+                if not getattr(layer, "visible", True):
                     continue
-                delta_shift = float(ov) - float(p.value)
-                if abs(delta_shift) < 1e-12:
+                layer_items.append((
+                    layer.geometry or {},
+                    bool(getattr(layer, "fillable", True)),
+                ))
+        else:
+            layer_items.append((asset.geometry, True))
+
+        if not layer_items:
+            # Все слои скрыты
+            return fill, stroke, extra, (0.0, 0.0)
+
+        # Для центра берём ПЕРВЫЙ слой
+        first_geo, _ = layer_items[0]
+        orig_contour = list(first_geo.get("contour", []))
+
+        for layer_geo, fillable in layer_items:
+            contour = list(layer_geo.get("contour", []))
+            node_ids = list(layer_geo.get("node_ids", []))
+            extra_pts = list(layer_geo.get("extra_points", []))
+            extra_ids = list(layer_geo.get("extra_node_ids", []))
+            extra_edges = layer_geo.get("extra_edges", [])
+
+            # --- Override параметров ---
+            if param_overrides:
+                params = getattr(asset, "parameters", None) or {}
+                sem_groups = getattr(asset, "semantic_groups", None) or {}
+                for p in params.values():
+                    ov = param_overrides.get(p.name)
+                    if ov is None:
+                        continue
+                    delta_shift = float(ov) - float(p.value)
+                    if abs(delta_shift) < 1e-12:
+                        continue
+                    node_delta = compute_delta_for_parameter(
+                        p, delta_shift, sem_groups,
+                    )
+                    contour = apply_delta_to_points(
+                        contour, node_ids, node_delta,
+                    )
+                    extra_pts = apply_delta_to_points(
+                        extra_pts, extra_ids, node_delta,
+                    )
+
+            # --- Arcs ---
+            arcs_map: dict[tuple, float] = {}
+            for arc in layer_geo.get("arcs", []) or []:
+                if not isinstance(arc, (list, tuple)) or len(arc) < 3:
                     continue
-                node_delta = compute_delta_for_parameter(
-                    p, delta_shift, sem_groups,
-                )
-                contour = apply_delta_to_points(
-                    contour, node_ids, node_delta,
-                )
-                extra_pts = apply_delta_to_points(
-                    extra_pts, extra_ids, node_delta,
-                )
+                try:
+                    bv = float(arc[2])
+                except (TypeError, ValueError):
+                    continue
+                if abs(bv) < 1e-9:
+                    continue
+                arcs_map[(str(arc[0]), str(arc[1]))] = bv
 
-        # --- Arcs (изгибы сегментов) ---
-        arcs_map: dict[tuple, float] = {}
-        for arc in g.get("arcs", []) or []:
-            if not isinstance(arc, (list, tuple)) or len(arc) < 3:
-                continue
-            try:
-                bv = float(arc[2])
-            except (TypeError, ValueError):
-                continue
-            if abs(bv) < 1e-9:
-                continue
-            arcs_map[(str(arc[0]), str(arc[1]))] = bv
-
-        def _get_bulge(a_id, b_id):
-            if not a_id or not b_id:
+            def _get_bulge(a_id, b_id, _m=arcs_map):
+                if not a_id or not b_id:
+                    return 0.0
+                v = _m.get((a_id, b_id))
+                if v is not None:
+                    return v
+                v = _m.get((b_id, a_id))
+                if v is not None:
+                    return v
                 return 0.0
-            v = arcs_map.get((a_id, b_id))
-            if v is not None:
-                return v
-            v = arcs_map.get((b_id, a_id))
-            if v is not None:
-                return v
-            return 0.0
 
-        def _append_segment(path, p1, p2, a_id, b_id):
-            bulge = _get_bulge(a_id, b_id)
-            if abs(bulge) < 1e-9:
-                path.lineTo(float(p2[0]), float(p2[1]))
-                return
-            x1, y1 = float(p1[0]), float(p1[1])
-            x2, y2 = float(p2[0]), float(p2[1])
-            dx = x2 - x1
-            dy = y2 - y1
-            L = (dx * dx + dy * dy) ** 0.5
-            if L < 1e-9:
-                path.lineTo(x2, y2)
-                return
-            mx = (x1 + x2) * 0.5
-            my = (y1 + y2) * 0.5
-            nx = -dy / L
-            ny = dx / L
-            k = 2.0 * bulge * L
-            cx = mx + nx * k
-            cy = my + ny * k
-            path.quadTo(cx, cy, x2, y2)
+            def _append_segment(path, p1, p2, a_id, b_id):
+                bulge = _get_bulge(a_id, b_id)
+                if abs(bulge) < 1e-9:
+                    path.lineTo(float(p2[0]), float(p2[1]))
+                    return
+                x1, y1 = float(p1[0]), float(p1[1])
+                x2, y2 = float(p2[0]), float(p2[1])
+                dx = x2 - x1
+                dy = y2 - y1
+                L = (dx * dx + dy * dy) ** 0.5
+                if L < 1e-9:
+                    path.lineTo(x2, y2)
+                    return
+                mx = (x1 + x2) * 0.5
+                my = (y1 + y2) * 0.5
+                nx = -dy / L
+                ny = dx / L
+                k = 2.0 * bulge * L
+                cx = mx + nx * k
+                cy = my + ny * k
+                path.quadTo(cx, cy, x2, y2)
 
-        # --- Main контур (с учётом arcs) ---
-        n_pts = len(contour)
-        n_ids = len(node_ids)
-        if n_pts >= 2:
-            x0, y0 = contour[0]
-            main.moveTo(float(x0), float(y0))
-            for i in range(1, n_pts):
-                p1 = contour[i - 1]
-                p2 = contour[i]
-                a_id = node_ids[i - 1] if (i - 1) < n_ids else None
-                b_id = node_ids[i] if i < n_ids else None
-                _append_segment(main, p1, p2, a_id, b_id)
-            if g.get("closed", True):
-                p1 = contour[n_pts - 1]
-                p2 = contour[0]
-                a_id = (
-                    node_ids[n_pts - 1]
-                    if (n_pts - 1) < n_ids else None
-                )
-                b_id = node_ids[0] if n_ids > 0 else None
-                _append_segment(main, p1, p2, a_id, b_id)
-                main.closeSubpath()
+            # --- Целевой path по fillable ---
+            target = fill if fillable else stroke
 
-        # --- Карта node_id → (x, y) ---
-        pos_map: dict[str, tuple[float, float]] = {}
-        for i, nid in enumerate(node_ids):
-            if i < len(contour):
-                x, y = contour[i]
-                pos_map[nid] = (float(x), float(y))
-        for i, nid in enumerate(extra_ids):
-            if i < len(extra_pts):
-                x, y = extra_pts[i]
-                pos_map[nid] = (float(x), float(y))
+            # --- Main контур этого слоя ---
+            n_pts = len(contour)
+            n_ids = len(node_ids)
+            if n_pts >= 2:
+                x0, y0 = contour[0]
+                target.moveTo(float(x0), float(y0))
+                for i in range(1, n_pts):
+                    p1 = contour[i - 1]
+                    p2 = contour[i]
+                    a_id = node_ids[i - 1] if (i - 1) < n_ids else None
+                    b_id = node_ids[i] if i < n_ids else None
+                    _append_segment(target, p1, p2, a_id, b_id)
+                if layer_geo.get("closed", True):
+                    p1 = contour[n_pts - 1]
+                    p2 = contour[0]
+                    a_id = (
+                        node_ids[n_pts - 1]
+                        if (n_pts - 1) < n_ids else None
+                    )
+                    b_id = node_ids[0] if n_ids > 0 else None
+                    _append_segment(target, p1, p2, a_id, b_id)
+                    target.closeSubpath()
 
-        # --- Extra edges ---
-        for edge in extra_edges:
-            if not isinstance(edge, (list, tuple)) or len(edge) != 2:
-                continue
-            a_id, b_id = edge
-            pa = pos_map.get(a_id)
-            pb = pos_map.get(b_id)
-            if pa is None or pb is None:
-                continue
-            extra.moveTo(pa[0], pa[1])
-            extra.lineTo(pb[0], pb[1])
+            # --- Extra edges этого слоя → в общий extra ---
+            pos_map: dict[str, tuple[float, float]] = {}
+            for i, nid in enumerate(node_ids):
+                if i < len(contour):
+                    x, y = contour[i]
+                    pos_map[nid] = (float(x), float(y))
+            for i, nid in enumerate(extra_ids):
+                if i < len(extra_pts):
+                    x, y = extra_pts[i]
+                    pos_map[nid] = (float(x), float(y))
+
+            for edge in extra_edges:
+                if not isinstance(edge, (list, tuple)) or len(edge) != 2:
+                    continue
+                a_id, b_id = edge
+                pa = pos_map.get(a_id)
+                pb = pos_map.get(b_id)
+                if pa is None or pb is None:
+                    continue
+                extra.moveTo(pa[0], pa[1])
+                extra.lineTo(pb[0], pb[1])
 
         # --- Вложенные компоненты (рекурсия) ---
         comps = getattr(asset, "components", {})
@@ -392,25 +426,24 @@ class ComponentItem(QGraphicsObject):
                 sub = self._registry.get(comp.asset_id)
                 if sub is None:
                     continue
-                sub_main, sub_extra, _ = self._collect_asset_paths(
-                    sub, depth + 1,
-                    param_overrides=comp.param_overrides,
+                sub_fill, sub_stroke, sub_extra, _ = (
+                    self._collect_asset_paths(
+                        sub, depth + 1,
+                        param_overrides=comp.param_overrides,
+                    )
                 )
-
                 t = QTransform()
                 t.translate(comp.x, comp.y)
                 t.rotate(-comp.rotation)
                 t.scale(comp.scale, comp.scale)
-
-                if not sub_main.isEmpty():
-                    main.addPath(t.map(sub_main))
+                if not sub_fill.isEmpty():
+                    fill.addPath(t.map(sub_fill))
+                if not sub_stroke.isEmpty():
+                    stroke.addPath(t.map(sub_stroke))
                 if not sub_extra.isEmpty():
                     extra.addPath(t.map(sub_extra))
 
-        # --- Центрируем по БАЗОВОМУ bbox (до override) ---
-        # Фикс: центр не должен сдвигаться при растяжении.
-        # Иначе низ детали (привязанный к родителю) уезжает —
-        # и вся цепочка внизу едет за ним.
+        # --- Центрирование по bbox первого слоя ---
         if orig_contour:
             xs = [float(p[0]) for p in orig_contour]
             ys = [float(p[1]) for p in orig_contour]
@@ -419,13 +452,12 @@ class ComponentItem(QGraphicsObject):
             from PySide6.QtGui import QTransform
             shift = QTransform()
             shift.translate(-cx, -cy)
-            main = shift.map(main)
+            fill = shift.map(fill)
+            stroke = shift.map(stroke)
             extra = shift.map(extra)
-            return main, extra, (cx, cy)
+            return fill, stroke, extra, (cx, cy)
 
-        return main, extra, (0.0, 0.0)
-
-    # ------------------------------------------------------------
+        return fill, stroke, extra, (0.0, 0.0)
 
     def boundingRect(self) -> QRectF:
         if self._asset is None:
@@ -524,6 +556,13 @@ class ComponentItem(QGraphicsObject):
 
         if not self._path.isEmpty():
             painter.drawPath(self._path)
+
+        # V16: stroke-only (слои с fillable=False) —
+        # только перо, без заливки. Рамы поверх окон.
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        if not self._stroke_path.isEmpty():
+            painter.drawPath(self._stroke_path)
+
         if not self._extra_path.isEmpty():
             painter.drawPath(self._extra_path)
 

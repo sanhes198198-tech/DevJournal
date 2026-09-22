@@ -555,6 +555,9 @@ class VectorEditor(QMainWindow):
         self._layers_panel.layer_selected.connect(
             self._on_layer_selected
         )
+        self._layers_panel.layer_fillable_changed.connect(
+            self._on_layer_fillable_changed
+        )
 
         self._groups_panel.group_selected.connect(
             self._on_group_selected
@@ -613,6 +616,18 @@ class VectorEditor(QMainWindow):
                 if nid:
                     node_ids.append(nid)
         self._groups_panel.set_selected_node_ids(node_ids)
+
+    def _on_layer_fillable_changed(
+        self, layer_id: str, fillable: bool,
+    ) -> None:
+        """V16: пользователь переключил заливку слоя."""
+        if self._current_asset is None:
+            return
+        for l in self._current_asset.layers:
+            if l.id == layer_id:
+                l.fillable = bool(fillable)
+                break
+        self._mark_modified()
 
     def _set_active_layer(self, layer_id: str) -> None:
         """V16: переключить активный слой.
