@@ -186,6 +186,46 @@ class ComponentItem(QGraphicsObject):
                 h.value_changed.connect(self._on_handle_changed)
                 self._handles["width"] = h
 
+            # V15: ручки растяжения сторон
+            elif p.name == "extend_right":
+                base_v = float(p.value)
+                cur_v = float(overrides.get("extend_right", base_v))
+                h = ParamHandleItem(
+                    "extend_right", "v", base_v, cur_v, parent=self,
+                )
+                # Справа от bbox, дальше чем height
+                h.setPos(r.right() + 2.5, r.center().y())
+                h.value_changed.connect(self._on_handle_changed)
+                self._handles["extend_right"] = h
+            elif p.name == "extend_left":
+                base_v = float(p.value)
+                cur_v = float(overrides.get("extend_left", base_v))
+                h = ParamHandleItem(
+                    "extend_left", "v", base_v, cur_v, parent=self,
+                )
+                h.setPos(r.left() - 0.8, r.center().y())
+                h.value_changed.connect(self._on_handle_changed)
+                self._handles["extend_left"] = h
+            elif p.name == "extend_top":
+                base_v = float(p.value)
+                cur_v = float(overrides.get("extend_top", base_v))
+                h = ParamHandleItem(
+                    "extend_top", "h", base_v, cur_v, parent=self,
+                )
+                h.setPos(r.center().x(), r.top() - 0.8)
+                h.value_changed.connect(self._on_handle_changed)
+                self._handles["extend_top"] = h
+            elif p.name == "extend_bottom":
+                base_v = float(p.value)
+                cur_v = float(overrides.get("extend_bottom", base_v))
+                h = ParamHandleItem(
+                    "extend_bottom", "h", base_v, cur_v, parent=self,
+                )
+                # Снизу от bbox, дальше чем width
+                h.setPos(r.center().x(), r.bottom() + 2.5)
+                h.value_changed.connect(self._on_handle_changed)
+                self._handles["extend_bottom"] = h
+
     def _on_handle_changed(self, name: str, value: float) -> None:
         self.param_changed.emit(self._component.id, name, value)
 
