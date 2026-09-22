@@ -30,6 +30,7 @@ class Component:
         attach_to: str = "",
         attach_anchor: str = "",
         parent_anchor: str = "",
+        slot_policy: dict | None = None,
     ):
         self.id = id or self._generate_id()
         self.asset_id = asset_id
@@ -52,6 +53,12 @@ class Component:
         self.attach_to: str = str(attach_to or "")
         self.attach_anchor: str = str(attach_anchor or "")
         self.parent_anchor: str = str(parent_anchor or "")
+        # V11: политика управления видимостью дочерних
+        # компонентов на слотах. None = выключено.
+        # {"enabled": bool, "clearance": float}
+        self.slot_policy: dict | None = (
+            dict(slot_policy) if slot_policy else None
+        )
 
     @staticmethod
     def _generate_id() -> str:
@@ -119,6 +126,7 @@ class Component:
             "attach_to": self.attach_to,
             "attach_anchor": self.attach_anchor,
             "parent_anchor": self.parent_anchor,
+            "slot_policy": self.slot_policy,
         }
 
     @classmethod
@@ -141,4 +149,5 @@ class Component:
             attach_to=str(d.get("attach_to", "")),
             attach_anchor=str(d.get("attach_anchor", "")),
             parent_anchor=str(d.get("parent_anchor", "")),
+            slot_policy=d.get("slot_policy"),
         )

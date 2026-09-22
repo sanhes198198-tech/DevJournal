@@ -25,17 +25,21 @@
       "layer": 0,
       "filled": true,
       "param_overrides": {
-        "height": -0.81
+        "height": -0.8510973936899866
       },
       "attach_to": "",
       "attach_anchor": "",
-      "parent_anchor": ""
+      "parent_anchor": "",
+      "slot_policy": {
+        "enabled": true,
+        "clearance": 1.5
+      }
     },
     "c_48977c25": {
       "id": "c_48977c25",
       "asset_id": "4d77b734d939",
       "x": 3.310412229860281,
-      "y": 0.5736059442552679,
+      "y": 0.5544637732926794,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Okno2",
@@ -46,13 +50,14 @@
       },
       "attach_to": "c_9e3cbe5a",
       "attach_anchor": "bottom",
-      "parent_anchor": "slot_g_ac1967c5_0_0"
+      "parent_anchor": "slot_g_ac1967c5_0_0",
+      "slot_policy": null
     },
     "c_ff862183": {
       "id": "c_ff862183",
       "asset_id": "4d77b734d939",
       "x": 3.310412229860281,
-      "y": -2.926394055744732,
+      "y": -2.9455362267073206,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Okno2",
@@ -63,13 +68,14 @@
       },
       "attach_to": "c_9e3cbe5a",
       "attach_anchor": "bottom",
-      "parent_anchor": "slot_g_ac1967c5_0_1"
+      "parent_anchor": "slot_g_ac1967c5_0_1",
+      "slot_policy": null
     },
     "c_0f1d0df6": {
       "id": "c_0f1d0df6",
       "asset_id": "4d77b734d939",
       "x": -2.4697404277184716,
-      "y": -2.964678397669909,
+      "y": -2.9455362267073206,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Okno2",
@@ -80,13 +86,14 @@
       },
       "attach_to": "c_9e3cbe5a",
       "attach_anchor": "bottom",
-      "parent_anchor": "slot_g_335f08fa_0_1"
+      "parent_anchor": "slot_g_335f08fa_0_1",
+      "slot_policy": null
     },
     "c_31f30abd": {
       "id": "c_31f30abd",
       "asset_id": "4d77b734d939",
       "x": -2.4697404277184716,
-      "y": 0.535321602330091,
+      "y": 0.5544637732926794,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Okno2",
@@ -97,7 +104,8 @@
       },
       "attach_to": "c_9e3cbe5a",
       "attach_anchor": "bottom",
-      "parent_anchor": "slot_g_335f08fa_0_0"
+      "parent_anchor": "slot_g_335f08fa_0_0",
+      "slot_policy": null
     },
     "c_a2c2fe83": {
       "id": "c_a2c2fe83",
@@ -114,7 +122,8 @@
       },
       "attach_to": "c_9e3cbe5a",
       "attach_anchor": "bottom",
-      "parent_anchor": "slot_g_816d54fc_0_0"
+      "parent_anchor": "slot_g_816d54fc_0_0",
+      "slot_policy": null
     }
   },
   "visibility_rules": {},

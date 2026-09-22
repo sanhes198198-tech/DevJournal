@@ -594,6 +594,31 @@ class ComponentItem(QGraphicsObject):
         self.update()
         self.moved.emit()
 
+    def wall_height_m(self) -> float:
+        """V11: высота контура в метрах (уже с override).
+
+        Возвращает 0.0, если контур пуст.
+        """
+        if self._path.isEmpty():
+            return 0.0
+        return self._path.boundingRect().height()
+
+    def slot_y_from_bottom(self, slot_key: str) -> float | None:
+        """V11: расстояние слота от низа контура (в метрах).
+
+        Возвращает None, если слот не найден.
+        """
+        if self._path.isEmpty():
+            return None
+        slots = self.slots_local()
+        pos = slots.get(slot_key)
+        if pos is None:
+            return None
+        rect = self._path.boundingRect()
+        # rect.bottom() = max_y = foundation (низ контура)
+        # pos[1] — y слота в тех же (path) координатах.
+        return rect.bottom() - pos[1]
+
     def anchors_local(self) -> dict[str, tuple[float, float]]:
         """Anchor'ы ссылочного asset'а в ЛОКАЛЬНЫХ координатах item.
 

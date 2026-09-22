@@ -647,6 +647,7 @@ class ConstructorWindow(QMainWindow):
 
         # Применить правила сразу при загрузке
         self._apply_visibility_rules()
+        self._apply_slot_visibility()
 
         # V-A: авто-zoom под все компоненты композита.
         from PySide6.QtCore import QTimer as _QT
@@ -840,6 +841,7 @@ class ConstructorWindow(QMainWindow):
 
         from PySide6.QtCore import QTimer
         QTimer.singleShot(0, self._apply_visibility_rules)
+        QTimer.singleShot(0, self._apply_slot_visibility)
 
     def _create_component_item(self, comp) -> "ComponentItem":
         """Создать ComponentItem для компонента, добавить на сцену,
@@ -888,6 +890,10 @@ class ConstructorWindow(QMainWindow):
 
         # Синхронизация спинбокса в панели (если меняли хендлом)
         self._properties.sync_param_value(comp_id, name, value)
+
+        # V11: сразу пересчитать видимость слотов
+        from PySide6.QtCore import QTimer as _QT2
+        _QT2.singleShot(0, self._apply_slot_visibility)
 
     def _get_selected_comps(self) -> list:
         """Вернуть список выделенных Component."""
@@ -1132,11 +1138,75 @@ class ConstructorWindow(QMainWindow):
 
             # Применяем ко всем загруженным компонентам
             for cid, item in self._items_by_comp_id.items():
+                # V11: пропускаем компоненты на слотах —
+                # ими управляет _apply_slot_visibility, не rules.
+                c2 = self._current_composite.get_component(cid)
+                if (
+                    c2 is not None
+                    and c2.parent_anchor.startswith("slot_")
+                ):
+                    continue
                 action = rule.action_for(cid, condition)
                 if action == "show" and not item.isVisible():
                     item.setVisible(True)
                 elif action == "hide" and item.isVisible():
                     item.setVisible(False)
+
+    def _apply_slot_visibility(self) -> None:
+        """V11: показать/скрыть компоненты на слотах по высоте родителя.
+
+        Логика:
+          visible = wall_height >= slot_y_from_bottom + clearance
+        где wall_height и slot_y уже учитывают param_overrides.
+
+        Если slot_policy.enabled == False (или policy=None) — пропуск.
+        Компонент НЕ удаляется — только setVisible(False/True).
+        """
+        if self._current_composite is None:
+            return
+
+        for cid, item in list(self._items_by_comp_id.items()):
+            comp = self._current_composite.get_component(cid)
+            if comp is None:
+                continue
+            # Только компоненты, привязанные к слотам
+            if not comp.parent_anchor.startswith("slot_"):
+                continue
+            if not comp.attach_to:
+                continue
+
+            parent_item = self._items_by_comp_id.get(comp.attach_to)
+            if parent_item is None:
+                continue
+            parent_comp = self._current_composite.get_component(
+                comp.attach_to,
+            )
+            if parent_comp is None:
+                continue
+
+            policy = getattr(parent_comp, "slot_policy", None)
+            if policy is None:
+                continue
+            if not policy.get("enabled", False):
+                continue
+            clearance = float(policy.get("clearance", 1.5))
+
+            wall_h = parent_item.wall_height_m()
+            if wall_h <= 0:
+                continue
+
+            slot_h = parent_item.slot_y_from_bottom(
+                comp.parent_anchor,
+            )
+            if slot_h is None:
+                if item.isVisible():
+                    item.setVisible(False)
+                continue
+
+            window_h = item.wall_height_m()
+            visible = wall_h >= slot_h + window_h + clearance
+            if item.isVisible() != visible:
+                item.setVisible(visible)
 
     def _on_rules_clicked(self) -> None:
         """Открыть диалог управления правилами."""
