@@ -117,6 +117,13 @@ class ComponentItem(QGraphicsObject):
         # V9-доп: окна +10 чтобы клик по ним ловился поверх стен
         self.setZValue(self._compute_z())
 
+        # V12: если компонент заблокирован — нельзя тащить
+        locked = bool(getattr(c, "locked", False))
+        self.setFlag(
+            QGraphicsItem.GraphicsItemFlag.ItemIsMovable,
+            not locked,
+        )
+
     def _compute_z(self) -> float:
         """Z из layer + бонус окнам (чтобы окна были поверх стен)."""
         c = self._component

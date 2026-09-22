@@ -32,6 +32,7 @@ class Component:
         parent_anchor: str = "",
         slot_policy: dict | None = None,
         fill_pattern: str = "",
+        locked: bool = False,
     ):
         self.id = id or self._generate_id()
         self.asset_id = asset_id
@@ -64,6 +65,10 @@ class Component:
         # "hatch" = серая диагональная штриховка.
         # "diamonds" = ромбы (косой крест).
         self.fill_pattern: str = str(fill_pattern or "")
+        # V12: блокировка перемещения и параметров.
+        # Заблокированный можно выделить и удалить, но нельзя
+        # двигать (drag) и менять height/width через панель.
+        self.locked: bool = bool(locked)
 
     @staticmethod
     def _generate_id() -> str:
@@ -133,6 +138,7 @@ class Component:
             "parent_anchor": self.parent_anchor,
             "slot_policy": self.slot_policy,
             "fill_pattern": self.fill_pattern,
+            "locked": self.locked,
         }
 
     @classmethod
@@ -157,4 +163,5 @@ class Component:
             parent_anchor=str(d.get("parent_anchor", "")),
             slot_policy=d.get("slot_policy"),
             fill_pattern=str(d.get("fill_pattern", "")),
+            locked=bool(d.get("locked", False)),
         )

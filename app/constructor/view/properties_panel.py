@@ -38,6 +38,8 @@ class PropertiesPanel(QWidget):
     param_override_changed = Signal(str, str, float)
     # (comp_id, pattern) — V11: fill_pattern
     fill_pattern_changed = Signal(str, str)
+    # (comp_id, locked) — V12: блокировка
+    locked_changed = Signal(str, bool)
 
     WIDTH = 260
 
@@ -188,6 +190,13 @@ class PropertiesPanel(QWidget):
 
         layout.addStretch()
 
+        # V12: кнопка блокировки
+        self._btn_lock = QPushButton("🔒 Заблокировать")
+        self._btn_lock.setCheckable(True)
+        self._btn_lock.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_lock.clicked.connect(self._on_lock_toggled)
+        layout.addWidget(self._btn_lock)
+
         # Кнопка удалить
         self._btn_delete = QPushButton("Удалить компонент")
         self._btn_delete.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -209,6 +218,8 @@ class PropertiesPanel(QWidget):
         self._layer_spin.setValue(0)
         self._filled_check.setChecked(False)
         self._pattern_combo.setCurrentIndex(0)
+        self._btn_lock.setChecked(False)
+        self._btn_lock.setText("🔒 Заблокировать")
         self._muted = False
         self._set_enabled(False)
 
@@ -240,8 +251,21 @@ class PropertiesPanel(QWidget):
             self._pattern_combo.setCurrentIndex(pi)
         else:
             self._pattern_combo.setCurrentIndex(0)
+
+        # V12: блокировка
+        locked = bool(getattr(comp, "locked", False))
+        self._btn_lock.setChecked(locked)
+        self._btn_lock.setText(
+            "🔓 Разблокировать" if locked else "🔒 Заблокировать"
+        )
+
         self._muted = False
         self._set_enabled(True)
+
+        # Заблокированные спинбоксы X/Y/rotation/scale — не редактируемы
+        for w in (self._x_spin, self._y_spin,
+                  self._rot_spin, self._scale_spin):
+            w.setEnabled(not locked)
 
         self._rebuild_param_widgets(comp, ref_asset)
 
@@ -266,11 +290,15 @@ class PropertiesPanel(QWidget):
         self._params_label.setVisible(True)
         self._params_container.setVisible(True)
 
+        _locked = bool(getattr(comp, "locked", False))
+
         for p in params:
             spin = QDoubleSpinBox()
             spin.setRange(-1e6, 1e6)
             spin.setDecimals(3)
             spin.setSingleStep(0.1)
+            if _locked:
+                spin.setEnabled(False)
 
             # Значение: override, если есть, иначе из параметра.
             # Блокируем сигнал, иначе setValue эмитит
@@ -341,6 +369,15 @@ class PropertiesPanel(QWidget):
         self.param_override_changed.emit(
             self._current_comp.id, name, value,
         )
+
+    def _on_lock_toggled(self, checked: bool) -> None:
+        """V12: переключить блокировку компонента."""
+        if self._muted or self._current_comp is None:
+            return
+        self._btn_lock.setText(
+            "🔓 Разблокировать" if checked else "🔒 Заблокировать"
+        )
+        self.locked_changed.emit(self._current_comp.id, bool(checked))
 
     def _on_pattern_changed(self, idx: int) -> None:
         """V11: пользователь выбрал текстуру заливки."""
