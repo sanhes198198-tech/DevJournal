@@ -1618,9 +1618,38 @@ class VectorEditor(QMainWindow):
         self._canvas.set_tool("select")
         self._scene.clearSelection()
 
+        # V-A: авто-zoom под контур при открытии.
+        # QTimer — чтобы layout окна успел применить размеры viewport.
+        from PySide6.QtCore import QTimer as _QT
+        _QT.singleShot(0, self._fit_to_contour)
+
         self.statusBar().showMessage(
             f"Открыт: {asset.name} ({asset.type})", 4000
         )
+
+    def _fit_to_contour(self) -> None:
+        """V-A: подогнать вид canvas под bbox текущего контура."""
+        if self._contour_item is None or self._canvas is None:
+            return
+        c = self._contour_item.contour
+        pts = list(c.points) + list(c.extra_points)
+        if not pts:
+            return
+
+        xs = [float(p[0]) for p in pts]
+        ys = [float(p[1]) for p in pts]
+        x0, x1 = min(xs), max(xs)
+        y0, y1 = min(ys), max(ys)
+
+        # Совсем маленький объект — минимум 0.5 м, чтобы не зумиться
+        # до бесконечности.
+        if (x1 - x0) < 0.5 and (y1 - y0) < 0.5:
+            cx = (x0 + x1) / 2
+            cy = (y0 + y1) / 2
+            x0, x1 = cx - 0.25, cx + 0.25
+            y0, y1 = cy - 0.25, cy + 0.25
+
+        self._canvas.fit_to_rect(x0, y0, x1, y1)
 
     # ============================================================
     # SAVE
