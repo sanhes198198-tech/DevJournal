@@ -798,6 +798,26 @@ class DevJournal(QMainWindow):
     # ARCHITECTURE EDITOR
     # =====================================================
 
+    def open_architecture_mockup(self):
+        """Открыть макет нового архитектурного модуля (план B)."""
+
+        from .architecture.architecture_mockup import ArchitectureMockup
+
+        existing = getattr(self, "_architecture_mockup", None)
+
+        if existing is None:
+            self._architecture_mockup = ArchitectureMockup()
+            try:
+                self._architecture_mockup.setAttribute(
+                    Qt.WidgetAttribute.WA_DeleteOnClose, False
+                )
+            except Exception:
+                pass
+
+        self._architecture_mockup.show()
+        self._architecture_mockup.raise_()
+        self._architecture_mockup.activateWindow()
+
     def open_architecture_editor(self):
 
         if not self.project_name:

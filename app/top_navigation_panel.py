@@ -111,6 +111,14 @@ class TopNavigationPanel(QFrame):
             self.window.open_architecture_editor
         )
 
+        # Макет нового архитектурного модуля (план B).
+        architecture_mockup_action = project_menu.addAction(
+            "Архитектура (макет)…"
+        )
+        architecture_mockup_action.triggered.connect(
+            self.window.open_architecture_mockup
+        )
+
         new_action.triggered.connect(
             self.window.new_project
         )
