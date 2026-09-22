@@ -539,7 +539,7 @@ class VectorCanvas(QGraphicsView):
 
     def fit_to_rect(
         self, x0: float, y0: float, x1: float, y1: float,
-        margin: float = 0.9,
+        margin: float = 0.6,
     ) -> None:
         """V-A: подогнать вид под прямоугольник (x0,y0)-(x1,y1).
 
