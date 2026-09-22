@@ -57,6 +57,25 @@ class ConstructorCanvas(QGraphicsView):
         self.scale(PPM_DEFAULT, PPM_DEFAULT)
         self.centerOn(0.0, 0.0)
 
+    def fit_to_rect(
+        self, x0: float, y0: float, x1: float, y1: float,
+        margin: float = 0.6,
+    ) -> None:
+        """V-A: подогнать вид под прямоугольник (x0,y0)-(x1,y1)."""
+        vw = max(self.viewport().width(), 50)
+        vh = max(self.viewport().height(), 50)
+        bw = max(abs(x1 - x0), 0.01)
+        bh = max(abs(y1 - y0), 0.01)
+
+        ppm = min(vw / bw, vh / bh) * margin
+        ppm = max(PPM_MIN, min(PPM_MAX, ppm))
+
+        self.resetTransform()
+        self.scale(ppm, ppm)
+        cx = (x0 + x1) / 2.0
+        cy = (y0 + y1) / 2.0
+        self.centerOn(cx, cy)
+
     def wheelEvent(self, event) -> None:
         delta = event.angleDelta().y()
         if delta == 0:

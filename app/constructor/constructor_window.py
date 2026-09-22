@@ -648,7 +648,28 @@ class ConstructorWindow(QMainWindow):
         # Применить правила сразу при загрузке
         self._apply_visibility_rules()
 
+        # V-A: авто-zoom под все компоненты композита.
+        from PySide6.QtCore import QTimer as _QT
+        _QT.singleShot(0, self._fit_to_scene)
 
+    def _fit_to_scene(self) -> None:
+        """V-A: подогнать вид canvas под bbox всех компонентов."""
+        if self._scene is None:
+            return
+        r = self._scene.itemsBoundingRect()
+        if r.isEmpty():
+            return
+        # Минимум 1×1 м — чтобы не зумиться до бесконечности
+        # на почти пустой сцене.
+        w = max(r.width(), 1.0)
+        h = max(r.height(), 1.0)
+        cx = r.center().x()
+        cy = r.center().y()
+        x0 = cx - w / 2
+        x1 = cx + w / 2
+        y0 = cy - h / 2
+        y1 = cy + h / 2
+        self._canvas.fit_to_rect(x0, y0, x1, y1)
 
     # ============================================================
     # NAVIGATION (вход в composite)
