@@ -697,6 +697,10 @@ class VectorEditor(QMainWindow):
         """V9c: создать extra-точку по клику на сцене."""
         if self._contour_item is None:
             return
+
+        # A-доп: снапшот ДО добавления — чтобы Ctrl+Z убирал точку
+        self._push_contour_snapshot()
+
         c = self._contour_item.contour
         try:
             c.add_extra_point(float(x), float(y))
