@@ -243,13 +243,73 @@ class ComponentItem(QGraphicsObject):
                     extra_pts, extra_ids, node_delta,
                 )
 
-        # --- Main контур ---
-        if len(contour) >= 2:
+        # --- Arcs (изгибы сегментов) ---
+        arcs_map: dict[tuple, float] = {}
+        for arc in g.get("arcs", []) or []:
+            if not isinstance(arc, (list, tuple)) or len(arc) < 3:
+                continue
+            try:
+                bv = float(arc[2])
+            except (TypeError, ValueError):
+                continue
+            if abs(bv) < 1e-9:
+                continue
+            arcs_map[(str(arc[0]), str(arc[1]))] = bv
+
+        def _get_bulge(a_id, b_id):
+            if not a_id or not b_id:
+                return 0.0
+            v = arcs_map.get((a_id, b_id))
+            if v is not None:
+                return v
+            v = arcs_map.get((b_id, a_id))
+            if v is not None:
+                return v
+            return 0.0
+
+        def _append_segment(path, p1, p2, a_id, b_id):
+            bulge = _get_bulge(a_id, b_id)
+            if abs(bulge) < 1e-9:
+                path.lineTo(float(p2[0]), float(p2[1]))
+                return
+            x1, y1 = float(p1[0]), float(p1[1])
+            x2, y2 = float(p2[0]), float(p2[1])
+            dx = x2 - x1
+            dy = y2 - y1
+            L = (dx * dx + dy * dy) ** 0.5
+            if L < 1e-9:
+                path.lineTo(x2, y2)
+                return
+            mx = (x1 + x2) * 0.5
+            my = (y1 + y2) * 0.5
+            nx = -dy / L
+            ny = dx / L
+            k = 2.0 * bulge * L
+            cx = mx + nx * k
+            cy = my + ny * k
+            path.quadTo(cx, cy, x2, y2)
+
+        # --- Main контур (с учётом arcs) ---
+        n_pts = len(contour)
+        n_ids = len(node_ids)
+        if n_pts >= 2:
             x0, y0 = contour[0]
             main.moveTo(float(x0), float(y0))
-            for pt in contour[1:]:
-                main.lineTo(float(pt[0]), float(pt[1]))
+            for i in range(1, n_pts):
+                p1 = contour[i - 1]
+                p2 = contour[i]
+                a_id = node_ids[i - 1] if (i - 1) < n_ids else None
+                b_id = node_ids[i] if i < n_ids else None
+                _append_segment(main, p1, p2, a_id, b_id)
             if g.get("closed", True):
+                p1 = contour[n_pts - 1]
+                p2 = contour[0]
+                a_id = (
+                    node_ids[n_pts - 1]
+                    if (n_pts - 1) < n_ids else None
+                )
+                b_id = node_ids[0] if n_ids > 0 else None
+                _append_segment(main, p1, p2, a_id, b_id)
                 main.closeSubpath()
 
         # --- Карта node_id → (x, y) ---

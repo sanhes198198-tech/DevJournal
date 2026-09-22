@@ -109,7 +109,9 @@
       "name": "okno",
       "layer": 0,
       "filled": false,
-      "param_overrides": {},
+      "param_overrides": {
+        "height": 1.1508242752279827
+      },
       "attach_to": "c_9e3cbe5a",
       "attach_anchor": "bottom",
       "parent_anchor": "slot_g_816d54fc_0_0"
