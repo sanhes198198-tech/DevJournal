@@ -25,9 +25,9 @@
       "layer": 0,
       "filled": true,
       "param_overrides": {
-        "height": -0.9686756393599913,
+        "height": -1.2054803086671768,
         "extend_bottom": 0.0,
-        "extend_right": 7.634968665725868,
+        "extend_right": 10.3,
         "extend_top": -0.15858920263374365,
         "width": 0.2258465805805021
       },
@@ -279,13 +279,13 @@
     "c_4db3ee38": {
       "id": "c_4db3ee38",
       "asset_id": "25f092d12df4",
-      "x": 4.966290881892296,
-      "y": -3.9120314124019453,
+      "x": 4.945070300207218,
+      "y": -4.619393980527538,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Okno3",
       "layer": 0,
-      "filled": true,
+      "filled": false,
       "param_overrides": {
         "height": 0.19700342126900905
       },

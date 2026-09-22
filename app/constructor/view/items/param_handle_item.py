@@ -18,8 +18,8 @@ from PySide6.QtWidgets import QGraphicsItem, QGraphicsObject
 CAPSULE_THICK = 0.28
 CAPSULE_LENGTH = 2.4
 KNOB_RADIUS = 0.18
-VALUE_RANGE_MIN = 10.0     # минимум, чтобы мелкие параметры тоже тянулись
-VALUE_RANGE_FACTOR = 5.0   # в 5 раз больше базы
+VALUE_RANGE_MIN = 100.0    # минимум 100 м - чтобы стены тянулись далеко
+VALUE_RANGE_FACTOR = 10.0  # в 10 раз больше базы
 
 CAPSULE_LINE_COLOR = QColor("#8892A0")
 CAPSULE_LINE_WIDTH = 0.015
