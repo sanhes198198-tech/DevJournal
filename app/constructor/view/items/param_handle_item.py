@@ -15,10 +15,10 @@ from PySide6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsObject
 
 
-CAPSULE_THICK = 0.18
-CAPSULE_LENGTH = 2.0
-KNOB_RADIUS = 0.10
-VALUE_RANGE = 10.0
+CAPSULE_THICK = 0.28
+CAPSULE_LENGTH = 2.4
+KNOB_RADIUS = 0.18
+VALUE_RANGE = 4.0
 
 CAPSULE_LINE_COLOR = QColor("#8892A0")
 CAPSULE_LINE_WIDTH = 0.015
@@ -133,9 +133,9 @@ class ParamHandleItem(QGraphicsObject):
     def _knob_hit(self, pos: QPointF) -> bool:
         knob = self._knob_pos()
         if self._orientation == "v":
-            return abs(pos.y() - knob) <= KNOB_RADIUS * 1.6
+            return abs(pos.y() - knob) <= KNOB_RADIUS * 2.2
         else:
-            return abs(pos.x() - knob) <= KNOB_RADIUS * 1.6
+            return abs(pos.x() - knob) <= KNOB_RADIUS * 2.2
 
     def mousePressEvent(self, event):
         if event.button() != Qt.MouseButton.LeftButton:

@@ -447,39 +447,20 @@ class ComponentItem(QGraphicsObject):
         return r.adjusted(-pad, -pad, pad, pad)
 
     def shape(self) -> QPainterPath:
-        """Область для клика — bbox + штрих 1.5 м.
-
-        Bbox: клик в любой точке внутри детали (не только на линиях).
-        Штрих: клик рядом с тонкой линией тоже работает.
-        Это важно для крупных объектов (стена, большое окно) —
-        раньше середина не ловилась.
-        """
-        from PySide6.QtGui import QPainterPathStroker
-
+        """V16: кликабельный bbox — тело компонента захватывается
+        в любой точке, а не только по контуру."""
         result = QPainterPath()
         if self._path.isEmpty() and self._extra_path.isEmpty():
             return result
 
-        # Bbox основной части — покрывает всю внутреннюю область
+        r = QRectF()
         if not self._path.isEmpty():
             r = self._path.boundingRect()
-            if not r.isEmpty():
-                result.addRect(r)
-
-        # Bbox extra части (edges, доп. элементы)
         if not self._extra_path.isEmpty():
             er = self._extra_path.boundingRect()
-            if not er.isEmpty():
-                result.addRect(er)
-
-        # Штрих 1.5 м — клик рядом с тонкой линией
-        stroker = QPainterPathStroker()
-        stroker.setWidth(1.5)
-        for p in (self._path, self._extra_path):
-            if p.isEmpty():
-                continue
-            result.addPath(stroker.createStroke(p))
-
+            r = r.united(er) if not r.isEmpty() else er
+        if not r.isEmpty():
+            result.addRect(r)
         return result
 
     def paint(self, painter, option, widget=None) -> None:
