@@ -1914,25 +1914,42 @@ class VectorEditor(QMainWindow):
     # UNDO
     # ============================================================
 
-    def _get_selected_main_nodes(self) -> list:
-        """Вернуть [(idx, x, y)] выделенных main-узлов (не extra)."""
+    def _get_selected_nodes(self) -> list:
+        """V-A1: вернуть выделенные узлы (main + extra).
+
+        Формат: список (kind, ref, x, y) где
+          kind = "main"  → ref = idx (int)
+          kind = "extra" → ref = node_id (str)
+        """
         from .view.items.node_item import NodeItem
-        result = []
-        for it in self._scene.selectedItems():
-            if isinstance(it, NodeItem):
-                result.append(it)
-        if not result:
-            return []
+        from .view.items.extra_node_item import ExtraNodeItem
+
         contour = self._contour_item.contour if self._contour_item else None
         if contour is None:
             return []
+
         items = []
-        for node in result:
-            idx = node.idx
-            if 0 <= idx < len(contour.points):
-                x, y = contour.points[idx]
-                items.append((idx, x, y))
+        for it in self._scene.selectedItems():
+            if isinstance(it, NodeItem):
+                idx = it.idx
+                if 0 <= idx < len(contour.points):
+                    x, y = contour.points[idx]
+                    items.append(("main", idx, x, y))
+            elif isinstance(it, ExtraNodeItem):
+                nid = it.node_id
+                if nid in contour.extra_node_ids:
+                    i = contour.extra_node_ids.index(nid)
+                    x, y = contour.extra_points[i]
+                    items.append(("extra", nid, x, y))
         return items
+
+    def _apply_node_position(self, kind: str, ref, x: float, y: float) -> None:
+        """Записать новую позицию в contour (main или extra)."""
+        contour = self._contour_item.contour
+        if kind == "main":
+            contour.set_point(int(ref), x, y)
+        else:
+            contour.set_point_by_id(str(ref), x, y)
 
     def _push_contour_snapshot(self) -> None:
         """Сохранить snapshot для undo."""
@@ -1942,22 +1959,22 @@ class VectorEditor(QMainWindow):
         self._undo_stack.append((self._contour_item, snapshot))
 
     def _align_x(self) -> None:
-        """Выровнять выделенные узлы по среднему X."""
-        items = self._get_selected_main_nodes()
+        """Выровнять выделенные узлы (main + extra) по среднему X."""
+        items = self._get_selected_nodes()
         if len(items) < 2:
             self.statusBar().showMessage(
                 "Выдели 2+ узла для выравнивания", 3000,
             )
             return
 
-        avg_x = sum(x for _, x, _ in items) / len(items)
-        contour = self._contour_item.contour
+        avg_x = sum(x for _, _, x, _ in items) / len(items)
 
         self._push_contour_snapshot()
-        for idx, _, y in items:
-            contour.set_point(idx, avg_x, y)
+        for kind, ref, _, y in items:
+            self._apply_node_position(kind, ref, avg_x, y)
 
         self._contour_item._rebuild_nodes()
+        self._contour_item._rebuild_extra_nodes()
         self._contour_item._rebuild_path()
         self._mark_modified()
         self.statusBar().showMessage(
@@ -1965,22 +1982,22 @@ class VectorEditor(QMainWindow):
         )
 
     def _align_y(self) -> None:
-        """Выровнять выделенные узлы по среднему Y."""
-        items = self._get_selected_main_nodes()
+        """Выровнять выделенные узлы (main + extra) по среднему Y."""
+        items = self._get_selected_nodes()
         if len(items) < 2:
             self.statusBar().showMessage(
                 "Выдели 2+ узла для выравнивания", 3000,
             )
             return
 
-        avg_y = sum(y for _, _, y in items) / len(items)
-        contour = self._contour_item.contour
+        avg_y = sum(y for _, _, _, y in items) / len(items)
 
         self._push_contour_snapshot()
-        for idx, x, _ in items:
-            contour.set_point(idx, x, avg_y)
+        for kind, ref, x, _ in items:
+            self._apply_node_position(kind, ref, x, avg_y)
 
         self._contour_item._rebuild_nodes()
+        self._contour_item._rebuild_extra_nodes()
         self._contour_item._rebuild_path()
         self._mark_modified()
         self.statusBar().showMessage(
@@ -1988,37 +2005,8 @@ class VectorEditor(QMainWindow):
         )
 
     def _distribute_x(self) -> None:
-        """Равномерно распределить узлы по X (крайние стоят)."""
-        items = self._get_selected_main_nodes()
-        if len(items) < 3:
-            self.statusBar().showMessage(
-                "Выдели 3+ узла для распределения", 3000,
-            )
-            return
-
-        items_sorted = sorted(items, key=lambda t: t[1])
-        xs = [x for _, x, _ in items_sorted]
-        x_min, x_max = xs[0], xs[-1]
-        n = len(items_sorted)
-        step = (x_max - x_min) / (n - 1)
-
-        contour = self._contour_item.contour
-        self._push_contour_snapshot()
-
-        for i, (idx, _, y) in enumerate(items_sorted):
-            new_x = x_min + step * i
-            contour.set_point(idx, new_x, y)
-
-        self._contour_item._rebuild_nodes()
-        self._contour_item._rebuild_path()
-        self._mark_modified()
-        self.statusBar().showMessage(
-            f"Распределено по X ({n} узлов)", 2000,
-        )
-
-    def _distribute_y(self) -> None:
-        """Равномерно распределить узлы по Y."""
-        items = self._get_selected_main_nodes()
+        """Равномерно распределить узлы (main + extra) по X."""
+        items = self._get_selected_nodes()
         if len(items) < 3:
             self.statusBar().showMessage(
                 "Выдели 3+ узла для распределения", 3000,
@@ -2026,19 +2014,46 @@ class VectorEditor(QMainWindow):
             return
 
         items_sorted = sorted(items, key=lambda t: t[2])
-        ys = [y for _, _, y in items_sorted]
+        xs = [x for _, _, x, _ in items_sorted]
+        x_min, x_max = xs[0], xs[-1]
+        n = len(items_sorted)
+        step = (x_max - x_min) / (n - 1)
+
+        self._push_contour_snapshot()
+        for i, (kind, ref, _, y) in enumerate(items_sorted):
+            new_x = x_min + step * i
+            self._apply_node_position(kind, ref, new_x, y)
+
+        self._contour_item._rebuild_nodes()
+        self._contour_item._rebuild_extra_nodes()
+        self._contour_item._rebuild_path()
+        self._mark_modified()
+        self.statusBar().showMessage(
+            f"Распределено по X ({n} узлов)", 2000,
+        )
+
+    def _distribute_y(self) -> None:
+        """Равномерно распределить узлы (main + extra) по Y."""
+        items = self._get_selected_nodes()
+        if len(items) < 3:
+            self.statusBar().showMessage(
+                "Выдели 3+ узла для распределения", 3000,
+            )
+            return
+
+        items_sorted = sorted(items, key=lambda t: t[3])
+        ys = [y for _, _, _, y in items_sorted]
         y_min, y_max = ys[0], ys[-1]
         n = len(items_sorted)
         step = (y_max - y_min) / (n - 1)
 
-        contour = self._contour_item.contour
         self._push_contour_snapshot()
-
-        for i, (idx, x, _) in enumerate(items_sorted):
+        for i, (kind, ref, x, _) in enumerate(items_sorted):
             new_y = y_min + step * i
-            contour.set_point(idx, x, new_y)
+            self._apply_node_position(kind, ref, x, new_y)
 
         self._contour_item._rebuild_nodes()
+        self._contour_item._rebuild_extra_nodes()
         self._contour_item._rebuild_path()
         self._mark_modified()
         self.statusBar().showMessage(
