@@ -100,6 +100,8 @@ class VectorEditor(QMainWindow):
 
         self._counter = 0
         self._undo_stack: list[tuple] = []
+        self._redo_stack: list[tuple] = []
+        self._in_undo_redo: bool = False
 
         # Сессия слияния undo-записей от изменения параметра
         self._param_undo_active_id: str | None = None
@@ -130,6 +132,7 @@ class VectorEditor(QMainWindow):
         self._build_ui()
         self._build_toolbar()
         self._connect_signals()
+        self._setup_shortcuts()
         self._update_title()
 
         self.statusBar().showMessage(
@@ -140,6 +143,20 @@ class VectorEditor(QMainWindow):
     # ============================================================
     # UI
     # ============================================================
+
+    def _setup_shortcuts(self) -> None:
+        """Глобальные горячие клавиши окна."""
+        from PySide6.QtGui import QShortcut, QKeySequence
+
+        # Ctrl+Z уже привязан в меню (Undo). Здесь только redo.
+        QShortcut(
+            QKeySequence("Ctrl+Shift+Z"), self,
+            activated=self._on_redo,
+        )
+        QShortcut(
+            QKeySequence("Ctrl+Y"), self,
+            activated=self._on_redo,
+        )
 
     def _build_ui(self) -> None:
         self._browser = AssetBrowser()
@@ -635,7 +652,7 @@ class VectorEditor(QMainWindow):
         else:
             # Новая серия: снапшот ДО текущего изменения.
             snapshot = self._contour_item.contour.snapshot()
-            self._undo_stack.append(
+            self._record_undo(
                 (self._contour_item, snapshot, param_id, old_value)
             )
             self._param_undo_active_id = param_id
@@ -921,6 +938,7 @@ class VectorEditor(QMainWindow):
             self._scene.removeItem(self._contour_item)
         self._contour_item = None
         self._undo_stack.clear()
+        self._redo_stack.clear()
 
     def _on_clear_contour(self) -> None:
         """Удалить контур со сцены, подложку оставить и войти в draw."""
@@ -1125,7 +1143,7 @@ class VectorEditor(QMainWindow):
         item._rebuild_nodes()
         item._rebuild_path()
 
-        self._undo_stack.append((item, snapshot))
+        self._record_undo((item, snapshot))
 
         self._extrude_source_idx = idx + 1
         self._extrude_points_added += 1
@@ -1272,6 +1290,7 @@ class VectorEditor(QMainWindow):
 
         self._contour_item = None
         self._undo_stack.clear()
+        self._redo_stack.clear()
 
         # Подложка
         if self._reference_item is not None:
@@ -1410,7 +1429,7 @@ class VectorEditor(QMainWindow):
         if current == snapshot:
             return
 
-        self._undo_stack.append((self._contour_item, snapshot))
+        self._record_undo((self._contour_item, snapshot))
 
     # ============================================================
     # OPEN
@@ -1878,7 +1897,7 @@ class VectorEditor(QMainWindow):
         self._contour_item._selected_edge_idx = None
         self._contour_item.update()
 
-        self._undo_stack.append(
+        self._record_undo(
             (self._contour_item, snapshot)
         )
 
@@ -1908,7 +1927,7 @@ class VectorEditor(QMainWindow):
             )
             return
 
-        self._undo_stack.append((item, snapshot))
+        self._record_undo((item, snapshot))
         self._mark_modified()
         self.statusBar().showMessage(
             f"Extrude на {EXTRUDE_TEST_DISTANCE} м", 2000
@@ -1955,12 +1974,18 @@ class VectorEditor(QMainWindow):
         else:
             contour.set_point_by_id(str(ref), x, y)
 
+    def _record_undo(self, entry) -> None:
+        """Push в undo-стек. Новое действие очищает redo."""
+        if not self._in_undo_redo:
+            self._redo_stack.clear()
+        self._undo_stack.append(entry)
+
     def _push_contour_snapshot(self) -> None:
         """Сохранить snapshot для undo."""
         if self._contour_item is None:
             return
         snapshot = self._contour_item.contour.snapshot()
-        self._undo_stack.append((self._contour_item, snapshot))
+        self._record_undo((self._contour_item, snapshot))
 
     def _align_x(self) -> None:
         """Выровнять выделенные узлы (main + extra) по среднему X."""
@@ -2163,9 +2188,20 @@ class VectorEditor(QMainWindow):
             self.statusBar().showMessage("Нечего отменять", 2000)
             return
 
+        self._in_undo_redo = True
+
         entry = self._undo_stack.pop()
         item = entry[0]
         snapshot = entry[1]
+
+        # A-доп: сохранить текущее состояние в redo (для Ctrl+Shift+Z).
+        # Делаем ДО restore, чтобы redo мог вернуться.
+        if item is not None:
+            try:
+                current_snap = item.contour.snapshot()
+                self._redo_stack.append((item, current_snap))
+            except Exception:
+                pass
 
         # A-доп: запомнить выделенные узлы ДО rebuild
         # (rebuild пересоздаёт NodeItem/ExtraNodeItem — объекты
@@ -2233,6 +2269,70 @@ class VectorEditor(QMainWindow):
         self._mark_modified()
         self._check_contour_invariants("после undo")
         self.statusBar().showMessage("Отменено", 2000)
+        self._in_undo_redo = False
+
+    def _on_redo(self) -> None:
+        """Ctrl+Shift+Z / Ctrl+Y — вернуть отменённое."""
+        if not self._redo_stack:
+            self.statusBar().showMessage("Нечего возвращать", 2000)
+            return
+
+        self._in_undo_redo = True
+
+        entry = self._redo_stack.pop()
+        item = entry[0]
+        snapshot = entry[1]
+
+        # Записать текущее в undo (без очистки redo)
+        if item is not None:
+            try:
+                current_snap = item.contour.snapshot()
+                self._record_undo((item, current_snap))
+            except Exception:
+                pass
+
+        # Запомнить выделение
+        selected_main_idx: set = set()
+        selected_extra_ids: set = set()
+        for n in getattr(item, "_nodes", []):
+            if n.isSelected():
+                selected_main_idx.add(n.idx)
+        for n in getattr(item, "_extra_nodes", []):
+            if n.isSelected():
+                selected_extra_ids.add(n.node_id)
+
+        # Restore
+        if isinstance(snapshot, dict):
+            item.contour.restore(snapshot)
+        else:
+            item.contour.points = list(snapshot)
+
+        item._selected_edge_idx = None
+        item._selected_extra = None
+        item._hover_edge_idx = None
+        item._hover_extra = None
+
+        item._rebuild_nodes()
+        item._rebuild_extra_nodes()
+        item._rebuild_path()
+
+        from PySide6.QtCore import QTimer as _QT
+
+        def _restore_selection():
+            if item is None:
+                return
+            for n in getattr(item, "_nodes", []):
+                if n.idx in selected_main_idx:
+                    n.setSelected(True)
+            for n in getattr(item, "_extra_nodes", []):
+                if n.node_id in selected_extra_ids:
+                    n.setSelected(True)
+
+        _QT.singleShot(0, _restore_selection)
+
+        self._mark_modified()
+        self.statusBar().showMessage("Возвращено", 2000)
+        self._in_undo_redo = False
 
     def eventFilter(self, obj, event) -> bool:
         if obj is self._scene:
@@ -2400,7 +2500,7 @@ class VectorEditor(QMainWindow):
                 item._rebuild_extra_nodes()
                 item.update()
 
-                self._undo_stack.append((item, snapshot))
+                self._record_undo((item, snapshot))
                 self._mark_modified()
                 self.statusBar().showMessage(
                     f"Удалено extra-узлов: {n}", 2500,
@@ -2422,7 +2522,7 @@ class VectorEditor(QMainWindow):
                 item._rebuild_extra_nodes()
                 item.update()
 
-                self._undo_stack.append((item, snapshot))
+                self._record_undo((item, snapshot))
                 self._mark_modified()
                 self.statusBar().showMessage(
                     f"Extra удалено: {a_id} — {b_id}", 2500,
@@ -2485,7 +2585,7 @@ class VectorEditor(QMainWindow):
         item._rebuild_nodes()
         item._rebuild_path()
 
-        self._undo_stack.append((item, snapshot))
+        self._record_undo((item, snapshot))
         self._mark_modified()
         self.statusBar().showMessage(
             f"Удалено узлов: {n_del}", 2000,
@@ -2515,7 +2615,7 @@ class VectorEditor(QMainWindow):
 
         snapshot = list(pts)
         item.remove_node(node.idx)
-        self._undo_stack.append((item, snapshot))
+        self._record_undo((item, snapshot))
         self._mark_modified()
         self.statusBar().showMessage("Узел удалён", 2000)
         return True
