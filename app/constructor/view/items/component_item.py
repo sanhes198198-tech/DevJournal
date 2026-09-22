@@ -726,12 +726,20 @@ class ComponentItem(QGraphicsObject):
             avg_dx = 0.0
             avg_dy = 0.0
 
-            # Группа с именем == tag содержит узлы этого anchor'а
+            # V15: сначала ищем группу anchor_<tag> (например,
+            # anchor_top), и только если её нет — <tag> (top).
+            # Так якорь не едет вместе с "чужими" узлами, которые
+            # попали в другую группу (right/left/top).
             group = None
             for g in sg.values():
-                if g.name == tag:
+                if g.name == f"anchor_{tag}":
                     group = g
                     break
+            if group is None:
+                for g in sg.values():
+                    if g.name == tag:
+                        group = g
+                        break
 
             if group is not None and group.node_ids:
                 dxs, dys = [], []

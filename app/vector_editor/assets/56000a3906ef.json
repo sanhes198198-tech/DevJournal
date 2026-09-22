@@ -17,7 +17,7 @@
     "c_9e3cbe5a": {
       "id": "c_9e3cbe5a",
       "asset_id": "60d7042003d0",
-      "x": -0.7000000000000001,
+      "x": -0.8,
       "y": -5.2,
       "rotation": 0.0,
       "scale": 1.0,
@@ -25,7 +25,7 @@
       "layer": 0,
       "filled": true,
       "param_overrides": {
-        "height": -0.8510973936899866,
+        "height": -1.551,
         "extend_bottom": 0.0,
         "extend_right": 7.634968665725868,
         "extend_top": -0.07986860872340706
@@ -43,7 +43,7 @@
     "c_48977c25": {
       "id": "c_48977c25",
       "asset_id": "4d77b734d939",
-      "x": 2.0604122298602823,
+      "x": 1.9604122298602824,
       "y": -2.345536226707325,
       "rotation": 0.0,
       "scale": 1.0,
@@ -63,7 +63,7 @@
     "c_ff862183": {
       "id": "c_ff862183",
       "asset_id": "4d77b734d939",
-      "x": 2.0604122298602823,
+      "x": 1.9604122298602824,
       "y": -5.845536226707325,
       "rotation": 0.0,
       "scale": 1.0,
@@ -83,7 +83,7 @@
     "c_0f1d0df6": {
       "id": "c_0f1d0df6",
       "asset_id": "4d77b734d939",
-      "x": -3.7197404277184702,
+      "x": -3.81974042771847,
       "y": -5.845536226707325,
       "rotation": 0.0,
       "scale": 1.0,
@@ -103,7 +103,7 @@
     "c_31f30abd": {
       "id": "c_31f30abd",
       "asset_id": "4d77b734d939",
-      "x": -3.7197404277184702,
+      "x": -3.81974042771847,
       "y": -2.345536226707325,
       "rotation": 0.0,
       "scale": 1.0,
@@ -123,7 +123,7 @@
     "c_a2c2fe83": {
       "id": "c_a2c2fe83",
       "asset_id": "e0f860a55c7e",
-      "x": -0.7902569912901808,
+      "x": -0.8902569912901808,
       "y": -3.9017149089448653,
       "rotation": 0.0,
       "scale": 1.0,
@@ -143,7 +143,7 @@
     "c_e65d4c68": {
       "id": "c_e65d4c68",
       "asset_id": "c2dd0d912a21",
-      "x": -6.2,
+      "x": -6.6000000000000005,
       "y": -3.8000000000000003,
       "rotation": 0.0,
       "scale": 1.0,
@@ -151,7 +151,7 @@
       "layer": 0,
       "filled": true,
       "param_overrides": {
-        "height": -3.7,
+        "height": -5.1,
         "width": 0.40016446189626187
       },
       "attach_to": "",
@@ -164,7 +164,7 @@
     "c_9760da35": {
       "id": "c_9760da35",
       "asset_id": "4d77b734d939",
-      "x": 5.060412229860282,
+      "x": 4.960412229860283,
       "y": -5.845536226707325,
       "rotation": 0.0,
       "scale": 1.0,
@@ -184,7 +184,7 @@
     "c_0c66d7aa": {
       "id": "c_0c66d7aa",
       "asset_id": "4d77b734d939",
-      "x": 8.060412229860283,
+      "x": 7.960412229860283,
       "y": -5.845536226707325,
       "rotation": 0.0,
       "scale": 1.0,
@@ -204,7 +204,7 @@
     "c_dcba4ef6": {
       "id": "c_dcba4ef6",
       "asset_id": "4d77b734d939",
-      "x": 5.060412229860282,
+      "x": 4.960412229860283,
       "y": -2.345536226707325,
       "rotation": 0.0,
       "scale": 1.0,
@@ -224,7 +224,7 @@
     "c_dd580022": {
       "id": "c_dd580022",
       "asset_id": "4d77b734d939",
-      "x": 8.060412229860283,
+      "x": 7.960412229860283,
       "y": -2.345536226707325,
       "rotation": 0.0,
       "scale": 1.0,
@@ -239,6 +239,80 @@
       "parent_anchor": "slot_g_ac1967c5_0_0_x2",
       "slot_policy": null,
       "fill_pattern": "diamonds",
+      "locked": false
+    },
+    "c_b18af25d": {
+      "id": "c_b18af25d",
+      "asset_id": "0b83487c4eea",
+      "x": -6.642308446218867,
+      "y": -12.336119335397145,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "Часть башни2",
+      "layer": -1,
+      "filled": true,
+      "param_overrides": {
+        "width": 0.0
+      },
+      "attach_to": "c_e65d4c68",
+      "attach_anchor": "bottom",
+      "parent_anchor": "top",
+      "slot_policy": null,
+      "fill_pattern": "",
+      "locked": false
+    },
+    "c_87250d1e": {
+      "id": "c_87250d1e",
+      "asset_id": "3ec907f2b564",
+      "x": -6.693224603471955,
+      "y": -14.808419287637784,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "часть башни3",
+      "layer": -2,
+      "filled": true,
+      "param_overrides": {},
+      "attach_to": "c_b18af25d",
+      "attach_anchor": "bottom",
+      "parent_anchor": "top",
+      "slot_policy": null,
+      "fill_pattern": "",
+      "locked": false
+    },
+    "c_21a93e2b": {
+      "id": "c_21a93e2b",
+      "asset_id": "4a02a5eeace1",
+      "x": -6.700842850646091,
+      "y": -17.434822983994543,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "крыша вытянутая",
+      "layer": -3,
+      "filled": true,
+      "param_overrides": {},
+      "attach_to": "c_87250d1e",
+      "attach_anchor": "bottom",
+      "parent_anchor": "top",
+      "slot_policy": null,
+      "fill_pattern": "",
+      "locked": false
+    },
+    "c_5c7aaf57": {
+      "id": "c_5c7aaf57",
+      "asset_id": "2d7f96953f11",
+      "x": -6.667909538795299,
+      "y": -21.797727361222137,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "Луковичная крыша",
+      "layer": -4,
+      "filled": true,
+      "param_overrides": {},
+      "attach_to": "c_21a93e2b",
+      "attach_anchor": "bottom",
+      "parent_anchor": "top",
+      "slot_policy": null,
+      "fill_pattern": "",
       "locked": false
     }
   },
