@@ -1091,4 +1091,9 @@ class ComponentItem(QGraphicsObject):
             self.update()
             from PySide6.QtCore import QTimer
             QTimer.singleShot(0, self._rebuild_handles)
+        elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
+            # V12: при drag — эмитим moved на каждое изменение позиции,
+            # чтобы дети (окна на слотах) двигались синхронно.
+            if self._drag_old_pos is not None:
+                self.moved.emit()
         return super().itemChange(change, value)

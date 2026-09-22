@@ -1052,15 +1052,25 @@ class ConstructorWindow(QMainWindow):
         self._undo_stack.push(cmd)
 
     def _on_item_moved(self) -> None:
-        """Item перетащили — обновить значения в панели."""
+        """Item перетащили — обновить панель + сдвинуть детей.
+
+        V12: если двигается родитель (стена), все компоненты,
+        привязанные к его слотам/анкерам, едут за ним.
+        """
         items = self._scene.selectedItems()
+        moved_comp_id = None
         for it in items:
             if isinstance(it, ComponentItem):
                 c = it.component
+                moved_comp_id = c.id
                 self._properties.update_values(
                     c.x, c.y, c.rotation, c.scale,
                 )
                 break
+
+        # V12: пересчитать позиции всех детей сдвинутого компонента
+        if moved_comp_id is not None:
+            self._reflow_children(moved_comp_id)
 
     def _reflow_children(
         self, parent_id: str, visited: set | None = None,
