@@ -408,22 +408,35 @@ class Asset:
         """
         result: dict[str, tuple[float, float]] = {}
 
-        # Все точки по node_id
+        # V16: точки из ВСЕХ видимых слоёв (не только активного).
+        # Раньше anchors терялись, если anchor_bottom был
+        # в неактивном слое окна.
         pts_by_id: dict[str, tuple[float, float]] = {}
-        g = self.geometry
-        contour = g.get("contour", [])
-        node_ids = g.get("node_ids", [])
-        for i, nid in enumerate(node_ids):
-            if i < len(contour):
-                x, y = contour[i]
-                pts_by_id[nid] = (float(x), float(y))
 
-        extra_pts = g.get("extra_points", [])
-        extra_ids = g.get("extra_node_ids", [])
-        for i, nid in enumerate(extra_ids):
-            if i < len(extra_pts):
-                x, y = extra_pts[i]
-                pts_by_id[nid] = (float(x), float(y))
+        layers = getattr(self, "layers", None) or []
+        layer_geometries = []
+        if layers:
+            for layer in layers:
+                if not getattr(layer, "visible", True):
+                    continue
+                layer_geometries.append(layer.geometry or {})
+        if not layer_geometries:
+            # Старый формат — один слой в geometry
+            layer_geometries = [self.geometry]
+
+        for g in layer_geometries:
+            contour = g.get("contour", [])
+            node_ids = g.get("node_ids", [])
+            for i, nid in enumerate(node_ids):
+                if i < len(contour):
+                    x, y = contour[i]
+                    pts_by_id[nid] = (float(x), float(y))
+            extra_pts = g.get("extra_points", [])
+            extra_ids = g.get("extra_node_ids", [])
+            for i, nid in enumerate(extra_ids):
+                if i < len(extra_pts):
+                    x, y = extra_pts[i]
+                    pts_by_id[nid] = (float(x), float(y))
 
         # Маппинг имён групп в теги anchor'ов.
         # Один и тот же смысл у стены и у крыши может называться

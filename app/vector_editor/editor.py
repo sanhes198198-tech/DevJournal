@@ -827,24 +827,27 @@ class VectorEditor(QMainWindow):
         )
 
         if node_delta:
-            c = self._contour_item.contour
+            # V16: применяем сдвиг ко ВСЕМ слоям (не только активному).
+            # Иначе при растяжении стены меняется только активный слой.
+            for item in list(self._layer_items.values()):
+                c = item.contour
 
-            # Main узлы
-            new_points = apply_delta_to_points(
-                c.points, c.node_ids, node_delta,
-            )
-            c.points = new_points
-
-            # Extra-узлы (e_*) — тоже
-            if c.extra_points:
-                new_extra = apply_delta_to_points(
-                    c.extra_points, c.extra_node_ids, node_delta,
+                # Main узлы
+                new_points = apply_delta_to_points(
+                    c.points, c.node_ids, node_delta,
                 )
-                c.extra_points = new_extra
+                c.points = new_points
 
-            self._contour_item._rebuild_nodes()
-            self._contour_item._rebuild_extra_nodes()
-            self._contour_item._rebuild_path()
+                # Extra-узлы (e_*) — тоже
+                if c.extra_points:
+                    new_extra = apply_delta_to_points(
+                        c.extra_points, c.extra_node_ids, node_delta,
+                    )
+                    c.extra_points = new_extra
+
+                item._rebuild_nodes()
+                item._rebuild_extra_nodes()
+                item._rebuild_path()
 
             # V9b: пересчёт авто-точек после сдвига
             self._recalc_auto_points()

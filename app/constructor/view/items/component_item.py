@@ -797,21 +797,32 @@ class ComponentItem(QGraphicsObject):
         if not rule_groups:
             return {}
 
-        # Позиции всех точек по id (main + extra), без override
+        # V16: точки из ВСЕХ видимых слоёв (иначе слоты
+        # теряются, если они в неактивном слое).
         pts_by_id: dict[str, tuple[float, float]] = {}
-        g_geom = self._asset.geometry or {}
-        contour = g_geom.get("contour", [])
-        node_ids = g_geom.get("node_ids", [])
-        for i, nid in enumerate(node_ids):
-            if i < len(contour):
-                x, y = contour[i]
-                pts_by_id[nid] = (float(x), float(y))
-        extra_pts = g_geom.get("extra_points", [])
-        extra_ids = g_geom.get("extra_node_ids", [])
-        for i, nid in enumerate(extra_ids):
-            if i < len(extra_pts):
-                x, y = extra_pts[i]
-                pts_by_id[nid] = (float(x), float(y))
+        layers = getattr(self._asset, "layers", None) or []
+        layer_geoms = []
+        if layers:
+            for layer in layers:
+                if not getattr(layer, "visible", True):
+                    continue
+                layer_geoms.append(layer.geometry or {})
+        if not layer_geoms:
+            layer_geoms = [self._asset.geometry or {}]
+
+        for g_geom in layer_geoms:
+            contour = g_geom.get("contour", [])
+            node_ids = g_geom.get("node_ids", [])
+            for i, nid in enumerate(node_ids):
+                if i < len(contour):
+                    x, y = contour[i]
+                    pts_by_id[nid] = (float(x), float(y))
+            extra_pts = g_geom.get("extra_points", [])
+            extra_ids = g_geom.get("extra_node_ids", [])
+            for i, nid in enumerate(extra_ids):
+                if i < len(extra_pts):
+                    x, y = extra_pts[i]
+                    pts_by_id[nid] = (float(x), float(y))
 
         # Override-сдвиги по узлам
         overrides = getattr(self._component, "param_overrides", None) or {}
