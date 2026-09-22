@@ -17,7 +17,7 @@
     "c_9e3cbe5a": {
       "id": "c_9e3cbe5a",
       "asset_id": "60d7042003d0",
-      "x": 0.1,
+      "x": 0.2,
       "y": -4.0,
       "rotation": 0.0,
       "scale": 1.0,
@@ -34,12 +34,13 @@
         "enabled": true,
         "clearance": 1.5
       },
-      "fill_pattern": ""
+      "fill_pattern": "",
+      "locked": true
     },
     "c_48977c25": {
       "id": "c_48977c25",
       "asset_id": "4d77b734d939",
-      "x": 3.010412229860281,
+      "x": 3.110412229860281,
       "y": -2.3455362267073205,
       "rotation": 0.0,
       "scale": 1.0,
@@ -53,12 +54,13 @@
       "attach_anchor": "bottom",
       "parent_anchor": "slot_g_ac1967c5_0_0",
       "slot_policy": null,
-      "fill_pattern": "diamonds"
+      "fill_pattern": "diamonds",
+      "locked": false
     },
     "c_ff862183": {
       "id": "c_ff862183",
       "asset_id": "4d77b734d939",
-      "x": 3.010412229860281,
+      "x": 3.110412229860281,
       "y": -5.8455362267073205,
       "rotation": 0.0,
       "scale": 1.0,
@@ -72,12 +74,13 @@
       "attach_anchor": "bottom",
       "parent_anchor": "slot_g_ac1967c5_0_1",
       "slot_policy": null,
-      "fill_pattern": "diamonds"
+      "fill_pattern": "diamonds",
+      "locked": false
     },
     "c_0f1d0df6": {
       "id": "c_0f1d0df6",
       "asset_id": "4d77b734d939",
-      "x": -2.7697404277184714,
+      "x": -2.6697404277184713,
       "y": -5.8455362267073205,
       "rotation": 0.0,
       "scale": 1.0,
@@ -91,12 +94,13 @@
       "attach_anchor": "bottom",
       "parent_anchor": "slot_g_335f08fa_0_1",
       "slot_policy": null,
-      "fill_pattern": "diamonds"
+      "fill_pattern": "diamonds",
+      "locked": false
     },
     "c_31f30abd": {
       "id": "c_31f30abd",
       "asset_id": "4d77b734d939",
-      "x": -2.7697404277184714,
+      "x": -2.6697404277184713,
       "y": -2.3455362267073205,
       "rotation": 0.0,
       "scale": 1.0,
@@ -110,12 +114,13 @@
       "attach_anchor": "bottom",
       "parent_anchor": "slot_g_335f08fa_0_0",
       "slot_policy": null,
-      "fill_pattern": "diamonds"
+      "fill_pattern": "diamonds",
+      "locked": false
     },
     "c_a2c2fe83": {
       "id": "c_a2c2fe83",
       "asset_id": "e0f860a55c7e",
-      "x": 0.15974300870981786,
+      "x": 0.25974300870981787,
       "y": -3.901714908944861,
       "rotation": 0.0,
       "scale": 1.0,
@@ -129,7 +134,8 @@
       "attach_anchor": "bottom",
       "parent_anchor": "slot_g_816d54fc_0_0",
       "slot_policy": null,
-      "fill_pattern": "diamonds"
+      "fill_pattern": "diamonds",
+      "locked": false
     }
   },
   "visibility_rules": {},
@@ -141,5 +147,7 @@
     "allow_height_variation": false,
     "irregularity": 0.0,
     "repeatable": false
-  }
+  },
+  "ground_line_y": 0.0,
+  "ground_line_visible": true
 }

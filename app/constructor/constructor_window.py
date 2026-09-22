@@ -9,7 +9,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QLabel, QMainWindow, QSplitter, QStatusBar, QVBoxLayout, QWidget,
     QToolBar, QMessageBox, QInputDialog,
-)
+
+    QDoubleSpinBox,)
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import QGraphicsItem
 
@@ -171,6 +172,33 @@ class ConstructorWindow(QMainWindow):
         act_rules.setShortcut(QKeySequence("Ctrl+R"))
         act_rules.triggered.connect(self._on_rules_clicked)
         tb.addAction(act_rules)
+
+        tb.addSeparator()
+
+        # V13: опорная линия
+        self._act_ground = QAction("📐 Линия", self)
+        self._act_ground.setCheckable(True)
+        self._act_ground.setToolTip(
+            "Показать опорную линию. Компонент, привязанный к ней, "
+            "садится на неё foundation'ом."
+        )
+        self._act_ground.toggled.connect(
+            self._on_ground_toggled
+        )
+        tb.addAction(self._act_ground)
+
+        self._ground_spin = QDoubleSpinBox()
+        self._ground_spin.setRange(-1000, 1000)
+        self._ground_spin.setDecimals(2)
+        self._ground_spin.setSingleStep(0.5)
+        self._ground_spin.setValue(0.0)
+        self._ground_spin.setSuffix(" м")
+        self._ground_spin.setFixedWidth(90)
+        self._ground_spin.setToolTip("Y опорной линии")
+        self._ground_spin.valueChanged.connect(
+            self._on_ground_y_changed
+        )
+        tb.addWidget(self._ground_spin)
 
         tb.addSeparator()
 
@@ -371,6 +399,18 @@ class ConstructorWindow(QMainWindow):
 
         # Обновляем имя и сохраняем
         self._current_composite.name = self._current_asset_name
+
+        # V13: сохранить ground line из сцены
+        if self._scene is not None and hasattr(
+            self._scene, "ground_line_y"
+        ):
+            self._current_composite.ground_line_y = (
+                self._scene.ground_line_y()
+            )
+            self._current_composite.ground_line_visible = (
+                self._scene.ground_line_visible()
+            )
+
         try:
             save_asset(self._current_composite)
         except StorageError as e:
@@ -404,6 +444,15 @@ class ConstructorWindow(QMainWindow):
         # Новый Asset — с новым uuid, копируем содержимое
         new_asset = Asset(name=name, type_="tower_body")
         new_asset.components = dict(self._current_composite.components)
+
+        # V13: скопировать ground line
+        if self._scene is not None and hasattr(
+            self._scene, "ground_line_y"
+        ):
+            new_asset.ground_line_y = self._scene.ground_line_y()
+            new_asset.ground_line_visible = (
+                self._scene.ground_line_visible()
+            )
 
         try:
             save_asset(new_asset)
@@ -650,6 +699,23 @@ class ConstructorWindow(QMainWindow):
         if n_orphan:
             msg += f" · {n_orphan} битых"
         self.statusBar().showMessage(msg, 5000)
+
+        # V13: загрузить опорную линию из композита
+        if self._scene is not None:
+            g_y = getattr(asset, "ground_line_y", None)
+            g_v = bool(getattr(asset, "ground_line_visible", True))
+            self._scene.set_ground_line(g_y, visible=g_v)
+            if g_y is not None:
+                self._ground_spin.blockSignals(True)
+                self._ground_spin.setValue(float(g_y))
+                self._ground_spin.blockSignals(False)
+                self._act_ground.blockSignals(True)
+                self._act_ground.setChecked(g_v)
+                self._act_ground.blockSignals(False)
+            else:
+                self._act_ground.blockSignals(True)
+                self._act_ground.setChecked(False)
+                self._act_ground.blockSignals(False)
 
         # Применить правила сразу при загрузке
         self._apply_visibility_rules()
@@ -1273,6 +1339,31 @@ class ConstructorWindow(QMainWindow):
             visible = wall_h >= slot_h + window_h + clearance
             if item.isVisible() != visible:
                 item.setVisible(visible)
+
+    def _on_ground_toggled(self, checked: bool) -> None:
+        """V13: показать/скрыть опорную линию."""
+        if self._scene is None:
+            return
+        y = self._ground_spin.value()
+        self._scene.set_ground_line(
+            y if checked else None,
+            visible=checked,
+        )
+        if self._current_composite is not None:
+            self._current_composite.ground_line_y = (
+                float(y) if checked else None
+            )
+            self._current_composite.ground_line_visible = bool(checked)
+
+    def _on_ground_y_changed(self, y: float) -> None:
+        """V13: смена Y опорной линии."""
+        if self._scene is None:
+            return
+        if not self._act_ground.isChecked():
+            return
+        self._scene.set_ground_line(float(y), visible=True)
+        if self._current_composite is not None:
+            self._current_composite.ground_line_y = float(y)
 
     def _on_rules_clicked(self) -> None:
         """Открыть диалог управления правилами."""

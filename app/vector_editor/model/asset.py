@@ -70,6 +70,11 @@ class Asset:
         self.parameters = parameters or {}
         self.reference_image: ReferenceImage | None = None
         self.generation_rules = generation_rules or self._default_rules()
+        # V13: опорная линия (ground line) для композита.
+        # ground_line_y = None — линии нет.
+        # ground_line_visible — показывать ли пунктир.
+        self.ground_line_y: float | None = None
+        self.ground_line_visible: bool = True
 
     # ------------------------------------------------------------
     # ФАБРИКИ
@@ -209,6 +214,8 @@ class Asset:
                 else None
             ),
             "generation_rules": self.generation_rules,
+            "ground_line_y": self.ground_line_y,
+            "ground_line_visible": self.ground_line_visible,
         }
 
     @classmethod
@@ -274,6 +281,16 @@ class Asset:
         )
         asset.reference_image = ref
         asset.visibility_rules = rules
+
+        # V13: ground line
+        g_y = d.get("ground_line_y")
+        if isinstance(g_y, (int, float)):
+            asset.ground_line_y = float(g_y)
+        else:
+            asset.ground_line_y = None
+        asset.ground_line_visible = bool(
+            d.get("ground_line_visible", True)
+        )
         return asset
 
     # ------------------------------------------------------------

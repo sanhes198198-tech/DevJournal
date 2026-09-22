@@ -2,7 +2,7 @@
 ConstructorScene — QGraphicsScene для сборки зданий (Y ↑).
 """
 from __future__ import annotations
-from PySide6.QtCore import QRectF
+from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QBrush, QColor
 from PySide6.QtWidgets import QGraphicsScene
 
@@ -29,8 +29,40 @@ class ConstructorScene(QGraphicsScene):
 
         self._grid.draw(painter, rect, ppm)
 
+    def set_ground_line(
+        self, y: float | None, visible: bool = True,
+    ) -> None:
+        """V13: опорная линия (ground line).
+
+        y=None — линии нет.
+        """
+        self._ground_y = float(y) if y is not None else None
+        self._ground_visible = bool(visible)
+        self.update()
+
+    def ground_line_y(self) -> float | None:
+        return getattr(self, "_ground_y", None)
+
+    def ground_line_visible(self) -> bool:
+        return getattr(self, "_ground_visible", True)
+
     def drawForeground(self, painter, rect: QRectF) -> None:
         super().drawForeground(painter, rect)
+
+        # V13: опорная линия — длинный пунктир на всю ширину сцены.
+        gy = getattr(self, "_ground_y", None)
+        gv = getattr(self, "_ground_visible", True)
+        if gy is not None and gv:
+            from PySide6.QtGui import QPen, QColor
+            from PySide6.QtCore import QPointF
+            from PySide6.QtCore import Qt as _Qt
+            pen = QPen(QColor("#0077CC"), 1.6)
+            pen.setCosmetic(True)
+            pen.setStyle(_Qt.PenStyle.DashLine)
+            painter.setPen(pen)
+            x0 = rect.left() if rect else SCENE_RECT.left()
+            x1 = rect.right() if rect else SCENE_RECT.right()
+            painter.drawLine(QPointF(x0, gy), QPointF(x1, gy))
 
         # Красный крест в (0,0) — точка отсчёта
         from PySide6.QtGui import QPen, QColor

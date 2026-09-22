@@ -73,6 +73,8 @@ class ComponentItem(QGraphicsObject):
         # Snap
         self._highlighted_anchor: str | None = None
         self._snap_partner = None
+        # V13: флаг что snap был к ground line (не компоненту)
+        self._snap_to_ground = False
         # Undo: позиция до drag
         self._drag_old_pos = None
         # On-canvas handles
@@ -997,6 +999,28 @@ class ComponentItem(QGraphicsObject):
             if best is None or best_slot[0] < best[0]:
                 best = best_slot
 
+        # V13: snap к опорной линии (ground line).
+        # Если мой bottom anchor близко к Y линии — snap по Y.
+        scene = self.scene()
+        if scene is not None and hasattr(scene, "ground_line_y"):
+            gy = scene.ground_line_y()
+            if gy is not None and scene.ground_line_visible():
+                my_bottom = my_world.get("bottom")
+                if my_bottom is not None:
+                    my_y = my_bottom[1]
+                    dy = gy - my_y
+                    if abs(dy) <= threshold_m:
+                        # Если линия ближе, чем текущий best
+                        if best is None or abs(dy) < best[0]:
+                            best = (
+                                abs(dy), "__ground__",
+                                None, "__ground__",
+                                0.0, dy,
+                            )
+
+        # V13: сброс флага — установится только если реально snap к ground
+        self._snap_to_ground = False
+
         if best is None:
             self.clear_snap_highlight()
             return
@@ -1005,6 +1029,15 @@ class ComponentItem(QGraphicsObject):
 
         # Сначала очищаем старую пару
         self.clear_snap_highlight()
+
+        # V13: snap к ground line — сдвигаем только по Y,
+        # attachment не создаём (это не компонент).
+        if other is None:
+            self.setPos(self.pos().x(), self.pos().y() + dy)
+            self._component.x = self.pos().x()
+            self._component.y = self.pos().y()
+            self._snap_to_ground = True
+            return
 
         # Сдвигаем себя на (dx, dy), чтобы наш anchor совпал с их
         self.setPos(self.pos().x() + dx, self.pos().y() + dy)
@@ -1090,6 +1123,7 @@ class ComponentItem(QGraphicsObject):
             self._drag_old_pos = None
 
         # Убираем подсветку snap
+        self._snap_to_ground = False
         self.clear_snap_highlight()
 
     def itemChange(self, change, value):
