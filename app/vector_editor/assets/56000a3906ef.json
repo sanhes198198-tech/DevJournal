@@ -35,7 +35,7 @@
         "clearance": 1.5
       },
       "fill_pattern": "",
-      "locked": true
+      "locked": false
     },
     "c_48977c25": {
       "id": "c_48977c25",
@@ -135,6 +135,24 @@
       "parent_anchor": "slot_g_816d54fc_0_0",
       "slot_policy": null,
       "fill_pattern": "diamonds",
+      "locked": false
+    },
+    "c_e65d4c68": {
+      "id": "c_e65d4c68",
+      "asset_id": "c2dd0d912a21",
+      "x": -6.1000000000000005,
+      "y": -3.8000000000000003,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "Сторожевая башня",
+      "layer": 0,
+      "filled": false,
+      "param_overrides": {},
+      "attach_to": "",
+      "attach_anchor": "",
+      "parent_anchor": "",
+      "slot_policy": null,
+      "fill_pattern": "",
       "locked": false
     }
   },

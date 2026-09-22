@@ -887,6 +887,25 @@ class ComponentItem(QGraphicsObject):
         if scene is None:
             return
 
+        # V14: к другим компонентам (anchor/slot) прилипают только
+        # окна/двери/декор. Стены, башни, крыши — сами к себе
+        # не цепляются, но могут прилипнуть к опорной линии.
+        # V16: к другим компонентам прилипают "мелкие" элементы.
+        # Определяем по типу ассета ИЛИ по имени компонента
+        # (потому что окна часто имеют тип tower_body).
+        ATTACHABLE = ("window", "door", "ornament")
+        _mt = getattr(self._asset, "type", "") if self._asset else ""
+        _name_lower = (
+            getattr(self._component, "name", "") or ""
+        ).lower()
+        _name_ok = (
+            "okno" in _name_lower
+            or "окно" in _name_lower
+            or "door" in _name_lower
+            or "двер" in _name_lower
+        )
+        can_attach = (_mt in ATTACHABLE) or _name_ok
+
         my_world = self.anchors_world()
         if not my_world:
             self.clear_snap_highlight()
@@ -901,7 +920,8 @@ class ComponentItem(QGraphicsObject):
 
         best = None  # (dist, my_tag, their_item, their_tag, dx, dy)
 
-        for other in scene.items():
+        if can_attach:
+          for other in scene.items():
             if other is self:
                 continue
             if not isinstance(other, ComponentItem):
@@ -961,7 +981,10 @@ class ComponentItem(QGraphicsObject):
                         c_comp.attach_to, set()
                     ).add(c_comp.parent_anchor)
 
-            for other in scene.items():
+            if not can_attach:
+                pass
+            else:
+              for other in scene.items():
                 if other is self:
                     continue
                 if not isinstance(other, ComponentItem):
