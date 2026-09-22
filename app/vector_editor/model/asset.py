@@ -18,6 +18,7 @@ from .parameter import Parameter
 from .reference_image import ReferenceImage
 from .component import Component
 from .visibility_rule import VisibilityRule
+from .vector_layer import VectorLayer
 
 
 # ============================================================
@@ -75,6 +76,9 @@ class Asset:
         # ground_line_visible — показывать ли пунктир.
         self.ground_line_y: float | None = None
         self.ground_line_visible: bool = True
+        # V16: слои. Пока только модель — UI позже.
+        # При загрузке старого JSON создаётся один слой из geometry.
+        self.layers: list[VectorLayer] = []
 
     # ------------------------------------------------------------
     # ФАБРИКИ
@@ -216,6 +220,7 @@ class Asset:
             "generation_rules": self.generation_rules,
             "ground_line_y": self.ground_line_y,
             "ground_line_visible": self.ground_line_visible,
+            "layers": [l.to_dict() for l in self.layers],
         }
 
     @classmethod
@@ -291,6 +296,25 @@ class Asset:
         asset.ground_line_visible = bool(
             d.get("ground_line_visible", True)
         )
+
+        # V16: слои
+        layers_raw = d.get("layers") or []
+        if layers_raw:
+            for ldict in layers_raw:
+                if not isinstance(ldict, dict):
+                    continue
+                try:
+                    asset.layers.append(VectorLayer.from_dict(ldict))
+                except Exception:
+                    continue
+        else:
+            # Автомиграция: старый JSON без layers —
+            # создать один слой из geometry.
+            asset.layers.append(VectorLayer(
+                name="Основной",
+                geometry=dict(asset.geometry),
+            ))
+
         return asset
 
     # ------------------------------------------------------------
