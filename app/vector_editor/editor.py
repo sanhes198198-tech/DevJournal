@@ -44,6 +44,7 @@ from .view.asset_browser import AssetBrowser
 from .view.scale_dialog import ScaleDialog
 from .model.auto_rule import recalculate_auto_points
 from .view.semantic_groups_panel import SemanticGroupsPanel
+from .view.layers_panel import LayersPanel
 from .view.arc_dialog import ArcDialog
 from .view.parameters_panel import ParametersPanel
 from .view.stretch_dialog import StretchDialog
@@ -125,6 +126,9 @@ class VectorEditor(QMainWindow):
 
         # Один контур на сцене (1A)
         self._contour_item: ContourItem | None = None
+        # V16: слои — все items, активный id
+        self._layer_items: dict = {}
+        self._active_layer_id: str | None = None
 
         # Флаг изменений
         self._modified = False
@@ -164,15 +168,19 @@ class VectorEditor(QMainWindow):
 
         self._groups_panel = SemanticGroupsPanel()
         self._parameters_panel = ParametersPanel()
+        self._layers_panel = LayersPanel()
 
         # Правая колонка: сверху группы, снизу параметры
         right_splitter = QSplitter(Qt.Orientation.Vertical)
+        right_splitter.addWidget(self._layers_panel)
         right_splitter.addWidget(self._groups_panel)
         right_splitter.addWidget(self._parameters_panel)
-        right_splitter.setStretchFactor(0, 1)
+        right_splitter.setStretchFactor(0, 0)
         right_splitter.setStretchFactor(1, 1)
-        right_splitter.setCollapsible(0, False)
+        right_splitter.setStretchFactor(2, 1)
+        right_splitter.setCollapsible(0, True)
         right_splitter.setCollapsible(1, False)
+        right_splitter.setCollapsible(2, False)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.addWidget(self._browser)
@@ -537,6 +545,17 @@ class VectorEditor(QMainWindow):
         self._scene.selectionChanged.connect(
             self._update_node_coords
         )
+        # V16: слои
+        self._layers_panel.layer_add_requested.connect(
+            self._on_layer_add
+        )
+        self._layers_panel.layer_delete_requested.connect(
+            self._on_layer_delete
+        )
+        self._layers_panel.layer_selected.connect(
+            self._on_layer_selected
+        )
+
         self._groups_panel.group_selected.connect(
             self._on_group_selected
         )
@@ -594,6 +613,104 @@ class VectorEditor(QMainWindow):
                 if nid:
                     node_ids.append(nid)
         self._groups_panel.set_selected_node_ids(node_ids)
+
+    def _set_active_layer(self, layer_id: str) -> None:
+        """V16: переключить активный слой.
+
+        Активный — обычный. Остальные — полупрозрачный фон,
+        не реагирующий на мышь.
+        """
+        if layer_id not in self._layer_items:
+            return
+        from PySide6.QtWidgets import QGraphicsItem as _GI
+
+        for lid, item in self._layer_items.items():
+            is_active = (lid == layer_id)
+            item.set_editable(is_active)
+            item.setOpacity(1.0 if is_active else 0.45)
+            item.setZValue(1.0 if is_active else -1.0)
+            if is_active:
+                item.setAcceptedMouseButtons(
+                    _GI.GraphicsItemFlag.ItemIsSelectable
+                    and 0  # никогда, но оставляем логику
+                ) if False else None
+                from PySide6.QtCore import Qt as _Qt
+                item.setAcceptedMouseButtons(_Qt.MouseButton.LeftButton)
+                item.setFlag(_GI.GraphicsItemFlag.ItemIsSelectable, True)
+            else:
+                from PySide6.QtCore import Qt as _Qt
+                item.setAcceptedMouseButtons(_Qt.MouseButton.NoButton)
+                item.setFlag(_GI.GraphicsItemFlag.ItemIsSelectable, False)
+
+        self._contour_item = self._layer_items[layer_id]
+        self._active_layer_id = layer_id
+        self._undo_stack.clear()
+        self._redo_stack.clear()
+        self._scene.clearSelection()
+        self.statusBar().showMessage(
+            f"Активный слой: {layer_id}", 1500,
+        )
+
+    def _on_layer_add(self) -> None:
+        """V16: добавить пустой слой + ContourItem."""
+        if self._current_asset is None:
+            return
+        from .model.vector_layer import VectorLayer
+        from .model.contour import VectorContour
+        layer = VectorLayer(
+            name=f"Слой {len(self._current_asset.layers) + 1}",
+        )
+        self._current_asset.layers.append(layer)
+        # Создать пустой ContourItem
+        c = VectorContour(points=[])
+        item = ContourItem(c)
+        item.changed.connect(self._on_contour_changed)
+        item.node_drag_started.connect(self._on_node_drag_started)
+        item.node_drag_finished.connect(self._on_node_drag_finished)
+        self._scene.addItem(item)
+        self._layer_items[layer.id] = item
+        self._layers_panel.set_asset(self._current_asset)
+        self._set_active_layer(layer.id)
+        self._mark_modified()
+        self.statusBar().showMessage(
+            f"Слой добавлен: {layer.name}", 2000,
+        )
+
+    def _on_layer_delete(self, layer_id: str) -> None:
+        """V16: удалить слой (не последний)."""
+        if self._current_asset is None:
+            return
+        layers = self._current_asset.layers
+        if len(layers) <= 1:
+            self.statusBar().showMessage(
+                "Нельзя удалить последний слой", 2000,
+            )
+            return
+        removed = None
+        for i, l in enumerate(layers):
+            if l.id == layer_id:
+                removed = layers.pop(i)
+                break
+        if removed is None:
+            return
+        # Убрать ContourItem
+        item = self._layer_items.pop(layer_id, None)
+        if item is not None:
+            self._scene.removeItem(item)
+        # Если удалили активный — сделать активным первый
+        if self._active_layer_id == layer_id:
+            if self._current_asset.layers:
+                first_id = self._current_asset.layers[0].id
+                self._set_active_layer(first_id)
+        self._layers_panel.set_asset(self._current_asset)
+        self._mark_modified()
+        self.statusBar().showMessage(
+            f"Слой удалён: {removed.name}", 2000,
+        )
+
+    def _on_layer_selected(self, layer_id: str) -> None:
+        """V16: пользователь выбрал слой — сделать активным."""
+        self._set_active_layer(layer_id)
 
     def _on_group_selected(self, group_id: str) -> None:
         """Подсветить узлы выбранной группы.
@@ -1332,6 +1449,7 @@ class VectorEditor(QMainWindow):
         self._current_asset = None
         self._groups_panel.set_asset(None)
         self._parameters_panel.set_asset(None)
+        self._layers_panel.set_asset(None)
 
         self._reset_param_undo_session()
 
@@ -1623,12 +1741,74 @@ class VectorEditor(QMainWindow):
                 5000,
             )
 
-        item = ContourItem(contour)
-        item.changed.connect(self._on_contour_changed)
-        item.node_drag_started.connect(self._on_node_drag_started)
-        item.node_drag_finished.connect(self._on_node_drag_finished)
-        self._scene.addItem(item)
-        self._contour_item = item
+        # V16: создать ContourItem для КАЖДОГО слоя
+        self._layer_items = {}
+        layers = getattr(asset, "layers", []) or []
+
+        # Если layers нет (не мигрировались) — создадим из geometry
+        if not layers:
+            from .model.vector_layer import VectorLayer
+            asset.layers.append(VectorLayer(
+                name="Основной",
+                geometry=dict(geometry),
+            ))
+            layers = asset.layers
+
+        active_id = None
+        for lidx, layer in enumerate(layers):
+            layer_geo = layer.geometry or {}
+            try:
+                layer_contour = VectorContour(
+                    points=[
+                        (float(p[0]), float(p[1]))
+                        for p in layer_geo.get("contour", [])
+                    ],
+                    node_ids=list(layer_geo.get("node_ids", [])),
+                    closed=bool(layer_geo.get("closed", True)),
+                    name=layer.name,
+                    extra_edges=[
+                        tuple(e) for e in layer_geo.get(
+                            "extra_edges", []
+                        )
+                    ],
+                    extra_points=[
+                        (float(p[0]), float(p[1]))
+                        for p in layer_geo.get(
+                            "extra_points", []
+                        )
+                    ],
+                    extra_node_ids=list(
+                        layer_geo.get("extra_node_ids", [])
+                    ),
+                    arcs=_parse_arcs(layer_geo.get("arcs")),
+                )
+                _keep = set()
+                for g in asset.semantic_groups.values():
+                    _keep.update(g.node_ids)
+                layer_contour.sanitize(keep_extra_ids=_keep)
+            except Exception:
+                layer_contour = VectorContour(points=[])
+
+            item = ContourItem(layer_contour)
+            item.changed.connect(self._on_contour_changed)
+            item.node_drag_started.connect(
+                self._on_node_drag_started
+            )
+            item.node_drag_finished.connect(
+                self._on_node_drag_finished
+            )
+            self._scene.addItem(item)
+            self._layer_items[layer.id] = item
+
+            if active_id is None:
+                active_id = layer.id
+
+        # Сделать первый активным
+        if active_id is not None:
+            self._set_active_layer(active_id)
+        else:
+            self._contour_item = None
+            self._active_layer_id = None
 
         self._current_asset = asset
         self._current_asset_id = asset.id
@@ -1637,6 +1817,7 @@ class VectorEditor(QMainWindow):
 
         self._groups_panel.set_asset(asset)
         self._parameters_panel.set_asset(asset)
+        self._layers_panel.set_asset(asset)
         self._update_size_display()
 
         # Подложка (если есть в Asset'е)
@@ -1728,6 +1909,58 @@ class VectorEditor(QMainWindow):
             # Копируем подложку — иначе она теряется при Save
             asset.reference_image = self._current_asset.reference_image
 
+            # V16: синхронизация слоёв из ContourItem'ов
+            # Правки в редакторе → layer.geometry → JSON.
+            asset.layers = []
+            for layer in self._current_asset.layers:
+                item = self._layer_items.get(layer.id)
+                if item is None:
+                    asset.layers.append(layer)
+                    continue
+                c = item.contour
+                group_ids = set()
+                for g in self._current_asset.semantic_groups.values():
+                    group_ids.update(g.node_ids)
+                try:
+                    c.sanitize(keep_extra_ids=group_ids)
+                except Exception:
+                    pass
+                layer.geometry = {
+                    "contour": [
+                        [float(p[0]), float(p[1])] for p in c.points
+                    ],
+                    "closed": bool(c.closed),
+                    "units": "m",
+                    "node_ids": list(c.node_ids),
+                    "groups": {},
+                    "extra_edges": [
+                        [a, b] for (a, b) in c.extra_edges
+                    ],
+                    "arcs": [
+                        [a, b, float(v)]
+                        for (a, b), v in c.arcs.items()
+                        if abs(v) > 1e-9
+                    ],
+                    "extra_points": [
+                        [float(p[0]), float(p[1])]
+                        for p in c.extra_points
+                    ],
+                    "extra_node_ids": list(c.extra_node_ids),
+                }
+                asset.layers.append(layer)
+
+            # asset.geometry = geometry активного слоя (для обратной
+            # совместимости — старый код читает geometry)
+            active_geo = (
+                asset.layers[0].geometry if asset.layers else
+                self._current_asset.geometry
+            )
+            for layer in asset.layers:
+                if layer.id == self._active_layer_id:
+                    active_geo = layer.geometry
+                    break
+            asset.geometry = dict(active_geo)
+
         try:
             save_asset(asset)
         except StorageError as e:
@@ -1741,6 +1974,7 @@ class VectorEditor(QMainWindow):
         self._current_asset = asset
         self._groups_panel.set_asset(asset)
         self._parameters_panel.set_asset(asset)
+        self._layers_panel.set_asset(asset)
 
         self._mark_saved()
         self._browser.refresh()
