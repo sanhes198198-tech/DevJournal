@@ -857,37 +857,70 @@ class ComponentItem(QGraphicsObject):
 
             max_count = int(rule.get("max_count", 30))
 
+            # V15: вторая ось (сетка точек)
+            axis2_name = rule.get("axis_x") or ""
+            step2 = float(rule.get("step_x") or 0.0)
+            until2_name = rule.get("until_group_x") or ""
+            axis2_idx = None
+            limit2_val = None
+            if (axis2_name and abs(step2) > 1e-9 and until2_name):
+                axis2_idx = 0 if axis2_name == "x" else 1
+                if axis2_idx != axis_idx:
+                    for gg in sg.values():
+                        if gg.name == until2_name:
+                            c = _centroid(gg)
+                            if c is not None:
+                                limit2_val = c[axis2_idx]
+                            break
+                    if limit2_val is None:
+                        axis2_idx = None
+
             for tpl_idx, template_pos in enumerate(templates):
-                # Слот 0 — сам шаблон
-                # Ключ по group.id — иначе группы с одинаковым
-                # именем (напр. window_slot × 3) перезаписывают
-                # друг друга в dict.
-                result[f"slot_{group.id}_{tpl_idx}_0"] = (
-                    template_pos[0] - self._center_x,
-                    template_pos[1] - self._center_y,
-                )
+                # Базовая цепочка по первой оси
+                chain1 = [tuple(template_pos)]
+                if limit_val is not None:
+                    cur = template_pos[axis_idx] + step
+                    i1 = 0
+                    while i1 < max_count:
+                        if step > 0 and cur >= limit_val:
+                            break
+                        if step < 0 and cur <= limit_val:
+                            break
+                        pt = list(template_pos)
+                        pt[axis_idx] = cur
+                        chain1.append(tuple(pt))
+                        cur += step
+                        i1 += 1
 
-                # Без границы — только шаблон
-                if limit_val is None:
-                    continue
-
-                current = template_pos[axis_idx] + step
-                idx = 1
-                while idx <= max_count:
-                    if step > 0 and current >= limit_val:
-                        break
-                    if step < 0 and current <= limit_val:
-                        break
-                    new_pt = list(template_pos)
-                    new_pt[axis_idx] = current
-                    result[
-                        f"slot_{group.id}_{tpl_idx}_{idx}"
-                    ] = (
-                        new_pt[0] - self._center_x,
-                        new_pt[1] - self._center_y,
+                for i1, base_pt in enumerate(chain1):
+                    # Базовая точка — старая схема ключа
+                    key = f"slot_{group.id}_{tpl_idx}_{i1}"
+                    result[key] = (
+                        base_pt[0] - self._center_x,
+                        base_pt[1] - self._center_y,
                     )
-                    current += step
-                    idx += 1
+
+                    # Вторая ось (копии вбок)
+                    if axis2_idx is None or limit2_val is None:
+                        continue
+                    cur2 = base_pt[axis2_idx] + step2
+                    j = 1
+                    while j <= max_count:
+                        if step2 > 0 and cur2 >= limit2_val:
+                            break
+                        if step2 < 0 and cur2 <= limit2_val:
+                            break
+                        pt2 = list(base_pt)
+                        pt2[axis2_idx] = cur2
+                        key2 = (
+                            f"slot_{group.id}_{tpl_idx}_{i1}_x{j}"
+                        )
+                        result[key2] = (
+                            pt2[0] - self._center_x,
+                            pt2[1] - self._center_y,
+                        )
+                        cur2 += step2
+                        j += 1
 
         return result
 
@@ -960,7 +993,10 @@ class ComponentItem(QGraphicsObject):
 
         best = None  # (dist, my_tag, their_item, their_tag, dx, dy)
 
-        if can_attach:
+        # V15: anchor-поиск идёт ВСЕГДА, но для не-attachable
+        # допускаем только пару (bottom → top) — крыша/купол/башня
+        # ставятся сверху. Остальные пары им запрещены.
+        if True:
           for other in scene.items():
             if other is self:
                 continue
@@ -990,6 +1026,12 @@ class ComponentItem(QGraphicsObject):
             for my_tag, (mx, my) in my_world.items():
                 for their_tag, (tx, ty) in their_world.items():
                     if (my_tag, their_tag) not in SNAP_PAIRS:
+                        continue
+                    # V15: "встать сверху" (bottom→top) разрешено
+                    # всем — крыша/купол/башня ставятся на стену.
+                    # Другие пары (top→bottom) — только attachable.
+                    if (not can_attach
+                            and (my_tag, their_tag) != ("bottom", "top")):
                         continue
                     dx = tx - mx
                     dy = ty - my
