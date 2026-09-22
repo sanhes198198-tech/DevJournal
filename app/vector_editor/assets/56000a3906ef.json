@@ -17,8 +17,8 @@
     "c_9e3cbe5a": {
       "id": "c_9e3cbe5a",
       "asset_id": "60d7042003d0",
-      "x": 0.0,
-      "y": -0.8,
+      "x": 0.4,
+      "y": -1.1,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "levayahastzamka",
@@ -34,8 +34,8 @@
     "c_48977c25": {
       "id": "c_48977c25",
       "asset_id": "4d77b734d939",
-      "x": 2.910412229860281,
-      "y": 0.8736059442552679,
+      "x": 3.310412229860281,
+      "y": 0.5736059442552679,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Okno2",
@@ -46,13 +46,13 @@
       },
       "attach_to": "c_9e3cbe5a",
       "attach_anchor": "bottom",
-      "parent_anchor": "slot_window_slot_0"
+      "parent_anchor": "slot_g_ac1967c5_0_0"
     },
     "c_ff862183": {
       "id": "c_ff862183",
       "asset_id": "4d77b734d939",
-      "x": 2.910412229860281,
-      "y": -2.626394055744732,
+      "x": 3.310412229860281,
+      "y": -2.926394055744732,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Okno2",
@@ -63,7 +63,56 @@
       },
       "attach_to": "c_9e3cbe5a",
       "attach_anchor": "bottom",
-      "parent_anchor": "slot_window_slot_1"
+      "parent_anchor": "slot_g_ac1967c5_0_1"
+    },
+    "c_0f1d0df6": {
+      "id": "c_0f1d0df6",
+      "asset_id": "4d77b734d939",
+      "x": -2.4697404277184716,
+      "y": -2.964678397669909,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "Okno2",
+      "layer": 0,
+      "filled": false,
+      "param_overrides": {
+        "height": 0.0460944718728129
+      },
+      "attach_to": "c_9e3cbe5a",
+      "attach_anchor": "bottom",
+      "parent_anchor": "slot_g_335f08fa_0_1"
+    },
+    "c_31f30abd": {
+      "id": "c_31f30abd",
+      "asset_id": "4d77b734d939",
+      "x": -2.4697404277184716,
+      "y": 0.535321602330091,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "Okno2",
+      "layer": 0,
+      "filled": false,
+      "param_overrides": {
+        "height": -0.7682169720430423
+      },
+      "attach_to": "c_9e3cbe5a",
+      "attach_anchor": "bottom",
+      "parent_anchor": "slot_g_335f08fa_0_0"
+    },
+    "c_a2c2fe83": {
+      "id": "c_a2c2fe83",
+      "asset_id": "e0f860a55c7e",
+      "x": 0.4597430087098179,
+      "y": -1.001714908944861,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "okno",
+      "layer": 0,
+      "filled": false,
+      "param_overrides": {},
+      "attach_to": "c_9e3cbe5a",
+      "attach_anchor": "bottom",
+      "parent_anchor": "slot_g_816d54fc_0_0"
     }
   },
   "visibility_rules": {},

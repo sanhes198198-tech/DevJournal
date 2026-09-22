@@ -62,11 +62,6 @@ def recalculate_auto_points(contour, semantic_groups) -> int:
         if not group.node_ids:
             continue
 
-        template_id = group.node_ids[0]
-        template_pos = pts_by_id.get(template_id)
-        if template_pos is None:
-            continue
-
         axis = rule.get("axis", "y")
         step = float(rule.get("step", 1.0))
         if abs(step) < 1e-9:
@@ -96,30 +91,46 @@ def recalculate_auto_points(contour, semantic_groups) -> int:
             semantic_groups, pts_by_id,
         )
 
-        current = template_pos[axis_idx] + step
-        counter = 0
-        while counter < max_count:
-            if limit_val is not None:
-                # Граница — эксклюзивная: точка, попавшая ровно
-                # на until_group, не добавляется.
-                if step > 0 and current >= limit_val:
-                    break
-                if step < 0 and current <= limit_val:
-                    break
+        # V9c-доп: перебираем ВСЕ не-auto точки группы.
+        # Каждая плодит свою независимую цепочку.
+        templates = [
+            nid for nid in group.node_ids
+            if not nid.startswith(AUTO_PREFIX)
+        ]
+        if not templates:
+            continue
 
-            new_pt = list(template_pos)
-            new_pt[axis_idx] = current
+        for tpl_idx, template_id in enumerate(templates):
+            template_pos = pts_by_id.get(template_id)
+            if template_pos is None:
+                continue
 
-            if not _in_skip_boxes(new_pt, skip_boxes):
-                new_id = f"{AUTO_PREFIX}{gid}_{counter:02d}"
-                contour.extra_points.append(new_pt)
-                contour.extra_node_ids.append(new_id)
-                group.node_ids.append(new_id)
-                pts_by_id[new_id] = tuple(new_pt)
-                added += 1
+            current = template_pos[axis_idx] + step
+            counter = 0
+            while counter < max_count:
+                if limit_val is not None:
+                    # Граница — эксклюзивная.
+                    if step > 0 and current >= limit_val:
+                        break
+                    if step < 0 and current <= limit_val:
+                        break
 
-            current += step
-            counter += 1
+                new_pt = list(template_pos)
+                new_pt[axis_idx] = current
+
+                if not _in_skip_boxes(new_pt, skip_boxes):
+                    new_id = (
+                        f"{AUTO_PREFIX}{gid}_"
+                        f"t{tpl_idx:02d}_{counter:02d}"
+                    )
+                    contour.extra_points.append(new_pt)
+                    contour.extra_node_ids.append(new_id)
+                    group.node_ids.append(new_id)
+                    pts_by_id[new_id] = tuple(new_pt)
+                    added += 1
+
+                current += step
+                counter += 1
 
     return added
 

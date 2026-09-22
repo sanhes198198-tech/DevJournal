@@ -283,13 +283,15 @@ class SemanticGroupsPanel(QWidget):
         group = self._asset.get_semantic_group(gid)
         if group is None:
             return False
+        # V9c-доп: 1+ не-auto точек разрешены
         non_auto = [
             nid for nid in group.node_ids
             if not nid.startswith("e_auto_")
         ]
-        if len(non_auto) != 1:
+        if not non_auto:
             return False
-        return non_auto[0].startswith("e_")
+        # Все шаблоны должны быть extra-точками (e_*)
+        return all(nid.startswith("e_") for nid in non_auto)
 
     # ------------------------------------------------------------
 

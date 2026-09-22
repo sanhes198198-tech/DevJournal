@@ -654,14 +654,14 @@ class ComponentItem(QGraphicsObject):
             if abs(step) < 1e-9:
                 continue
 
-            # Шаблон = первая точка без префикса e_auto_
-            template_pos = None
+            # V9c-доп: все не-auto точки группы — независимые шаблоны
+            templates: list = []
             for nid in group.node_ids:
                 if not nid.startswith("e_auto_"):
-                    template_pos = _pos(nid)
-                    if template_pos is not None:
-                        break
-            if template_pos is None:
+                    p = _pos(nid)
+                    if p is not None:
+                        templates.append(p)
+            if not templates:
                 continue
 
             # Граница (until_group)
@@ -678,32 +678,39 @@ class ComponentItem(QGraphicsObject):
                     if c is not None:
                         limit_val = c[axis_idx]
 
-            # Слот 0 — шаблон
-            result[f"slot_{group.name}_0"] = (
-                template_pos[0] - self._center_x,
-                template_pos[1] - self._center_y,
-            )
-
-            # Без границы — только шаблон
-            if limit_val is None:
-                continue
-
             max_count = int(rule.get("max_count", 30))
-            current = template_pos[axis_idx] + step
-            idx = 1
-            while idx <= max_count:
-                if step > 0 and current >= limit_val:
-                    break
-                if step < 0 and current <= limit_val:
-                    break
-                new_pt = list(template_pos)
-                new_pt[axis_idx] = current
-                result[f"slot_{group.name}_{idx}"] = (
-                    new_pt[0] - self._center_x,
-                    new_pt[1] - self._center_y,
+
+            for tpl_idx, template_pos in enumerate(templates):
+                # Слот 0 — сам шаблон
+                # Ключ по group.id — иначе группы с одинаковым
+                # именем (напр. window_slot × 3) перезаписывают
+                # друг друга в dict.
+                result[f"slot_{group.id}_{tpl_idx}_0"] = (
+                    template_pos[0] - self._center_x,
+                    template_pos[1] - self._center_y,
                 )
-                current += step
-                idx += 1
+
+                # Без границы — только шаблон
+                if limit_val is None:
+                    continue
+
+                current = template_pos[axis_idx] + step
+                idx = 1
+                while idx <= max_count:
+                    if step > 0 and current >= limit_val:
+                        break
+                    if step < 0 and current <= limit_val:
+                        break
+                    new_pt = list(template_pos)
+                    new_pt[axis_idx] = current
+                    result[
+                        f"slot_{group.id}_{tpl_idx}_{idx}"
+                    ] = (
+                        new_pt[0] - self._center_x,
+                        new_pt[1] - self._center_y,
+                    )
+                    current += step
+                    idx += 1
 
         return result
 
