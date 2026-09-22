@@ -114,7 +114,19 @@ class ComponentItem(QGraphicsObject):
         self.setRotation(-c.rotation)
         self.setScale(c.scale)
         # Z от слоя: 100 + layer, чтобы не пересекаться с UI
-        self.setZValue(100.0 + float(getattr(c, "layer", 0)))
+        # V9-доп: окна +10 чтобы клик по ним ловился поверх стен
+        self.setZValue(self._compute_z())
+
+    def _compute_z(self) -> float:
+        """Z из layer + бонус окнам (чтобы окна были поверх стен)."""
+        c = self._component
+        base = 100.0 + float(getattr(c, "layer", 0))
+        asset_type = ""
+        if self._asset is not None:
+            asset_type = getattr(self._asset, "type", "")
+        if asset_type == "window":
+            base += 10.0
+        return base
 
     # ------------------------------------------------------------
 
@@ -326,11 +338,12 @@ class ComponentItem(QGraphicsObject):
         return r.adjusted(-pad, -pad, pad, pad)
 
     def shape(self) -> QPainterPath:
-        """Область для клика — контур + штрих 1.5 м.
+        """Область для клика — bbox + штрих 1.5 м.
 
-        Залитый контур: клик внутри детали работает.
-        Штрих по контуру: клик рядом с тонкой линией работает.
-        Не выходит за контур — соседние детали не мешают.
+        Bbox: клик в любой точке внутри детали (не только на линиях).
+        Штрих: клик рядом с тонкой линией тоже работает.
+        Это важно для крупных объектов (стена, большое окно) —
+        раньше середина не ловилась.
         """
         from PySide6.QtGui import QPainterPathStroker
 
@@ -338,13 +351,24 @@ class ComponentItem(QGraphicsObject):
         if self._path.isEmpty() and self._extra_path.isEmpty():
             return result
 
+        # Bbox основной части — покрывает всю внутреннюю область
+        if not self._path.isEmpty():
+            r = self._path.boundingRect()
+            if not r.isEmpty():
+                result.addRect(r)
+
+        # Bbox extra части (edges, доп. элементы)
+        if not self._extra_path.isEmpty():
+            er = self._extra_path.boundingRect()
+            if not er.isEmpty():
+                result.addRect(er)
+
+        # Штрих 1.5 м — клик рядом с тонкой линией
         stroker = QPainterPathStroker()
         stroker.setWidth(1.5)
-
         for p in (self._path, self._extra_path):
             if p.isEmpty():
                 continue
-            result.addPath(p)
             result.addPath(stroker.createStroke(p))
 
         return result
@@ -506,7 +530,7 @@ class ComponentItem(QGraphicsObject):
         self.setPos(c.x, c.y)
         self.setRotation(-c.rotation)
         self.setScale(c.scale)
-        self.setZValue(100.0 + float(getattr(c, "layer", 0)))
+        self.setZValue(self._compute_z())
         self.update()
         self.moved.emit()
 
