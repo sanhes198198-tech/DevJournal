@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QComboBox,
     QDoubleSpinBox,
     QSpinBox,
     QCheckBox,
@@ -35,6 +36,8 @@ class PropertiesPanel(QWidget):
     filled_changed = Signal(str, bool)
     # (comp_id, param_name, new_value)
     param_override_changed = Signal(str, str, float)
+    # (comp_id, pattern) — V11: fill_pattern
+    fill_pattern_changed = Signal(str, str)
 
     WIDTH = 260
 
@@ -150,6 +153,16 @@ class PropertiesPanel(QWidget):
         self._filled_check.toggled.connect(self._on_filled_toggled)
         form.addRow("", self._filled_check)
 
+        # V11: текстура заливки
+        self._pattern_combo = QComboBox()
+        self._pattern_combo.addItem("— без текстуры —", "")
+        self._pattern_combo.addItem("Штриховка", "hatch")
+        self._pattern_combo.addItem("Ромбики", "diamonds")
+        self._pattern_combo.currentIndexChanged.connect(
+            self._on_pattern_changed
+        )
+        form.addRow("Текстура:", self._pattern_combo)
+
         layout.addLayout(form)
 
         # Параметры sub-ассета (динамически)
@@ -195,6 +208,7 @@ class PropertiesPanel(QWidget):
         self._scale_spin.setValue(1.0)
         self._layer_spin.setValue(0)
         self._filled_check.setChecked(False)
+        self._pattern_combo.setCurrentIndex(0)
         self._muted = False
         self._set_enabled(False)
 
@@ -220,6 +234,12 @@ class PropertiesPanel(QWidget):
         self._filled_check.setChecked(
             bool(getattr(comp, "filled", False))
         )
+        pat = str(getattr(comp, "fill_pattern", "") or "")
+        pi = self._pattern_combo.findData(pat)
+        if pi >= 0:
+            self._pattern_combo.setCurrentIndex(pi)
+        else:
+            self._pattern_combo.setCurrentIndex(0)
         self._muted = False
         self._set_enabled(True)
 
@@ -320,6 +340,15 @@ class PropertiesPanel(QWidget):
             return
         self.param_override_changed.emit(
             self._current_comp.id, name, value,
+        )
+
+    def _on_pattern_changed(self, idx: int) -> None:
+        """V11: пользователь выбрал текстуру заливки."""
+        if self._muted or self._current_comp is None:
+            return
+        pat = self._pattern_combo.currentData() or ""
+        self.fill_pattern_changed.emit(
+            self._current_comp.id, str(pat),
         )
 
     def _on_filled_toggled(self, checked: bool) -> None:

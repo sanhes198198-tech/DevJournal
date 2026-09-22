@@ -31,6 +31,7 @@ class Component:
         attach_anchor: str = "",
         parent_anchor: str = "",
         slot_policy: dict | None = None,
+        fill_pattern: str = "",
     ):
         self.id = id or self._generate_id()
         self.asset_id = asset_id
@@ -59,6 +60,10 @@ class Component:
         self.slot_policy: dict | None = (
             dict(slot_policy) if slot_policy else None
         )
+        # V11: текстура заливки. "" = без текстуры.
+        # "hatch" = серая диагональная штриховка.
+        # "diamonds" = ромбы (косой крест).
+        self.fill_pattern: str = str(fill_pattern or "")
 
     @staticmethod
     def _generate_id() -> str:
@@ -127,6 +132,7 @@ class Component:
             "attach_anchor": self.attach_anchor,
             "parent_anchor": self.parent_anchor,
             "slot_policy": self.slot_policy,
+            "fill_pattern": self.fill_pattern,
         }
 
     @classmethod
@@ -150,4 +156,5 @@ class Component:
             attach_anchor=str(d.get("attach_anchor", "")),
             parent_anchor=str(d.get("parent_anchor", "")),
             slot_policy=d.get("slot_policy"),
+            fill_pattern=str(d.get("fill_pattern", "")),
         )

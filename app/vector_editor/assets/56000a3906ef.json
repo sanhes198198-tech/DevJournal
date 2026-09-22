@@ -33,7 +33,8 @@
       "slot_policy": {
         "enabled": true,
         "clearance": 1.5
-      }
+      },
+      "fill_pattern": ""
     },
     "c_48977c25": {
       "id": "c_48977c25",
@@ -51,7 +52,8 @@
       "attach_to": "c_9e3cbe5a",
       "attach_anchor": "bottom",
       "parent_anchor": "slot_g_ac1967c5_0_0",
-      "slot_policy": null
+      "slot_policy": null,
+      "fill_pattern": "diamonds"
     },
     "c_ff862183": {
       "id": "c_ff862183",
@@ -69,7 +71,8 @@
       "attach_to": "c_9e3cbe5a",
       "attach_anchor": "bottom",
       "parent_anchor": "slot_g_ac1967c5_0_1",
-      "slot_policy": null
+      "slot_policy": null,
+      "fill_pattern": "diamonds"
     },
     "c_0f1d0df6": {
       "id": "c_0f1d0df6",
@@ -87,7 +90,8 @@
       "attach_to": "c_9e3cbe5a",
       "attach_anchor": "bottom",
       "parent_anchor": "slot_g_335f08fa_0_1",
-      "slot_policy": null
+      "slot_policy": null,
+      "fill_pattern": "diamonds"
     },
     "c_31f30abd": {
       "id": "c_31f30abd",
@@ -105,7 +109,8 @@
       "attach_to": "c_9e3cbe5a",
       "attach_anchor": "bottom",
       "parent_anchor": "slot_g_335f08fa_0_0",
-      "slot_policy": null
+      "slot_policy": null,
+      "fill_pattern": "diamonds"
     },
     "c_a2c2fe83": {
       "id": "c_a2c2fe83",
@@ -123,7 +128,8 @@
       "attach_to": "c_9e3cbe5a",
       "attach_anchor": "bottom",
       "parent_anchor": "slot_g_816d54fc_0_0",
-      "slot_policy": null
+      "slot_policy": null,
+      "fill_pattern": "diamonds"
     }
   },
   "visibility_rules": {},

@@ -466,9 +466,28 @@ class ComponentItem(QGraphicsObject):
         pen.setCosmetic(True)
         painter.setPen(pen)
 
-        # Заливка белым, если включено — перекрывает линии за собой
+        # V11: заливка. Приоритет:
+        #   1) fill_pattern (текстура) — если задана
+        #   2) filled=True — белый
+        #   3) иначе — без заливки (только контур)
+        from PySide6.QtGui import QBrush as _QB
+
+        pattern = str(
+            getattr(self._component, "fill_pattern", "") or ""
+        )
         filled = bool(getattr(self._component, "filled", False))
-        if filled:
+
+        if pattern == "hatch":
+            painter.setBrush(_QB(
+                QColor("#999999"),
+                Qt.BrushStyle.BDiagPattern,
+            ))
+        elif pattern == "diamonds":
+            painter.setBrush(_QB(
+                QColor("#444444"),
+                Qt.BrushStyle.DiagCrossPattern,
+            ))
+        elif filled:
             painter.setBrush(QBrush(QColor("#FFFFFF")))
         else:
             painter.setBrush(Qt.BrushStyle.NoBrush)

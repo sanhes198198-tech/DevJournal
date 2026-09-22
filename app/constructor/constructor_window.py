@@ -257,6 +257,9 @@ class ConstructorWindow(QMainWindow):
         self._properties.filled_changed.connect(
             self._on_prop_filled_changed
         )
+        self._properties.fill_pattern_changed.connect(
+            self._on_prop_fill_pattern_changed
+        )
         self._properties.param_override_changed.connect(
             self._on_prop_param_override
         )
@@ -828,6 +831,31 @@ class ConstructorWindow(QMainWindow):
             return
         comp.filled = bool(filled)
         item.update()
+
+    def _on_prop_fill_pattern_changed(
+        self, comp_id: str, pattern: str,
+    ) -> None:
+        """V11: смена текстуры заливки через undo-команду."""
+        comp = self._current_composite.get_component(comp_id)
+        item = self._items_by_comp_id.get(comp_id)
+        if comp is None or item is None:
+            return
+
+        old = str(getattr(comp, "fill_pattern", "") or "")
+        new = str(pattern or "")
+        if old == new:
+            return
+
+        def _apply():
+            it = self._items_by_comp_id.get(comp_id)
+            if it is not None:
+                it.update()
+
+        cmd = SetPropertyCommand(
+            comp, "fill_pattern", old, new,
+            on_apply=_apply,
+        )
+        self._undo_stack.push(cmd)
 
     def _apply_override(self, comp_id: str, name: str) -> None:
         """Применить override к item — пересобрать path + reflow."""
