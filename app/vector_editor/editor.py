@@ -2163,6 +2163,18 @@ class VectorEditor(QMainWindow):
         item = entry[0]
         snapshot = entry[1]
 
+        # A-доп: запомнить выделенные узлы ДО rebuild
+        # (rebuild пересоздаёт NodeItem/ExtraNodeItem — объекты
+        # теряются, а с ними и выделение).
+        selected_main_idx: set[int] = set()
+        selected_extra_ids: set[str] = set()
+        for n in getattr(item, "_nodes", []):
+            if n.isSelected():
+                selected_main_idx.add(n.idx)
+        for n in getattr(item, "_extra_nodes", []):
+            if n.isSelected():
+                selected_extra_ids.add(n.node_id)
+
         # snapshot — либо dict (новый формат), либо list (старый)
         if isinstance(snapshot, dict):
             tag = "dict"
@@ -2185,6 +2197,23 @@ class VectorEditor(QMainWindow):
         item._rebuild_nodes()
         item._rebuild_extra_nodes()
         item._rebuild_path()
+
+        # A-доп: восстановить выделение по запомненным id.
+        # Откладываем через QTimer — чтобы rebuild сцены успел
+        # завершиться и объекты точно существовали.
+        from PySide6.QtCore import QTimer as _QT
+
+        def _restore_selection():
+            if item is None:
+                return
+            for n in getattr(item, "_nodes", []):
+                if n.idx in selected_main_idx:
+                    n.setSelected(True)
+            for n in getattr(item, "_extra_nodes", []):
+                if n.node_id in selected_extra_ids:
+                    n.setSelected(True)
+
+        _QT.singleShot(0, _restore_selection)
 
         # Запись от параметра: (item, snapshot, param_id, old_value)
         if len(entry) >= 4:
