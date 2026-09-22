@@ -82,28 +82,28 @@ class ArchitectureMockup(QMainWindow):
         self._mode_tabs = QTabWidget()
         self._mode_tabs.setDocumentMode(True)
 
-        self._mode_tabs.addTab(
-            self._build_scene_tab(),
-            "🏗  Сцена",
+        # Контейнеры под встроенные модули
+        self._ve_container = QWidget()
+        self._ve_layout = QVBoxLayout(self._ve_container)
+        self._ve_layout.setContentsMargins(0, 0, 0, 0)
+
+        self._constructor_container = QWidget()
+        self._constructor_layout = QVBoxLayout(
+            self._constructor_container
         )
+        self._constructor_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Ссылки на встроенные модули (None = ещё не созданы)
+        self._ve_embedded = None
+        self._constructor_embedded = None
+
+        self._mode_tabs.addTab(self._build_scene_tab(), "🏗  Сцена")
+        self._mode_tabs.addTab(self._ve_container, "✏  VE")
         self._mode_tabs.addTab(
-            self._build_module_tab(
-                title="Векторный редактор",
-                desc="Рисование 2D-контуров (стена, окно, крыша).\n"
-                     "Результат → Asset (деталь здания).",
-                opener=self._open_ve,
-            ),
-            "✏  VE",
+            self._constructor_container, "🧱  Constructor"
         )
-        self._mode_tabs.addTab(
-            self._build_module_tab(
-                title="Конструктор",
-                desc="Сборка композитов (башня, дом) из Assets.\n"
-                     "Результат → Composite (готовое здание).",
-                opener=self._open_constructor,
-            ),
-            "🧱  Constructor",
-        )
+
+        self._mode_tabs.currentChanged.connect(self._on_tab_changed)
 
         self.setCentralWidget(self._mode_tabs)
 
@@ -243,6 +243,86 @@ class ArchitectureMockup(QMainWindow):
 
     # ------------------------------------------------------------------
     # MODULE TABS — кнопка запуска + описание
+    # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # LAZY EMBED — VE / Constructor
+    # ------------------------------------------------------------------
+
+    def _on_tab_changed(self, index: int) -> None:
+        """При переключении вкладки — ленивая инициализация модуля."""
+        if index == 1:
+            self._ensure_ve_embedded()
+        elif index == 2:
+            self._ensure_constructor_embedded()
+
+    def _ensure_ve_embedded(self) -> None:
+        """Создать VectorEditor и встроить окно целиком (тулбар+панели)."""
+        if self._ve_embedded is not None:
+            return
+
+        try:
+            from app.vector_editor.editor import VectorEditor
+        except Exception as e:
+            self._embed_error(self._ve_layout, "VE", e)
+            self._ve_embedded = "error"
+            return
+
+        try:
+            editor = VectorEditor()
+            self._embed_window(self._ve_layout, editor)
+            self._ve_embedded = editor
+        except Exception as e:
+            self._embed_error(self._ve_layout, "VE", e)
+            self._ve_embedded = "error"
+
+    def _ensure_constructor_embedded(self) -> None:
+        """Создать ConstructorWindow и встроить окно целиком."""
+        if self._constructor_embedded is not None:
+            return
+
+        try:
+            from app.constructor.constructor_window import (
+                ConstructorWindow,
+            )
+        except Exception as e:
+            self._embed_error(
+                self._constructor_layout, "Constructor", e
+            )
+            self._constructor_embedded = "error"
+            return
+
+        try:
+            ctor = ConstructorWindow()
+            self._embed_window(self._constructor_layout, ctor)
+            self._constructor_embedded = ctor
+        except Exception as e:
+            self._embed_error(
+                self._constructor_layout, "Constructor", e
+            )
+            self._constructor_embedded = "error"
+
+    @staticmethod
+    def _embed_window(layout, window) -> None:
+        """Встроить QMainWindow как виджет в layout вкладки."""
+        window.setWindowFlags(Qt.WindowType.Widget)
+        window.setWindowTitle("")
+        layout.addWidget(window)
+
+    @staticmethod
+    def _embed_error(layout, name: str, exc: Exception) -> None:
+        """Показать ошибку встраивания внутри вкладки."""
+        msg = QLabel(
+            f"Не удалось встроить модуль {name}.\n\n"
+            f"{type(exc).__name__}: {exc}"
+        )
+        msg.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        msg.setWordWrap(True)
+        msg.setStyleSheet("color: #C00; font-size: 13px; padding: 20px;")
+        layout.addWidget(msg)
+
+    # ------------------------------------------------------------------
+    # MODULE TABS (старый вариант — кнопки, больше не используется)
     # ------------------------------------------------------------------
 
     def _build_module_tab(self, title: str, desc: str, opener) -> QWidget:
