@@ -1342,28 +1342,36 @@ class VectorEditor(QMainWindow):
             self._param_undo_timer.invalidate()
 
     def _on_start_draw(self) -> None:
-        """Включить draw-режим. Работает в любой момент."""
-        if self._contour_item is not None:
-            reply = QMessageBox.question(
-                self, "Новый контур",
-                "На сцене уже есть контур.\n\n"
-                "Очистить его и начать рисовать заново?",
-                QMessageBox.StandardButton.Yes
-                | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
-            )
-            if reply != QMessageBox.StandardButton.Yes:
-                return
+        """V16: включить draw-режим для АКТИВНОГО слоя.
 
-            # Очищаем контур, но Asset и подложку не трогаем
-            self._contour_item.contour.points = []
-            self._contour_item.contour.node_ids = []
-            self._contour_item.contour.extra_edges = []
-            self._contour_item.contour.extra_points = []
-            self._contour_item.contour.extra_node_ids = []
-            self._contour_item._rebuild_nodes()
-            self._contour_item._rebuild_extra_nodes()
-            self._contour_item._rebuild_path()
+        Не трогает остальные слои. Если активный слой непустой —
+        спросит про очистку. Если пустой — сразу рисование.
+        """
+        if self._contour_item is not None:
+            c = self._contour_item.contour
+            has_data = bool(c.points) or bool(c.extra_points)
+            if has_data:
+                reply = QMessageBox.question(
+                    self, "Очистить активный слой?",
+                    "Активный слой уже содержит контур.\n\n"
+                    "Очистить его и начать рисовать заново?\n"
+                    "(другие слои не тронутся)",
+                    QMessageBox.StandardButton.Yes
+                    | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
+                )
+                if reply != QMessageBox.StandardButton.Yes:
+                    return
+
+                c.points = []
+                c.node_ids = []
+                c.extra_edges = []
+                c.extra_points = []
+                c.extra_node_ids = []
+                c.arcs = {}
+                self._contour_item._rebuild_nodes()
+                self._contour_item._rebuild_extra_nodes()
+                self._contour_item._rebuild_path()
 
         self._canvas.set_tool("draw")
         if self._reference_item is not None:
@@ -1461,17 +1469,25 @@ class VectorEditor(QMainWindow):
         self._counter += 1
         contour.name = f"Контур {self._counter}"
 
-        # Удаляем предыдущий (1A)
-        if self._contour_item is not None:
-            if self._contour_item.scene() is not None:
-                self._scene.removeItem(self._contour_item)
-            self._contour_item = None
+        # V16: заменяем item ТОЛЬКО активного слоя,
+        # остальные слои не трогаем.
+        old_item = None
+        if self._active_layer_id is not None:
+            old_item = self._layer_items.get(self._active_layer_id)
+
+        if old_item is not None:
+            if old_item.scene() is not None:
+                self._scene.removeItem(old_item)
 
         item = ContourItem(contour)
         item.changed.connect(self._on_contour_changed)
         item.node_drag_started.connect(self._on_node_drag_started)
         item.node_drag_finished.connect(self._on_node_drag_finished)
         self._scene.addItem(item)
+
+        # Заменить в словаре слоёв
+        if self._active_layer_id is not None:
+            self._layer_items[self._active_layer_id] = item
         self._contour_item = item
 
         self._canvas.set_tool("select")
