@@ -25,7 +25,9 @@
       "layer": 0,
       "filled": true,
       "param_overrides": {
-        "height": -0.8510973936899866
+        "height": -0.8510973936899866,
+        "extend_bottom": 0.0,
+        "extend_right": 5.2
       },
       "attach_to": "",
       "attach_anchor": "",
@@ -140,11 +142,50 @@
     "c_e65d4c68": {
       "id": "c_e65d4c68",
       "asset_id": "c2dd0d912a21",
-      "x": -6.1000000000000005,
+      "x": -5.6000000000000005,
       "y": -3.8000000000000003,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Сторожевая башня",
+      "layer": 0,
+      "filled": true,
+      "param_overrides": {
+        "height": -3.7,
+        "width": 0.40016446189626187
+      },
+      "attach_to": "",
+      "attach_anchor": "",
+      "parent_anchor": "",
+      "slot_policy": null,
+      "fill_pattern": "",
+      "locked": false
+    },
+    "c_899448ba": {
+      "id": "c_899448ba",
+      "asset_id": "0b83487c4eea",
+      "x": -5.800000000000001,
+      "y": -11.0,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "Часть башни2",
+      "layer": 0,
+      "filled": false,
+      "param_overrides": {},
+      "attach_to": "",
+      "attach_anchor": "",
+      "parent_anchor": "",
+      "slot_policy": null,
+      "fill_pattern": "",
+      "locked": false
+    },
+    "c_5effc7be": {
+      "id": "c_5effc7be",
+      "asset_id": "3ec907f2b564",
+      "x": -6.0,
+      "y": -13.200000000000001,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "часть башни3",
       "layer": 0,
       "filled": false,
       "param_overrides": {},

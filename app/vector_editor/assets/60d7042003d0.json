@@ -540,6 +540,62 @@
           "koef_y": 0.0
         }
       ]
+    },
+    "p_ext_l": {
+      "id": "p_ext_l",
+      "name": "extend_left",
+      "label": "Левая м",
+      "value": 0.0,
+      "unit": "м",
+      "targets": [
+        {
+          "group_id": "g_bf944dbd",
+          "koef_x": -1.0,
+          "koef_y": 0.0
+        }
+      ]
+    },
+    "p_ext_r": {
+      "id": "p_ext_r",
+      "name": "extend_right",
+      "label": "Правая м",
+      "value": 0.0,
+      "unit": "м",
+      "targets": [
+        {
+          "group_id": "g_a8b27f06",
+          "koef_x": 1.0,
+          "koef_y": 0.0
+        }
+      ]
+    },
+    "p_ext_t": {
+      "id": "p_ext_t",
+      "name": "extend_top",
+      "label": "Верх м",
+      "value": 0.0,
+      "unit": "м",
+      "targets": [
+        {
+          "group_id": "g_5fe1b985",
+          "koef_x": 0.0,
+          "koef_y": 1.0
+        }
+      ]
+    },
+    "p_ext_b": {
+      "id": "p_ext_b",
+      "name": "extend_bottom",
+      "label": "Низ м",
+      "value": 0.0,
+      "unit": "м",
+      "targets": [
+        {
+          "group_id": "g_f5b03911",
+          "koef_x": 0.0,
+          "koef_y": -1.0
+        }
+      ]
     }
   },
   "reference_image": {
