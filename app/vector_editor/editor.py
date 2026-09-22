@@ -411,6 +411,25 @@ class VectorEditor(QMainWindow):
         act_dist_y.triggered.connect(self._distribute_y)
         tb2.addAction(act_dist_y)
 
+        tb2.addSeparator()
+
+        # V16: зеркало по X (копия)
+        act_mirror_x = QAction("⇋ X (копия)", self)
+        act_mirror_x.setToolTip(
+            "Отразить выделенные узлы по X относительно их центра. "
+            "Оригиналы остаются, создаются копии как extra-точки."
+        )
+        act_mirror_x.triggered.connect(self._mirror_x)
+        tb2.addAction(act_mirror_x)
+
+        act_mirror_y = QAction("⇅ Y (копия)", self)
+        act_mirror_y.setToolTip(
+            "Отразить выделенные узлы по Y относительно их центра. "
+            "Оригиналы остаются, создаются копии как extra-точки."
+        )
+        act_mirror_y.triggered.connect(self._mirror_y)
+        tb2.addAction(act_mirror_y)
+
         tb.addSeparator()
 
         act_scale = QAction("📐 Масштаб", self)
@@ -2260,6 +2279,98 @@ class VectorEditor(QMainWindow):
         h = max(ys) - min(ys)
         self._coord_label.setText(
             f"Узлов: {total}   W×H: {w:.2f} × {h:.2f} м"
+        )
+
+    def _mirror_x(self) -> None:
+        """V16: отразить выделенные узлы по X (копии как extra)."""
+        self._mirror_axis("x")
+
+    def _mirror_y(self) -> None:
+        """V16: отразить выделенные узлы по Y (копии как extra)."""
+        self._mirror_axis("y")
+
+    def _mirror_axis(self, axis: str) -> None:
+        """V16: зеркальная копия всего контура РЯДОМ (не поверх).
+
+        Отражает по правой (X) или верхней (Y) границе bbox —
+        копия появляется сбоку/сверху от оригинала, соприкасаясь.
+        Копируются: main-точки (соединяются рёбрами), extra-точки.
+        """
+        if self._contour_item is None:
+            return
+
+        c = self._contour_item.contour
+        main_pts = list(c.points)
+        main_ids = list(c.node_ids)
+        extra_pts = list(c.extra_points)
+        extra_ids = list(c.extra_node_ids)
+
+        all_pts = main_pts + extra_pts
+        if not all_pts:
+            self.statusBar().showMessage(
+                "Контур пустой", 2000,
+            )
+            return
+
+        xs = [p[0] for p in all_pts]
+        ys = [p[1] for p in all_pts]
+
+        # Точка отражения — правая/верхняя граница + зазор.
+        GAP = 0.5  # м
+        if axis == "x":
+            pivot = max(xs) + GAP
+        else:
+            pivot = max(ys) + GAP
+
+        self._push_contour_snapshot()
+
+        # 1. Отражаем main-точки → новые extra
+        id_map: dict[str, str] = {}
+        for nid, pt in zip(main_ids, main_pts):
+            if axis == "x":
+                nx = 2.0 * pivot - pt[0]
+                ny = pt[1]
+            else:
+                nx = pt[0]
+                ny = 2.0 * pivot - pt[1]
+            new_id = c.add_extra_point(nx, ny)
+            id_map[nid] = new_id
+
+        # 2. Рёбра между отражёнными main-точками
+        n = len(main_ids)
+        if n >= 2:
+            closed = bool(getattr(c, "closed", True))
+            segments = range(n) if closed else range(n - 1)
+            for i in segments:
+                a = main_ids[i]
+                b = main_ids[(i + 1) % n]
+                if a in id_map and b in id_map:
+                    try:
+                        c.add_extra_edge(id_map[a], id_map[b])
+                    except Exception:
+                        pass
+
+        # 3. Отражаем extra-точки → новые extra
+        for pt in extra_pts:
+            if axis == "x":
+                nx = 2.0 * pivot - pt[0]
+                ny = pt[1]
+            else:
+                nx = pt[0]
+                ny = 2.0 * pivot - pt[1]
+            try:
+                c.add_extra_point(nx, ny)
+            except Exception:
+                pass
+
+        self._contour_item._rebuild_extra_nodes()
+        self._contour_item._rebuild_path()
+        self._mark_modified()
+
+        self.statusBar().showMessage(
+            f"Зеркало по {axis.upper()}: скопировано рядом "
+            f"({len(id_map)} узлов + {len(extra_pts)} extra)",
+            2500,
         )
 
     def _on_undo(self) -> None:

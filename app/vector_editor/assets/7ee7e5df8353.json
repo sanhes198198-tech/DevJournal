@@ -1,0 +1,29 @@
+{
+  "id": "7ee7e5df8353",
+  "name": "тест",
+  "type": "tower_body",
+  "geometry": {
+    "contour": [],
+    "closed": true,
+    "units": "m",
+    "node_ids": [],
+    "groups": {},
+    "extra_edges": [],
+    "extra_points": [],
+    "extra_node_ids": [],
+    "arcs": []
+  },
+  "components": {},
+  "visibility_rules": {},
+  "semantic_groups": {},
+  "parameters": {},
+  "reference_image": null,
+  "generation_rules": {
+    "allow_width_variation": false,
+    "allow_height_variation": false,
+    "irregularity": 0.0,
+    "repeatable": false
+  },
+  "ground_line_y": null,
+  "ground_line_visible": true
+}

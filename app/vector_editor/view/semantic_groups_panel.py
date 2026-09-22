@@ -13,6 +13,8 @@ Panel не знает про сцену. Выделенные node_ids прих�
 
 from __future__ import annotations
 
+import copy
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QLabel,
@@ -52,6 +54,8 @@ class SemanticGroupsPanel(QWidget):
 
         self._asset = None
         self._selected_node_ids: list[str] = []
+        # V16: буфер скопированного auto_rule
+        self._rule_clipboard: dict | None = None
 
         self._build_ui()
 
@@ -152,6 +156,32 @@ class SemanticGroupsPanel(QWidget):
         self._style_button(self._btn_rule)
 
         layout.addLayout(buttons)
+
+        # V16: вторая строка — копирование правил
+        buttons2 = QHBoxLayout()
+        buttons2.setContentsMargins(0, 0, 0, 0)
+        buttons2.setSpacing(4)
+
+        self._btn_copy_rule = QPushButton("📋 Скопировать правило")
+        self._btn_copy_rule.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_copy_rule.setToolTip(
+            "Скопировать auto_rule выбранной группы"
+        )
+        self._btn_copy_rule.clicked.connect(self._on_copy_rule)
+        buttons2.addWidget(self._btn_copy_rule, 1)
+
+        self._btn_paste_rule = QPushButton("📋 Вставить")
+        self._btn_paste_rule.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_paste_rule.setToolTip(
+            "Применить скопированное правило к выбранной группе"
+        )
+        self._btn_paste_rule.clicked.connect(self._on_paste_rule)
+        buttons2.addWidget(self._btn_paste_rule)
+
+        self._style_button(self._btn_copy_rule)
+        self._style_button(self._btn_paste_rule)
+
+        layout.addLayout(buttons2)
 
         # ============================================================
         # АВТО-ГРУППЫ
@@ -271,6 +301,19 @@ class SemanticGroupsPanel(QWidget):
         # extra-точкой-шаблоном (e_* но не e_auto_*)
         self._btn_rule.setEnabled(
             has_groups and has_selection and self._can_set_rule()
+        )
+
+        # V16: копирование правил
+        has_rule = False
+        if has_groups and has_selection:
+            gid = self._current_group_id()
+            if gid:
+                g = self._asset.get_semantic_group(gid)
+                if g is not None and g.auto_rule:
+                    has_rule = True
+        self._btn_copy_rule.setEnabled(has_rule)
+        self._btn_paste_rule.setEnabled(
+            has_selection and self._rule_clipboard is not None
         )
 
     def _can_set_rule(self) -> bool:
@@ -421,6 +464,36 @@ class SemanticGroupsPanel(QWidget):
         if added == 0:
             return
 
+        self.refresh()
+        self.groups_changed.emit()
+
+    def _on_copy_rule(self) -> None:
+        """V16: скопировать auto_rule выбранной группы в буфер."""
+        if self._asset is None:
+            return
+        gid = self._current_group_id()
+        if gid is None:
+            return
+        group = self._asset.get_semantic_group(gid)
+        if group is None or not group.auto_rule:
+            return
+        self._rule_clipboard = copy.deepcopy(group.auto_rule)
+        self._update_buttons()
+        self.statusBar_message(
+            f"Правило скопировано ({group.label})"
+        ) if hasattr(self, "statusBar_message") else None
+
+    def _on_paste_rule(self) -> None:
+        """V16: применить скопированное правило к выбранной группе."""
+        if self._asset is None or self._rule_clipboard is None:
+            return
+        gid = self._current_group_id()
+        if gid is None:
+            return
+        group = self._asset.get_semantic_group(gid)
+        if group is None:
+            return
+        group.auto_rule = copy.deepcopy(self._rule_clipboard)
         self.refresh()
         self.groups_changed.emit()
 
