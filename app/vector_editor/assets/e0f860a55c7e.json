@@ -5,28 +5,28 @@
   "geometry": {
     "contour": [
       [
-        12.769042977264235,
-        21.348
+        12.81938098201737,
+        22.8
       ],
       [
-        12.754045107460646,
-        17.388454655491238
+        12.799599244876728,
+        17.576325403022743
       ],
       [
         12.611228642486939,
         16.8
       ],
       [
-        14.630228642486939,
+        15.27422864248694,
         16.8
       ],
       [
-        14.458680369491592,
-        17.388454655491238
+        15.047961653390056,
+        17.576325403022743
       ],
       [
-        14.48302025307273,
-        21.348
+        15.080065224453241,
+        22.8
       ]
     ],
     "closed": false,
@@ -79,8 +79,97 @@
   },
   "components": {},
   "visibility_rules": {},
-  "semantic_groups": {},
-  "parameters": {},
+  "semantic_groups": {
+    "g_18d8f880": {
+      "id": "g_18d8f880",
+      "name": "foundation",
+      "label": "Фундамент",
+      "node_ids": [
+        "n_000",
+        "n_005"
+      ],
+      "auto_rule": null
+    },
+    "g_a8fd5548": {
+      "id": "g_a8fd5548",
+      "name": "top",
+      "label": "Корниз",
+      "node_ids": [
+        "n_001",
+        "n_002",
+        "n_003",
+        "n_004"
+      ],
+      "auto_rule": null
+    },
+    "g_e9e30b20": {
+      "id": "g_e9e30b20",
+      "name": "anchor_bottom",
+      "label": "Якорь низ",
+      "node_ids": [
+        "n_000",
+        "n_005"
+      ],
+      "auto_rule": null
+    },
+    "g_8fa129e8": {
+      "id": "g_8fa129e8",
+      "name": "left",
+      "label": "Левая грань",
+      "node_ids": [
+        "n_001",
+        "n_002",
+        "n_000"
+      ],
+      "auto_rule": null
+    },
+    "g_f2f66122": {
+      "id": "g_f2f66122",
+      "name": "right",
+      "label": "Правая грань",
+      "node_ids": [
+        "n_003",
+        "n_004",
+        "n_005"
+      ],
+      "auto_rule": null
+    }
+  },
+  "parameters": {
+    "p_6986f46d": {
+      "id": "p_6986f46d",
+      "name": "height",
+      "label": "Высота",
+      "value": 0.0,
+      "unit": "м",
+      "targets": [
+        {
+          "group_id": "g_a8fd5548",
+          "koef_x": 0.0,
+          "koef_y": 1.0
+        }
+      ]
+    },
+    "p_01af2bf5": {
+      "id": "p_01af2bf5",
+      "name": "width",
+      "label": "Ширина",
+      "value": 0.0,
+      "unit": "м",
+      "targets": [
+        {
+          "group_id": "g_f2f66122",
+          "koef_x": 1.0,
+          "koef_y": 0.0
+        },
+        {
+          "group_id": "g_8fa129e8",
+          "koef_x": -1.0,
+          "koef_y": 0.0
+        }
+      ]
+    }
+  },
   "reference_image": {
     "filename": "e0f860a55c7e_ref.png",
     "x": 0.0,

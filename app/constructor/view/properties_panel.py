@@ -252,10 +252,14 @@ class PropertiesPanel(QWidget):
             spin.setDecimals(3)
             spin.setSingleStep(0.1)
 
-            # Значение: override, если есть, иначе из параметра
+            # Значение: override, если есть, иначе из параметра.
+            # Блокируем сигнал, иначе setValue эмитит
+            # valueChanged → перезаписывает override в модели.
             ov = comp.get_param_override(p.name)
             value = ov if ov is not None else p.value
+            spin.blockSignals(True)
             spin.setValue(value)
+            spin.blockSignals(False)
 
             # Соединяем с фиксацией имени (иначе all lambda пишут в последний)
             spin.valueChanged.connect(
@@ -266,6 +270,25 @@ class PropertiesPanel(QWidget):
             label_text = f"{p.label}{'*' if ov is not None else ''}"
             self._params_form.addRow(label_text + unit + ":", spin)
             self._param_widgets[p.name] = spin
+
+    def sync_param_value(
+        self, comp_id: str, name: str, value: float,
+    ) -> None:
+        """Синхронизировать значение спинбокса параметра без эмита.
+
+        Вызывается когда override меняется извне (хендл на сцене),
+        чтобы панель показала новое значение.
+        """
+        if self._current_comp is None:
+            return
+        if getattr(self._current_comp, "id", None) != comp_id:
+            return
+        spin = self._param_widgets.get(name)
+        if spin is None:
+            return
+        spin.blockSignals(True)
+        spin.setValue(float(value))
+        spin.blockSignals(False)
 
     def update_values(self, x: float, y: float,
                       rotation: float, scale: float) -> None:

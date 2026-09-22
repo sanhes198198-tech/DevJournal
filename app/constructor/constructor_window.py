@@ -865,6 +865,9 @@ class ConstructorWindow(QMainWindow):
         )
         self._undo_stack.push(cmd)
 
+        # Синхронизация спинбокса в панели (если меняли хендлом)
+        self._properties.sync_param_value(comp_id, name, value)
+
     def _get_selected_comps(self) -> list:
         """Вернуть список выделенных Component."""
         result = []
