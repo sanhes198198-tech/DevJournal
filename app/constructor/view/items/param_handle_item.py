@@ -18,7 +18,8 @@ from PySide6.QtWidgets import QGraphicsItem, QGraphicsObject
 CAPSULE_THICK = 0.28
 CAPSULE_LENGTH = 2.4
 KNOB_RADIUS = 0.18
-VALUE_RANGE = 4.0
+VALUE_RANGE_MIN = 10.0     # минимум, чтобы мелкие параметры тоже тянулись
+VALUE_RANGE_FACTOR = 5.0   # в 5 раз больше базы
 
 CAPSULE_LINE_COLOR = QColor("#8892A0")
 CAPSULE_LINE_WIDTH = 0.015
@@ -48,8 +49,12 @@ class ParamHandleItem(QGraphicsObject):
         self._base_value = float(base_value)
         self._current_value = float(current_value)
 
-        self._min_value = self._base_value - VALUE_RANGE
-        self._max_value = self._base_value + VALUE_RANGE
+        span = max(
+            VALUE_RANGE_MIN,
+            abs(self._base_value) * VALUE_RANGE_FACTOR,
+        )
+        self._min_value = self._base_value - span
+        self._max_value = self._base_value + span
 
         self._dragging = False
 

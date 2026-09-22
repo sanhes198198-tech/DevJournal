@@ -827,23 +827,48 @@ class VectorEditor(QMainWindow):
         )
 
         if node_delta:
-            # V16: применяем сдвиг ко ВСЕМ слоям (не только активному).
-            # Иначе при растяжении стены меняется только активный слой.
-            for item in list(self._layer_items.values()):
+            # V17: применяем сдвиг ко ВСЕМ слоям, матча по КОРОТКОМУ имени.
+            # node_delta приходит с короткими id (n_005) из semantic_groups.
+            # У слоя 2 id могут быть с префиксом (L_74f9a442_n_005).
+            # Для каждого слоя строим локальный delta с полными id этого слоя.
+            for layer_id, item in list(self._layer_items.items()):
                 c = item.contour
+
+                # Локальный маппинг: короткое имя -> полный id слоя
+                local_delta: dict[str, tuple[float, float]] = {}
+                pfx = f"{layer_id}_"
+                for nid_full in c.node_ids:
+                    short = nid_full
+                    if layer_id and nid_full.startswith(pfx):
+                        short = nid_full[len(pfx):]
+                    if short in node_delta:
+                        local_delta[nid_full] = node_delta[short]
+
+                # Если ни один узел слоя не попал в delta — пропускаем
+                if not local_delta:
+                    continue
 
                 # Main узлы
                 new_points = apply_delta_to_points(
-                    c.points, c.node_ids, node_delta,
+                    c.points, c.node_ids, local_delta,
                 )
                 c.points = new_points
 
-                # Extra-узлы (e_*) — тоже
+                # Extra-узлы (e_*) — тоже (там своя логика имён)
                 if c.extra_points:
-                    new_extra = apply_delta_to_points(
-                        c.extra_points, c.extra_node_ids, node_delta,
-                    )
-                    c.extra_points = new_extra
+                    extra_delta: dict[str, tuple[float, float]] = {}
+                    for nid_full in c.extra_node_ids:
+                        short = nid_full
+                        if layer_id and nid_full.startswith(pfx):
+                            short = nid_full[len(pfx):]
+                        if short in node_delta:
+                            extra_delta[nid_full] = node_delta[short]
+                    if extra_delta:
+                        new_extra = apply_delta_to_points(
+                            c.extra_points, c.extra_node_ids,
+                            extra_delta,
+                        )
+                        c.extra_points = new_extra
 
                 item._rebuild_nodes()
                 item._rebuild_extra_nodes()
