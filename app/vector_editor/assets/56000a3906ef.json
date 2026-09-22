@@ -25,7 +25,7 @@
       "layer": 0,
       "filled": true,
       "param_overrides": {
-        "height": -1.551,
+        "height": -0.9686756393599913,
         "extend_bottom": 0.0,
         "extend_right": 7.634968665725868,
         "extend_top": -0.07986860872340706,
@@ -152,34 +152,14 @@
       "layer": 0,
       "filled": true,
       "param_overrides": {
-        "height": -5.1,
-        "width": 0.40016446189626187
+        "height": -3.383267850196414,
+        "width": 0.5
       },
       "attach_to": "",
       "attach_anchor": "",
       "parent_anchor": "",
       "slot_policy": null,
       "fill_pattern": "",
-      "locked": false
-    },
-    "c_9760da35": {
-      "id": "c_9760da35",
-      "asset_id": "4d77b734d939",
-      "x": 4.960412229860283,
-      "y": -5.845536226707325,
-      "rotation": 0.0,
-      "scale": 1.0,
-      "name": "Okno2",
-      "layer": 0,
-      "filled": false,
-      "param_overrides": {
-        "height": 0.0460944718728129
-      },
-      "attach_to": "c_9e3cbe5a",
-      "attach_anchor": "bottom",
-      "parent_anchor": "slot_g_ac1967c5_0_1_x1",
-      "slot_policy": null,
-      "fill_pattern": "diamonds",
       "locked": false
     },
     "c_0c66d7aa": {
@@ -226,7 +206,7 @@
       "id": "c_b18af25d",
       "asset_id": "0b83487c4eea",
       "x": -6.642308446218867,
-      "y": -12.336119335397145,
+      "y": -10.61938718559356,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Часть башни2",
@@ -246,7 +226,7 @@
       "id": "c_87250d1e",
       "asset_id": "3ec907f2b564",
       "x": -6.693224603471955,
-      "y": -14.808419287637784,
+      "y": -13.0916871378342,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "часть башни3",
@@ -264,7 +244,7 @@
       "id": "c_21a93e2b",
       "asset_id": "4a02a5eeace1",
       "x": -6.700842850646091,
-      "y": -17.434822983994543,
+      "y": -15.718090834190956,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "крыша вытянутая",
@@ -282,7 +262,7 @@
       "id": "c_5c7aaf57",
       "asset_id": "2d7f96953f11",
       "x": -6.667909538795299,
-      "y": -21.797727361222137,
+      "y": -20.08099521141855,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Луковичная крыша",
@@ -296,18 +276,18 @@
       "fill_pattern": "",
       "locked": false
     },
-    "c_7c103f1a": {
-      "id": "c_7c103f1a",
+    "c_4db3ee38": {
+      "id": "c_4db3ee38",
       "asset_id": "25f092d12df4",
       "x": 4.966290881892296,
-      "y": -3.9620314124019496,
+      "y": -3.9120314124019453,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Okno3",
       "layer": 0,
-      "filled": false,
+      "filled": true,
       "param_overrides": {
-        "height": 0.0
+        "height": 0.19700342126900905
       },
       "attach_to": "c_9e3cbe5a",
       "attach_anchor": "bottom",
