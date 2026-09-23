@@ -1,0 +1,149 @@
+{
+  "id": "ae24551135aa",
+  "name": "Окна для центральной башни 1",
+  "type": "window",
+  "geometry": {
+    "contour": [
+      [
+        13.122601496235365,
+        15.597970604593531
+      ],
+      [
+        13.311817182509875,
+        15.597970604593531
+      ],
+      [
+        13.313709339372618,
+        15.19797060459353
+      ],
+      [
+        13.120709339372619,
+        15.19797060459353
+      ]
+    ],
+    "closed": true,
+    "units": "m",
+    "node_ids": [
+      "n_000",
+      "n_001",
+      "n_002",
+      "n_003"
+    ],
+    "groups": {},
+    "extra_edges": [],
+    "arcs": [
+      [
+        "n_002",
+        "n_003",
+        0.5803921568627484
+      ]
+    ],
+    "extra_points": [],
+    "extra_node_ids": []
+  },
+  "components": {},
+  "visibility_rules": {},
+  "semantic_groups": {
+    "g_2f3393ec": {
+      "id": "g_2f3393ec",
+      "name": "anchor_bottom",
+      "label": "Якорь низ",
+      "node_ids": [
+        "n_000",
+        "n_001"
+      ],
+      "auto_rule": null
+    },
+    "g_a0f8e9fe": {
+      "id": "g_a0f8e9fe",
+      "name": "top",
+      "label": "Корниз",
+      "node_ids": [
+        "n_002",
+        "n_003"
+      ],
+      "auto_rule": null
+    }
+  },
+  "parameters": {
+    "p_2039596f": {
+      "id": "p_2039596f",
+      "name": "height",
+      "label": "Высота",
+      "value": 0.1,
+      "unit": "м",
+      "targets": [
+        {
+          "group_id": "g_a0f8e9fe",
+          "koef_x": 0.0,
+          "koef_y": 1.0
+        }
+      ]
+    }
+  },
+  "reference_image": {
+    "filename": "ae24551135aa_ref.png",
+    "x": -0.0038178958209229563,
+    "y": -0.0011461710660221058,
+    "pixels_per_meter": 50.0,
+    "opacity": 0.5,
+    "visible": true
+  },
+  "generation_rules": {
+    "allow_width_variation": false,
+    "allow_height_variation": false,
+    "irregularity": 0.0,
+    "repeatable": false
+  },
+  "ground_line_y": null,
+  "ground_line_visible": true,
+  "layers": [
+    {
+      "id": "L_233a0dcf",
+      "name": "Основной",
+      "visible": true,
+      "locked": false,
+      "color": "#1A1A1A",
+      "fillable": true,
+      "geometry": {
+        "contour": [
+          [
+            13.122601496235365,
+            15.597970604593531
+          ],
+          [
+            13.311817182509875,
+            15.597970604593531
+          ],
+          [
+            13.313709339372618,
+            15.19797060459353
+          ],
+          [
+            13.120709339372619,
+            15.19797060459353
+          ]
+        ],
+        "closed": true,
+        "units": "m",
+        "node_ids": [
+          "n_000",
+          "n_001",
+          "n_002",
+          "n_003"
+        ],
+        "groups": {},
+        "extra_edges": [],
+        "arcs": [
+          [
+            "n_002",
+            "n_003",
+            0.5803921568627484
+          ]
+        ],
+        "extra_points": [],
+        "extra_node_ids": []
+      }
+    }
+  ]
+}

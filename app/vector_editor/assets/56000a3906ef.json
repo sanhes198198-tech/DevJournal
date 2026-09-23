@@ -295,6 +295,65 @@
       "slot_policy": null,
       "fill_pattern": "diamonds",
       "locked": false
+    },
+    "c_d7625b3f": {
+      "id": "c_d7625b3f",
+      "asset_id": "d5d9aadc6a4c",
+      "x": 14.369354574604142,
+      "y": -2.5,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "Центральная башня 1 уровень",
+      "layer": 0,
+      "filled": true,
+      "param_overrides": {
+        "height": -0.8,
+        "width": 0.0
+      },
+      "attach_to": "c_9e3cbe5a",
+      "attach_anchor": "bottom",
+      "parent_anchor": "top",
+      "slot_policy": null,
+      "fill_pattern": "",
+      "locked": false
+    },
+    "c_3f0bdb46": {
+      "id": "c_3f0bdb46",
+      "asset_id": "c27aa34ad44f",
+      "x": 14.359500192355167,
+      "y": -5.299999999999999,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "корниз",
+      "layer": 0,
+      "filled": true,
+      "param_overrides": {
+        "height": -0.2
+      },
+      "attach_to": "c_d7625b3f",
+      "attach_anchor": "bottom",
+      "parent_anchor": "top",
+      "slot_policy": null,
+      "fill_pattern": "hatch",
+      "locked": false
+    },
+    "c_779d2fa7": {
+      "id": "c_779d2fa7",
+      "asset_id": "d19f23b952f1",
+      "x": 14.36182248838632,
+      "y": -6.999999999999998,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "Крыша центральная башня 1",
+      "layer": 0,
+      "filled": true,
+      "param_overrides": {},
+      "attach_to": "c_d7625b3f",
+      "attach_anchor": "bottom",
+      "parent_anchor": "top",
+      "slot_policy": null,
+      "fill_pattern": "",
+      "locked": false
     }
   },
   "visibility_rules": {},

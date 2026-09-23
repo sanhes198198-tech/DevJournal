@@ -1,7 +1,7 @@
 {
   "id": "e0f860a55c7e",
   "name": "okno",
-  "type": "tower_body",
+  "type": "window",
   "geometry": {
     "contour": [
       [

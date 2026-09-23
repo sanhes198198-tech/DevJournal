@@ -1,10 +1,11 @@
+﻿### component_item.py ###
 """
-ComponentItem — QGraphicsObject для одного Component.
+ComponentItem вЂ” QGraphicsObject РґР»СЏ РѕРґРЅРѕРіРѕ Component.
 
-Рисует контур ссылочного Asset'а (main + extra_edges).
-Позиция/поворот/масштаб — из Component.
-Сцена Y↑ (см. ConstructorCanvas.scale(ppm, -ppm)) — здесь
-координаты в model-метрах без флипа.
+Р РёСЃСѓРµС‚ РєРѕРЅС‚СѓСЂ СЃСЃС‹Р»РѕС‡РЅРѕРіРѕ Asset'Р° (main + extra_edges).
+РџРѕР·РёС†РёСЏ/РїРѕРІРѕСЂРѕС‚/РјР°СЃС€С‚Р°Р± вЂ” РёР· Component.
+РЎС†РµРЅР° Yв†‘ (СЃРј. ConstructorCanvas.scale(ppm, -ppm)) вЂ” Р·РґРµСЃСЊ
+РєРѕРѕСЂРґРёРЅР°С‚С‹ РІ model-РјРµС‚СЂР°С… Р±РµР· С„Р»РёРїР°.
 """
 from __future__ import annotations
 
@@ -30,11 +31,11 @@ ORPHAN_SIZE_M = 1.0
 SNAP_THRESHOLD_PX = 40.0
 SNAP_ANCHOR_COLOR = QColor("#FF3333")
 
-# V9d: маркеры слотов (auto_rule группы)
+# V9d: РјР°СЂРєРµСЂС‹ СЃР»РѕС‚РѕРІ (auto_rule РіСЂСѓРїРїС‹)
 SLOT_COLOR = QColor("#00B050")
 SLOT_RADIUS_M = 0.08
 
-# Совместимые пары (наш_tag, их_tag)
+# РЎРѕРІРјРµСЃС‚РёРјС‹Рµ РїР°СЂС‹ (РЅР°С€_tag, РёС…_tag)
 SNAP_PAIRS = frozenset({
     ("bottom", "top"),
     ("top", "bottom"),
@@ -42,13 +43,13 @@ SNAP_PAIRS = frozenset({
 
 
 class ComponentItem(QGraphicsObject):
-    """QGraphicsObject-обёртка для Component."""
+    """QGraphicsObject-РѕР±С‘СЂС‚РєР° РґР»СЏ Component."""
 
-    # Эмитится после завершения drag или после apply_from_component
+    # Р­РјРёС‚РёС‚СЃСЏ РїРѕСЃР»Рµ Р·Р°РІРµСЂС€РµРЅРёСЏ drag РёР»Рё РїРѕСЃР»Рµ apply_from_component
     moved = Signal()
-    # Двойной клик по composite — сигнал «войти» с asset_id
+    # Р”РІРѕР№РЅРѕР№ РєР»РёРє РїРѕ composite вЂ” СЃРёРіРЅР°Р» В«РІРѕР№С‚РёВ» СЃ asset_id
     enter_requested = Signal(str)
-    # (comp_id, old_x, old_y, new_x, new_y) — после drag
+    # (comp_id, old_x, old_y, new_x, new_y) вЂ” РїРѕСЃР»Рµ drag
     drag_finished = Signal(str, float, float, float, float)
     param_changed = Signal(str, str, float)
 
@@ -62,11 +63,11 @@ class ComponentItem(QGraphicsObject):
         self._asset = asset
         self._registry = registry
         self._path = QPainterPath()
-        self._stroke_path = QPainterPath()  # V16: слои с fillable=False
+        self._stroke_path = QPainterPath()  # V16: СЃР»РѕРё СЃ fillable=False
         self._extra_path = QPainterPath()
 
-        # Смещение контура, чтобы его ЦЕНТР был в (0,0).
-        # Иначе башня рисуется сбоку от origin.
+        # РЎРјРµС‰РµРЅРёРµ РєРѕРЅС‚СѓСЂР°, С‡С‚РѕР±С‹ РµРіРѕ Р¦Р•РќРўР  Р±С‹Р» РІ (0,0).
+        # РРЅР°С‡Рµ Р±Р°С€РЅСЏ СЂРёСЃСѓРµС‚СЃСЏ СЃР±РѕРєСѓ РѕС‚ origin.
         self._offset_x = 0.0
         self._offset_y = 0.0
         self._center_x = 0.0
@@ -74,9 +75,9 @@ class ComponentItem(QGraphicsObject):
         # Snap
         self._highlighted_anchor: str | None = None
         self._snap_partner = None
-        # V13: флаг что snap был к ground line (не компоненту)
+        # V13: С„Р»Р°Рі С‡С‚Рѕ snap Р±С‹Р» Рє ground line (РЅРµ РєРѕРјРїРѕРЅРµРЅС‚Сѓ)
         self._snap_to_ground = False
-        # Undo: позиция до drag
+        # Undo: РїРѕР·РёС†РёСЏ РґРѕ drag
         self._drag_old_pos = None
         # On-canvas handles
         self._handles: dict = {}
@@ -90,7 +91,7 @@ class ComponentItem(QGraphicsObject):
         self.setZValue(3.0)
         self.setCacheMode(QGraphicsItem.CacheMode.NoCache)
 
-        # Снап к 0.1 м при перемещении
+        # РЎРЅР°Рї Рє 0.1 Рј РїСЂРё РїРµСЂРµРјРµС‰РµРЅРёРё
         self._snap_step = 0.1
 
         self._rebuild_paths()
@@ -111,16 +112,16 @@ class ComponentItem(QGraphicsObject):
     # ------------------------------------------------------------
 
     def _apply_transform(self) -> None:
-        """Позиция/поворот/масштаб/layer из Component."""
+        """РџРѕР·РёС†РёСЏ/РїРѕРІРѕСЂРѕС‚/РјР°СЃС€С‚Р°Р±/layer РёР· Component."""
         c = self._component
         self.setPos(c.x, c.y)
         self.setRotation(-c.rotation)
         self.setScale(c.scale)
-        # Z от слоя: 100 + layer, чтобы не пересекаться с UI
-        # V9-доп: окна +10 чтобы клик по ним ловился поверх стен
+        # Z РѕС‚ СЃР»РѕСЏ: 100 + layer, С‡С‚РѕР±С‹ РЅРµ РїРµСЂРµСЃРµРєР°С‚СЊСЃСЏ СЃ UI
+        # V9-РґРѕРї: РѕРєРЅР° +10 С‡С‚РѕР±С‹ РєР»РёРє РїРѕ РЅРёРј Р»РѕРІРёР»СЃСЏ РїРѕРІРµСЂС… СЃС‚РµРЅ
         self.setZValue(self._compute_z())
 
-        # V12: если компонент заблокирован — нельзя тащить
+        # V12: РµСЃР»Рё РєРѕРјРїРѕРЅРµРЅС‚ Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅ вЂ” РЅРµР»СЊР·СЏ С‚Р°С‰РёС‚СЊ
         locked = bool(getattr(c, "locked", False))
         self.setFlag(
             QGraphicsItem.GraphicsItemFlag.ItemIsMovable,
@@ -128,7 +129,7 @@ class ComponentItem(QGraphicsObject):
         )
 
     def _compute_z(self) -> float:
-        """Z из layer + бонус окнам (чтобы окна были поверх стен)."""
+        """Z РёР· layer + Р±РѕРЅСѓСЃ РѕРєРЅР°Рј (С‡С‚РѕР±С‹ РѕРєРЅР° Р±С‹Р»Рё РїРѕРІРµСЂС… СЃС‚РµРЅ)."""
         c = self._component
         base = 100.0 + float(getattr(c, "layer", 0))
         asset_type = ""
@@ -187,14 +188,14 @@ class ComponentItem(QGraphicsObject):
                 h.value_changed.connect(self._on_handle_changed)
                 self._handles["width"] = h
 
-            # V15: ручки растяжения сторон
+            # V15: СЂСѓС‡РєРё СЂР°СЃС‚СЏР¶РµРЅРёСЏ СЃС‚РѕСЂРѕРЅ
             elif p.name == "extend_right":
                 base_v = float(p.value)
                 cur_v = float(overrides.get("extend_right", base_v))
                 h = ParamHandleItem(
                     "extend_right", "v", base_v, cur_v, parent=self,
                 )
-                # Справа от bbox, дальше чем height
+                # РЎРїСЂР°РІР° РѕС‚ bbox, РґР°Р»СЊС€Рµ С‡РµРј height
                 h.setPos(r.right() + 2.5, r.center().y())
                 h.value_changed.connect(self._on_handle_changed)
                 self._handles["extend_right"] = h
@@ -222,7 +223,7 @@ class ComponentItem(QGraphicsObject):
                 h = ParamHandleItem(
                     "extend_bottom", "h", base_v, cur_v, parent=self,
                 )
-                # Снизу от bbox, дальше чем width
+                # РЎРЅРёР·Сѓ РѕС‚ bbox, РґР°Р»СЊС€Рµ С‡РµРј width
                 h.setPos(r.center().x(), r.bottom() + 2.5)
                 h.value_changed.connect(self._on_handle_changed)
                 self._handles["extend_bottom"] = h
@@ -238,9 +239,9 @@ class ComponentItem(QGraphicsObject):
         if self._asset is None:
             return
 
-        # V16: сборка возвращает 4 пути —
-        # fill (заливается), stroke (только контур),
-        # extra (рёбра), center.
+        # V16: СЃР±РѕСЂРєР° РІРѕР·РІСЂР°С‰Р°РµС‚ 4 РїСѓС‚Рё вЂ”
+        # fill (Р·Р°Р»РёРІР°РµС‚СЃСЏ), stroke (С‚РѕР»СЊРєРѕ РєРѕРЅС‚СѓСЂ),
+        # extra (СЂС‘Р±СЂР°), center.
         overrides = getattr(self._component, "param_overrides", None) or {}
         fill, stroke, extra, center = self._collect_asset_paths(
             self._asset, depth=0, param_overrides=overrides,
@@ -255,13 +256,13 @@ class ComponentItem(QGraphicsObject):
     ) -> tuple[
         QPainterPath, QPainterPath, QPainterPath, tuple[float, float]
     ]:
-        """V16: собрать пути из asset'а рекурсивно.
+        """V16: СЃРѕР±СЂР°С‚СЊ РїСѓС‚Рё РёР· asset'Р° СЂРµРєСѓСЂСЃРёРІРЅРѕ.
 
-        Возвращает (fill_path, stroke_path, extra_path, (cx, cy)):
-          - fill_path   — слои с fillable=True (заливаются текстурой)
-          - stroke_path — слои с fillable=False (только контур)
-          - extra_path  — extra-рёбра всех слоёв
-          - center      — центр bbox первого слоя (для anchor'ов)
+        Р’РѕР·РІСЂР°С‰Р°РµС‚ (fill_path, stroke_path, extra_path, (cx, cy)):
+          - fill_path   вЂ” СЃР»РѕРё СЃ fillable=True (Р·Р°Р»РёРІР°СЋС‚СЃСЏ С‚РµРєСЃС‚СѓСЂРѕР№)
+          - stroke_path вЂ” СЃР»РѕРё СЃ fillable=False (С‚РѕР»СЊРєРѕ РєРѕРЅС‚СѓСЂ)
+          - extra_path  вЂ” extra-СЂС‘Р±СЂР° РІСЃРµС… СЃР»РѕС‘РІ
+          - center      вЂ” С†РµРЅС‚СЂ bbox РїРµСЂРІРѕРіРѕ СЃР»РѕСЏ (РґР»СЏ anchor'РѕРІ)
         """
         fill = QPainterPath()
         stroke = QPainterPath()
@@ -273,8 +274,8 @@ class ComponentItem(QGraphicsObject):
         if depth > self.MAX_DEPTH:
             return fill, stroke, extra, (0.0, 0.0)
 
-        # V16: список слоёв. Старые ассеты без layers →
-        # единственный fillable-слой из asset.geometry.
+        # V16: СЃРїРёСЃРѕРє СЃР»РѕС‘РІ. РЎС‚Р°СЂС‹Рµ Р°СЃСЃРµС‚С‹ Р±РµР· layers в†’
+        # РµРґРёРЅСЃС‚РІРµРЅРЅС‹Р№ fillable-СЃР»РѕР№ РёР· asset.geometry.
         layer_items: list[tuple[dict, bool]] = []
         asset_layers = getattr(asset, "layers", None) or []
         if asset_layers:
@@ -289,10 +290,10 @@ class ComponentItem(QGraphicsObject):
             layer_items.append((asset.geometry, True))
 
         if not layer_items:
-            # Все слои скрыты
+            # Р’СЃРµ СЃР»РѕРё СЃРєСЂС‹С‚С‹
             return fill, stroke, extra, (0.0, 0.0)
 
-        # Для центра берём ПЕРВЫЙ слой
+        # Р”Р»СЏ С†РµРЅС‚СЂР° Р±РµСЂС‘Рј РџР•Р Р’Р«Р™ СЃР»РѕР№
         first_geo, _ = layer_items[0]
         orig_contour = list(first_geo.get("contour", []))
 
@@ -303,7 +304,7 @@ class ComponentItem(QGraphicsObject):
             extra_ids = list(layer_geo.get("extra_node_ids", []))
             extra_edges = layer_geo.get("extra_edges", [])
 
-            # --- Override параметров ---
+            # --- Override РїР°СЂР°РјРµС‚СЂРѕРІ ---
             if param_overrides:
                 params = getattr(asset, "parameters", None) or {}
                 sem_groups = getattr(asset, "semantic_groups", None) or {}
@@ -370,10 +371,10 @@ class ComponentItem(QGraphicsObject):
                 cy = my + ny * k
                 path.quadTo(cx, cy, x2, y2)
 
-            # --- Целевой path по fillable ---
+            # --- Р¦РµР»РµРІРѕР№ path РїРѕ fillable ---
             target = fill if fillable else stroke
 
-            # --- Main контур этого слоя ---
+            # --- Main РєРѕРЅС‚СѓСЂ СЌС‚РѕРіРѕ СЃР»РѕСЏ ---
             n_pts = len(contour)
             n_ids = len(node_ids)
             if n_pts >= 2:
@@ -396,7 +397,7 @@ class ComponentItem(QGraphicsObject):
                     _append_segment(target, p1, p2, a_id, b_id)
                     target.closeSubpath()
 
-            # --- Extra edges этого слоя → в общий extra ---
+            # --- Extra edges СЌС‚РѕРіРѕ СЃР»РѕСЏ в†’ РІ РѕР±С‰РёР№ extra ---
             pos_map: dict[str, tuple[float, float]] = {}
             for i, nid in enumerate(node_ids):
                 if i < len(contour):
@@ -418,7 +419,7 @@ class ComponentItem(QGraphicsObject):
                 extra.moveTo(pa[0], pa[1])
                 extra.lineTo(pb[0], pb[1])
 
-        # --- Вложенные компоненты (рекурсия) ---
+        # --- Р’Р»РѕР¶РµРЅРЅС‹Рµ РєРѕРјРїРѕРЅРµРЅС‚С‹ (СЂРµРєСѓСЂСЃРёСЏ) ---
         comps = getattr(asset, "components", {})
         if comps and self._registry is not None:
             from PySide6.QtGui import QTransform
@@ -443,7 +444,7 @@ class ComponentItem(QGraphicsObject):
                 if not sub_extra.isEmpty():
                     extra.addPath(t.map(sub_extra))
 
-        # --- Центрирование по bbox первого слоя ---
+        # --- Р¦РµРЅС‚СЂРёСЂРѕРІР°РЅРёРµ РїРѕ bbox РїРµСЂРІРѕРіРѕ СЃР»РѕСЏ ---
         if orig_contour:
             xs = [float(p[0]) for p in orig_contour]
             ys = [float(p[1]) for p in orig_contour]
@@ -474,13 +475,13 @@ class ComponentItem(QGraphicsObject):
 
         if r.isEmpty():
             return QRectF()
-        # Запас: 0.3 м обычный + 2.5 м при выделении (для подписей размеров)
+        # Р—Р°РїР°СЃ: 0.3 Рј РѕР±С‹С‡РЅС‹Р№ + 2.5 Рј РїСЂРё РІС‹РґРµР»РµРЅРёРё (РґР»СЏ РїРѕРґРїРёСЃРµР№ СЂР°Р·РјРµСЂРѕРІ)
         pad = 2.5 if self.isSelected() else 0.3
         return r.adjusted(-pad, -pad, pad, pad)
 
     def shape(self) -> QPainterPath:
-        """V16: кликабельный bbox — тело компонента захватывается
-        в любой точке, а не только по контуру."""
+        """V16: РєР»РёРєР°Р±РµР»СЊРЅС‹Р№ bbox вЂ” С‚РµР»Рѕ РєРѕРјРїРѕРЅРµРЅС‚Р° Р·Р°С…РІР°С‚С‹РІР°РµС‚СЃСЏ
+        РІ Р»СЋР±РѕР№ С‚РѕС‡РєРµ, Р° РЅРµ С‚РѕР»СЊРєРѕ РїРѕ РєРѕРЅС‚СѓСЂСѓ."""
         result = QPainterPath()
         if self._path.isEmpty() and self._extra_path.isEmpty():
             return result
@@ -528,10 +529,10 @@ class ComponentItem(QGraphicsObject):
         pen.setCosmetic(True)
         painter.setPen(pen)
 
-        # V11: заливка. Приоритет:
-        #   1) fill_pattern (текстура) — если задана
-        #   2) filled=True — белый
-        #   3) иначе — без заливки (только контур)
+        # V11: Р·Р°Р»РёРІРєР°. РџСЂРёРѕСЂРёС‚РµС‚:
+        #   1) fill_pattern (С‚РµРєСЃС‚СѓСЂР°) вЂ” РµСЃР»Рё Р·Р°РґР°РЅР°
+        #   2) filled=True вЂ” Р±РµР»С‹Р№
+        #   3) РёРЅР°С‡Рµ вЂ” Р±РµР· Р·Р°Р»РёРІРєРё (С‚РѕР»СЊРєРѕ РєРѕРЅС‚СѓСЂ)
         from PySide6.QtGui import QBrush as _QB
 
         pattern = str(
@@ -557,8 +558,8 @@ class ComponentItem(QGraphicsObject):
         if not self._path.isEmpty():
             painter.drawPath(self._path)
 
-        # V16: stroke-only (слои с fillable=False) —
-        # только перо, без заливки. Рамы поверх окон.
+        # V16: stroke-only (СЃР»РѕРё СЃ fillable=False) вЂ”
+        # С‚РѕР»СЊРєРѕ РїРµСЂРѕ, Р±РµР· Р·Р°Р»РёРІРєРё. Р Р°РјС‹ РїРѕРІРµСЂС… РѕРєРѕРЅ.
         painter.setBrush(Qt.BrushStyle.NoBrush)
         if not self._stroke_path.isEmpty():
             painter.drawPath(self._stroke_path)
@@ -566,13 +567,13 @@ class ComponentItem(QGraphicsObject):
         if not self._extra_path.isEmpty():
             painter.drawPath(self._extra_path)
 
-        # Anchor'ы — только у выделенного компонента
+        # Anchor'С‹ вЂ” С‚РѕР»СЊРєРѕ Сѓ РІС‹РґРµР»РµРЅРЅРѕРіРѕ РєРѕРјРїРѕРЅРµРЅС‚Р°
         if self.isSelected():
             anchors = self.anchors_local()
             if anchors:
                 from PySide6.QtGui import QBrush as _QB, QColor as _QC
                 ppm = abs(painter.transform().m11()) or 50.0
-                r_m = 6.0 / ppm   # радиус ~6 пикселей в метрах
+                r_m = 6.0 / ppm   # СЂР°РґРёСѓСЃ ~6 РїРёРєСЃРµР»РµР№ РІ РјРµС‚СЂР°С…
 
                 for tag, (lx, ly) in anchors.items():
                     if tag == self._highlighted_anchor:
@@ -588,12 +589,12 @@ class ComponentItem(QGraphicsObject):
                     painter.setBrush(QBrush(QColor("#FFFFFF")))
                     painter.drawEllipse(QPointF(lx, ly), r_m, r_m)
 
-        # V9d: маркеры слотов (auto_rule) — только у выделенного
+        # V9d: РјР°СЂРєРµСЂС‹ СЃР»РѕС‚РѕРІ (auto_rule) вЂ” С‚РѕР»СЊРєРѕ Сѓ РІС‹РґРµР»РµРЅРЅРѕРіРѕ
         if self.isSelected():
             slots = self.slots_local()
             if slots:
                 ppm = abs(painter.transform().m11()) or 50.0
-                slot_r = 5.0 / ppm  # ~5 пикселей экрана
+                slot_r = 5.0 / ppm  # ~5 РїРёРєСЃРµР»РµР№ СЌРєСЂР°РЅР°
                 pen = QPen(SLOT_COLOR, 1.6)
                 pen.setCosmetic(True)
                 painter.setPen(pen)
@@ -603,12 +604,12 @@ class ComponentItem(QGraphicsObject):
                         QPointF(lx, ly), slot_r, slot_r,
                     )
 
-        # Габариты (B) — только у выделенного
+        # Р“Р°Р±Р°СЂРёС‚С‹ (B) вЂ” С‚РѕР»СЊРєРѕ Сѓ РІС‹РґРµР»РµРЅРЅРѕРіРѕ
         if self.isSelected():
             self._paint_dimensions(painter)
 
     def _paint_dimensions(self, painter) -> None:
-        """Подписи ширины/высоты в экранных пикселях (только у выделенного)."""
+        """РџРѕРґРїРёСЃРё С€РёСЂРёРЅС‹/РІС‹СЃРѕС‚С‹ РІ СЌРєСЂР°РЅРЅС‹С… РїРёРєСЃРµР»СЏС… (С‚РѕР»СЊРєРѕ Сѓ РІС‹РґРµР»РµРЅРЅРѕРіРѕ)."""
         r = QRectF()
         if not self._path.isEmpty():
             r = self._path.boundingRect()
@@ -629,7 +630,7 @@ class ComponentItem(QGraphicsObject):
             return
         view = views[0]
 
-        # Точки в scene-координатах
+        # РўРѕС‡РєРё РІ scene-РєРѕРѕСЂРґРёРЅР°С‚Р°С…
         bottom_scene = self.mapToScene(
             QPointF(r.center().x(), r.bottom())
         )
@@ -637,14 +638,14 @@ class ComponentItem(QGraphicsObject):
             QPointF(r.right(), r.center().y())
         )
 
-        # Переводим в пиксели viewport
+        # РџРµСЂРµРІРѕРґРёРј РІ РїРёРєСЃРµР»Рё viewport
         bottom_px = view.mapFromScene(bottom_scene)
         right_px = view.mapFromScene(right_scene)
 
         from PySide6.QtGui import QFont, QFontMetrics
 
         painter.save()
-        painter.resetTransform()  # отключаем масштаб сцены
+        painter.resetTransform()  # РѕС‚РєР»СЋС‡Р°РµРј РјР°СЃС€С‚Р°Р± СЃС†РµРЅС‹
 
         font = QFont("sans-serif")
         font.setPixelSize(12)
@@ -653,16 +654,16 @@ class ComponentItem(QGraphicsObject):
 
         fm = QFontMetrics(font)
 
-        # Ширина — снизу по центру
-        w_text = f"{w:.2f} м"
+        # РЁРёСЂРёРЅР° вЂ” СЃРЅРёР·Сѓ РїРѕ С†РµРЅС‚СЂСѓ
+        w_text = f"{w:.2f} Рј"
         w_tw = fm.horizontalAdvance(w_text)
         painter.drawText(
             QPointF(bottom_px.x() - w_tw / 2, bottom_px.y() + 16),
             w_text,
         )
 
-        # Высота — справа
-        h_text = f"{h:.2f} м"
+        # Р’С‹СЃРѕС‚Р° вЂ” СЃРїСЂР°РІР°
+        h_text = f"{h:.2f} Рј"
         painter.drawText(
             QPointF(right_px.x() + 8, right_px.y() + 4),
             h_text,
@@ -673,7 +674,7 @@ class ComponentItem(QGraphicsObject):
     # ------------------------------------------------------------
 
     def apply_from_component(self) -> None:
-        """Пересобрать transform из компонента (после правки в панели)."""
+        """РџРµСЂРµСЃРѕР±СЂР°С‚СЊ transform РёР· РєРѕРјРїРѕРЅРµРЅС‚Р° (РїРѕСЃР»Рµ РїСЂР°РІРєРё РІ РїР°РЅРµР»Рё)."""
         c = self._component
         self.setPos(c.x, c.y)
         self.setRotation(-c.rotation)
@@ -683,18 +684,18 @@ class ComponentItem(QGraphicsObject):
         self.moved.emit()
 
     def wall_height_m(self) -> float:
-        """V11: высота контура в метрах (уже с override).
+        """V11: РІС‹СЃРѕС‚Р° РєРѕРЅС‚СѓСЂР° РІ РјРµС‚СЂР°С… (СѓР¶Рµ СЃ override).
 
-        Возвращает 0.0, если контур пуст.
+        Р’РѕР·РІСЂР°С‰Р°РµС‚ 0.0, РµСЃР»Рё РєРѕРЅС‚СѓСЂ РїСѓСЃС‚.
         """
         if self._path.isEmpty():
             return 0.0
         return self._path.boundingRect().height()
 
     def slot_y_from_bottom(self, slot_key: str) -> float | None:
-        """V11: расстояние слота от низа контура (в метрах).
+        """V11: СЂР°СЃСЃС‚РѕСЏРЅРёРµ СЃР»РѕС‚Р° РѕС‚ РЅРёР·Р° РєРѕРЅС‚СѓСЂР° (РІ РјРµС‚СЂР°С…).
 
-        Возвращает None, если слот не найден.
+        Р’РѕР·РІСЂР°С‰Р°РµС‚ None, РµСЃР»Рё СЃР»РѕС‚ РЅРµ РЅР°Р№РґРµРЅ.
         """
         if self._path.isEmpty():
             return None
@@ -703,15 +704,15 @@ class ComponentItem(QGraphicsObject):
         if pos is None:
             return None
         rect = self._path.boundingRect()
-        # rect.bottom() = max_y = foundation (низ контура)
-        # pos[1] — y слота в тех же (path) координатах.
+        # rect.bottom() = max_y = foundation (РЅРёР· РєРѕРЅС‚СѓСЂР°)
+        # pos[1] вЂ” y СЃР»РѕС‚Р° РІ С‚РµС… Р¶Рµ (path) РєРѕРѕСЂРґРёРЅР°С‚Р°С….
         return rect.bottom() - pos[1]
 
     def anchors_local(self) -> dict[str, tuple[float, float]]:
-        """Anchor'ы ссылочного asset'а в ЛОКАЛЬНЫХ координатах item.
+        """Anchor'С‹ СЃСЃС‹Р»РѕС‡РЅРѕРіРѕ asset'Р° РІ Р›РћРљРђР›Р¬РќР«РҐ РєРѕРѕСЂРґРёРЅР°С‚Р°С… item.
 
-        V11b: учитывает param_overrides — anchor-точки тоже сдвигаются,
-        когда контур растянут через параметры.
+        V11b: СѓС‡РёС‚С‹РІР°РµС‚ param_overrides вЂ” anchor-С‚РѕС‡РєРё С‚РѕР¶Рµ СЃРґРІРёРіР°СЋС‚СЃСЏ,
+        РєРѕРіРґР° РєРѕРЅС‚СѓСЂ СЂР°СЃС‚СЏРЅСѓС‚ С‡РµСЂРµР· РїР°СЂР°РјРµС‚СЂС‹.
         """
         if self._asset is None:
             return {}
@@ -720,7 +721,7 @@ class ComponentItem(QGraphicsObject):
         if not raw:
             return {}
 
-        # Собрать суммарную дельту по узлам от override-параметров
+        # РЎРѕР±СЂР°С‚СЊ СЃСѓРјРјР°СЂРЅСѓСЋ РґРµР»СЊС‚Сѓ РїРѕ СѓР·Р»Р°Рј РѕС‚ override-РїР°СЂР°РјРµС‚СЂРѕРІ
         overrides = getattr(self._component, "param_overrides", None) or {}
         deltas_per_node: dict[str, tuple[float, float]] = {}
 
@@ -746,10 +747,10 @@ class ComponentItem(QGraphicsObject):
             avg_dx = 0.0
             avg_dy = 0.0
 
-            # V15: сначала ищем группу anchor_<tag> (например,
-            # anchor_top), и только если её нет — <tag> (top).
-            # Так якорь не едет вместе с "чужими" узлами, которые
-            # попали в другую группу (right/left/top).
+            # V15: СЃРЅР°С‡Р°Р»Р° РёС‰РµРј РіСЂСѓРїРїСѓ anchor_<tag> (РЅР°РїСЂРёРјРµСЂ,
+            # anchor_top), Рё С‚РѕР»СЊРєРѕ РµСЃР»Рё РµС‘ РЅРµС‚ вЂ” <tag> (top).
+            # РўР°Рє СЏРєРѕСЂСЊ РЅРµ РµРґРµС‚ РІРјРµСЃС‚Рµ СЃ "С‡СѓР¶РёРјРё" СѓР·Р»Р°РјРё, РєРѕС‚РѕСЂС‹Рµ
+            # РїРѕРїР°Р»Рё РІ РґСЂСѓРіСѓСЋ РіСЂСѓРїРїСѓ (right/left/top).
             group = None
             for g in sg.values():
                 if g.name == f"anchor_{tag}":
@@ -780,11 +781,11 @@ class ComponentItem(QGraphicsObject):
         return result
 
     def slots_local(self) -> dict[str, tuple[float, float]]:
-        """V9d-4d: слоты (auto_rule) — пересчитываются на лету
-        с учётом param_overrides.
+        """V9d-4d: СЃР»РѕС‚С‹ (auto_rule) вЂ” РїРµСЂРµСЃС‡РёС‚С‹РІР°СЋС‚СЃСЏ РЅР° Р»РµС‚Сѓ
+        СЃ СѓС‡С‘С‚РѕРј param_overrides.
 
-        Возвращает {slot_key: (x, y)} в ЛОКАЛЬНЫХ координатах item.
-        Ключ вида "slot_<groupname>_<idx>".
+        Р’РѕР·РІСЂР°С‰Р°РµС‚ {slot_key: (x, y)} РІ Р›РћРљРђР›Р¬РќР«РҐ РєРѕРѕСЂРґРёРЅР°С‚Р°С… item.
+        РљР»СЋС‡ РІРёРґР° "slot_<groupname>_<idx>".
         """
         if self._asset is None:
             return {}
@@ -797,8 +798,8 @@ class ComponentItem(QGraphicsObject):
         if not rule_groups:
             return {}
 
-        # V16: точки из ВСЕХ видимых слоёв (иначе слоты
-        # теряются, если они в неактивном слое).
+        # V16: С‚РѕС‡РєРё РёР· Р’РЎР•РҐ РІРёРґРёРјС‹С… СЃР»РѕС‘РІ (РёРЅР°С‡Рµ СЃР»РѕС‚С‹
+        # С‚РµСЂСЏСЋС‚СЃСЏ, РµСЃР»Рё РѕРЅРё РІ РЅРµР°РєС‚РёРІРЅРѕРј СЃР»РѕРµ).
         pts_by_id: dict[str, tuple[float, float]] = {}
         layers = getattr(self._asset, "layers", None) or []
         layer_geoms = []
@@ -824,7 +825,7 @@ class ComponentItem(QGraphicsObject):
                     x, y = extra_pts[i]
                     pts_by_id[nid] = (float(x), float(y))
 
-        # Override-сдвиги по узлам
+        # Override-СЃРґРІРёРіРё РїРѕ СѓР·Р»Р°Рј
         overrides = getattr(self._component, "param_overrides", None) or {}
         deltas: dict[str, tuple[float, float]] = {}
         if overrides:
@@ -870,7 +871,7 @@ class ComponentItem(QGraphicsObject):
             if abs(step) < 1e-9:
                 continue
 
-            # V9c-доп: все не-auto точки группы — независимые шаблоны
+            # V9c-РґРѕРї: РІСЃРµ РЅРµ-auto С‚РѕС‡РєРё РіСЂСѓРїРїС‹ вЂ” РЅРµР·Р°РІРёСЃРёРјС‹Рµ С€Р°Р±Р»РѕРЅС‹
             templates: list = []
             for nid in group.node_ids:
                 if not nid.startswith("e_auto_"):
@@ -880,7 +881,7 @@ class ComponentItem(QGraphicsObject):
             if not templates:
                 continue
 
-            # Граница (until_group)
+            # Р“СЂР°РЅРёС†Р° (until_group)
             until_name = rule.get("until_group") or ""
             limit_val = None
             if until_name:
@@ -896,7 +897,7 @@ class ComponentItem(QGraphicsObject):
 
             max_count = int(rule.get("max_count", 30))
 
-            # V15: вторая ось (сетка точек)
+            # V15: РІС‚РѕСЂР°СЏ РѕСЃСЊ (СЃРµС‚РєР° С‚РѕС‡РµРє)
             axis2_name = rule.get("axis_x") or ""
             step2 = float(rule.get("step_x") or 0.0)
             until2_name = rule.get("until_group_x") or ""
@@ -915,7 +916,7 @@ class ComponentItem(QGraphicsObject):
                         axis2_idx = None
 
             for tpl_idx, template_pos in enumerate(templates):
-                # Базовая цепочка по первой оси
+                # Р‘Р°Р·РѕРІР°СЏ С†РµРїРѕС‡РєР° РїРѕ РїРµСЂРІРѕР№ РѕСЃРё
                 chain1 = [tuple(template_pos)]
                 if limit_val is not None:
                     cur = template_pos[axis_idx] + step
@@ -932,14 +933,14 @@ class ComponentItem(QGraphicsObject):
                         i1 += 1
 
                 for i1, base_pt in enumerate(chain1):
-                    # Базовая точка — старая схема ключа
+                    # Р‘Р°Р·РѕРІР°СЏ С‚РѕС‡РєР° вЂ” СЃС‚Р°СЂР°СЏ СЃС…РµРјР° РєР»СЋС‡Р°
                     key = f"slot_{group.id}_{tpl_idx}_{i1}"
                     result[key] = (
                         base_pt[0] - self._center_x,
                         base_pt[1] - self._center_y,
                     )
 
-                    # Вторая ось (копии вбок)
+                    # Р’С‚РѕСЂР°СЏ РѕСЃСЊ (РєРѕРїРёРё РІР±РѕРє)
                     if axis2_idx is None or limit2_val is None:
                         continue
                     cur2 = base_pt[axis2_idx] + step2
@@ -976,7 +977,7 @@ class ComponentItem(QGraphicsObject):
             partner.set_highlighted_anchor(None)
 
     def anchors_world(self) -> dict[str, tuple[float, float]]:
-        """Anchor'ы в scene-координатах (с учётом transform)."""
+        """Anchor'С‹ РІ scene-РєРѕРѕСЂРґРёРЅР°С‚Р°С… (СЃ СѓС‡С‘С‚РѕРј transform)."""
         from PySide6.QtCore import QPointF
         result = {}
         for tag, (lx, ly) in self.anchors_local().items():
@@ -985,7 +986,7 @@ class ComponentItem(QGraphicsObject):
         return result
 
     def slots_world(self) -> dict[str, tuple[float, float]]:
-        """V9d-4: слоты (auto_rule) в scene-координатах."""
+        """V9d-4: СЃР»РѕС‚С‹ (auto_rule) РІ scene-РєРѕРѕСЂРґРёРЅР°С‚Р°С…."""
         from PySide6.QtCore import QPointF
         result = {}
         for key, (lx, ly) in self.slots_local().items():
@@ -994,17 +995,17 @@ class ComponentItem(QGraphicsObject):
         return result
 
     def _try_snap(self) -> None:
-        """Найти ближайший совместимый anchor и прилипнуть."""
+        """РќР°Р№С‚Рё Р±Р»РёР¶Р°Р№С€РёР№ СЃРѕРІРјРµСЃС‚РёРјС‹Р№ anchor Рё РїСЂРёР»РёРїРЅСѓС‚СЊ."""
         scene = self.scene()
         if scene is None:
             return
 
-        # V14: к другим компонентам (anchor/slot) прилипают только
-        # окна/двери/декор. Стены, башни, крыши — сами к себе
-        # не цепляются, но могут прилипнуть к опорной линии.
-        # V16: к другим компонентам прилипают "мелкие" элементы.
-        # Определяем по типу ассета ИЛИ по имени компонента
-        # (потому что окна часто имеют тип tower_body).
+        # V14: Рє РґСЂСѓРіРёРј РєРѕРјРїРѕРЅРµРЅС‚Р°Рј (anchor/slot) РїСЂРёР»РёРїР°СЋС‚ С‚РѕР»СЊРєРѕ
+        # РѕРєРЅР°/РґРІРµСЂРё/РґРµРєРѕСЂ. РЎС‚РµРЅС‹, Р±Р°С€РЅРё, РєСЂС‹С€Рё вЂ” СЃР°РјРё Рє СЃРµР±Рµ
+        # РЅРµ С†РµРїР»СЏСЋС‚СЃСЏ, РЅРѕ РјРѕРіСѓС‚ РїСЂРёР»РёРїРЅСѓС‚СЊ Рє РѕРїРѕСЂРЅРѕР№ Р»РёРЅРёРё.
+        # V16: Рє РґСЂСѓРіРёРј РєРѕРјРїРѕРЅРµРЅС‚Р°Рј РїСЂРёР»РёРїР°СЋС‚ "РјРµР»РєРёРµ" СЌР»РµРјРµРЅС‚С‹.
+        # РћРїСЂРµРґРµР»СЏРµРј РїРѕ С‚РёРїСѓ Р°СЃСЃРµС‚Р° РР›Р РїРѕ РёРјРµРЅРё РєРѕРјРїРѕРЅРµРЅС‚Р°
+        # (РїРѕС‚РѕРјСѓ С‡С‚Рѕ РѕРєРЅР° С‡Р°СЃС‚Рѕ РёРјРµСЋС‚ С‚РёРї tower_body).
         ATTACHABLE = ("window", "door", "ornament")
         _mt = getattr(self._asset, "type", "") if self._asset else ""
         _name_lower = (
@@ -1012,9 +1013,9 @@ class ComponentItem(QGraphicsObject):
         ).lower()
         _name_ok = (
             "okno" in _name_lower
-            or "окно" in _name_lower
+            or "РѕРєРЅРѕ" in _name_lower
             or "door" in _name_lower
-            or "двер" in _name_lower
+            or "РґРІРµСЂ" in _name_lower
         )
         can_attach = (_mt in ATTACHABLE) or _name_ok
 
@@ -1032,9 +1033,9 @@ class ComponentItem(QGraphicsObject):
 
         best = None  # (dist, my_tag, their_item, their_tag, dx, dy)
 
-        # V15: anchor-поиск идёт ВСЕГДА, но для не-attachable
-        # допускаем только пару (bottom → top) — крыша/купол/башня
-        # ставятся сверху. Остальные пары им запрещены.
+        # V15: anchor-РїРѕРёСЃРє РёРґС‘С‚ Р’РЎР•Р“Р”Рђ, РЅРѕ РґР»СЏ РЅРµ-attachable
+        # РґРѕРїСѓСЃРєР°РµРј С‚РѕР»СЊРєРѕ РїР°СЂСѓ (bottom в†’ top) вЂ” РєСЂС‹С€Р°/РєСѓРїРѕР»/Р±Р°С€РЅСЏ
+        # СЃС‚Р°РІСЏС‚СЃСЏ СЃРІРµСЂС…Сѓ. РћСЃС‚Р°Р»СЊРЅС‹Рµ РїР°СЂС‹ РёРј Р·Р°РїСЂРµС‰РµРЅС‹.
         if True:
           for other in scene.items():
             if other is self:
@@ -1045,15 +1046,15 @@ class ComponentItem(QGraphicsObject):
             if not their_world:
                 continue
 
-            # Пропустить, если этот other уже привязан к НАМ (иначе цикл)
+            # РџСЂРѕРїСѓСЃС‚РёС‚СЊ, РµСЃР»Рё СЌС‚РѕС‚ other СѓР¶Рµ РїСЂРёРІСЏР·Р°РЅ Рє РќРђРњ (РёРЅР°С‡Рµ С†РёРєР»)
             other_comp_check = getattr(other, "_component", None)
             if (other_comp_check is not None
                     and other_comp_check.attach_to
                     == self._component.id):
                 continue
 
-            # V9d-4: окно НЕ привязываем к другому окну по anchor.
-            # Окна цепляются только к слотам стен (или к не-окнам).
+            # V9d-4: РѕРєРЅРѕ РќР• РїСЂРёРІСЏР·С‹РІР°РµРј Рє РґСЂСѓРіРѕРјСѓ РѕРєРЅСѓ РїРѕ anchor.
+            # РћРєРЅР° С†РµРїР»СЏСЋС‚СЃСЏ С‚РѕР»СЊРєРѕ Рє СЃР»РѕС‚Р°Рј СЃС‚РµРЅ (РёР»Рё Рє РЅРµ-РѕРєРЅР°Рј).
             my_type = getattr(self._asset, "type", "") if self._asset else ""
             their_type = (
                 getattr(other._asset, "type", "")
@@ -1066,16 +1067,16 @@ class ComponentItem(QGraphicsObject):
                 for their_tag, (tx, ty) in their_world.items():
                     if (my_tag, their_tag) not in SNAP_PAIRS:
                         continue
-                    # V15: "встать сверху" (bottom→top) разрешено
-                    # всем — крыша/купол/башня ставятся на стену.
-                    # Другие пары (top→bottom) — только attachable.
+                    # V15: "РІСЃС‚Р°С‚СЊ СЃРІРµСЂС…Сѓ" (bottomв†’top) СЂР°Р·СЂРµС€РµРЅРѕ
+                    # РІСЃРµРј вЂ” РєСЂС‹С€Р°/РєСѓРїРѕР»/Р±Р°С€РЅСЏ СЃС‚Р°РІСЏС‚СЃСЏ РЅР° СЃС‚РµРЅСѓ.
+                    # Р”СЂСѓРіРёРµ РїР°СЂС‹ (topв†’bottom) вЂ” С‚РѕР»СЊРєРѕ attachable.
                     if (not can_attach
                             and (my_tag, their_tag) != ("bottom", "top")):
                         continue
 
-                    # V20: не-attachable (башня/стена/крыша) не липнет
-                    # к окнам/дверям/декору — только к крупному
-                    # (стена, башня, крыша, купол).
+                    # V20: РЅРµ-attachable (Р±Р°С€РЅСЏ/СЃС‚РµРЅР°/РєСЂС‹С€Р°) РЅРµ Р»РёРїРЅРµС‚
+                    # Рє РѕРєРЅР°Рј/РґРІРµСЂСЏРј/РґРµРєРѕСЂСѓ вЂ” С‚РѕР»СЊРєРѕ Рє РєСЂСѓРїРЅРѕРјСѓ
+                    # (СЃС‚РµРЅР°, Р±Р°С€РЅСЏ, РєСЂС‹С€Р°, РєСѓРїРѕР»).
                     if not can_attach:
                         _o_asset = getattr(other, "_asset", None)
                         _o_type = (
@@ -1093,14 +1094,14 @@ class ComponentItem(QGraphicsObject):
                             best = (dist, my_tag, other, their_tag,
                                     dx, dy)
 
-        # V9d-4: поиск слотов (auto_rule) на соседних стенах.
-        # Приоритет у слота — если он ближе, чем anchor-пара.
+        # V9d-4: РїРѕРёСЃРє СЃР»РѕС‚РѕРІ (auto_rule) РЅР° СЃРѕСЃРµРґРЅРёС… СЃС‚РµРЅР°С….
+        # РџСЂРёРѕСЂРёС‚РµС‚ Сѓ СЃР»РѕС‚Р° вЂ” РµСЃР»Рё РѕРЅ Р±Р»РёР¶Рµ, С‡РµРј anchor-РїР°СЂР°.
         best_slot = None
         my_bottom = my_world.get("bottom")
         if my_bottom is not None:
             mx, my = my_bottom
 
-            # Собрать занятые слоты: {parent_comp_id: {slot_key, ...}}
+            # РЎРѕР±СЂР°С‚СЊ Р·Р°РЅСЏС‚С‹Рµ СЃР»РѕС‚С‹: {parent_comp_id: {slot_key, ...}}
             occupied: dict[str, set] = {}
             for cand in scene.items():
                 if cand is self:
@@ -1132,7 +1133,7 @@ class ComponentItem(QGraphicsObject):
                     continue
                 if o_comp.id == self._component.id:
                     continue
-                # Пропустить, если other привязан к НАМ
+                # РџСЂРѕРїСѓСЃС‚РёС‚СЊ, РµСЃР»Рё other РїСЂРёРІСЏР·Р°РЅ Рє РќРђРњ
                 if o_comp.attach_to == self._component.id:
                     continue
 
@@ -1151,13 +1152,13 @@ class ComponentItem(QGraphicsObject):
                                 dx, dy,
                             )
 
-        # Выбор: если слот ближе anchor-пары — берём слот
+        # Р’С‹Р±РѕСЂ: РµСЃР»Рё СЃР»РѕС‚ Р±Р»РёР¶Рµ anchor-РїР°СЂС‹ вЂ” Р±РµСЂС‘Рј СЃР»РѕС‚
         if best_slot is not None:
             if best is None or best_slot[0] < best[0]:
                 best = best_slot
 
-        # V13: snap к опорной линии (ground line).
-        # Если мой bottom anchor близко к Y линии — snap по Y.
+        # V13: snap Рє РѕРїРѕСЂРЅРѕР№ Р»РёРЅРёРё (ground line).
+        # Р•СЃР»Рё РјРѕР№ bottom anchor Р±Р»РёР·РєРѕ Рє Y Р»РёРЅРёРё вЂ” snap РїРѕ Y.
         scene = self.scene()
         if scene is not None and hasattr(scene, "ground_line_y"):
             gy = scene.ground_line_y()
@@ -1167,7 +1168,7 @@ class ComponentItem(QGraphicsObject):
                     my_y = my_bottom[1]
                     dy = gy - my_y
                     if abs(dy) <= threshold_m:
-                        # Если линия ближе, чем текущий best
+                        # Р•СЃР»Рё Р»РёРЅРёСЏ Р±Р»РёР¶Рµ, С‡РµРј С‚РµРєСѓС‰РёР№ best
                         if best is None or abs(dy) < best[0]:
                             best = (
                                 abs(dy), "__ground__",
@@ -1175,7 +1176,7 @@ class ComponentItem(QGraphicsObject):
                                 0.0, dy,
                             )
 
-        # V13: сброс флага — установится только если реально snap к ground
+        # V13: СЃР±СЂРѕСЃ С„Р»Р°РіР° вЂ” СѓСЃС‚Р°РЅРѕРІРёС‚СЃСЏ С‚РѕР»СЊРєРѕ РµСЃР»Рё СЂРµР°Р»СЊРЅРѕ snap Рє ground
         self._snap_to_ground = False
 
         if best is None:
@@ -1184,11 +1185,11 @@ class ComponentItem(QGraphicsObject):
 
         _, my_tag, other, their_tag, dx, dy = best
 
-        # Сначала очищаем старую пару
+        # РЎРЅР°С‡Р°Р»Р° РѕС‡РёС‰Р°РµРј СЃС‚Р°СЂСѓСЋ РїР°СЂСѓ
         self.clear_snap_highlight()
 
-        # V13: snap к ground line — сдвигаем только по Y,
-        # attachment не создаём (это не компонент).
+        # V13: snap Рє ground line вЂ” СЃРґРІРёРіР°РµРј С‚РѕР»СЊРєРѕ РїРѕ Y,
+        # attachment РЅРµ СЃРѕР·РґР°С‘Рј (СЌС‚Рѕ РЅРµ РєРѕРјРїРѕРЅРµРЅС‚).
         if other is None:
             self.setPos(self.pos().x(), self.pos().y() + dy)
             self._component.x = self.pos().x()
@@ -1196,14 +1197,14 @@ class ComponentItem(QGraphicsObject):
             self._snap_to_ground = True
             return
 
-        # Сдвигаем себя на (dx, dy), чтобы наш anchor совпал с их
+        # РЎРґРІРёРіР°РµРј СЃРµР±СЏ РЅР° (dx, dy), С‡С‚РѕР±С‹ РЅР°С€ anchor СЃРѕРІРїР°Р» СЃ РёС…
         self.setPos(self.pos().x() + dx, self.pos().y() + dy)
 
-        # Подсветка
+        # РџРѕРґСЃРІРµС‚РєР°
         self.set_highlighted_anchor(my_tag)
         other.set_highlighted_anchor(their_tag)
 
-        # V11c: сохранить привязку в модель
+        # V11c: СЃРѕС…СЂР°РЅРёС‚СЊ РїСЂРёРІСЏР·РєСѓ РІ РјРѕРґРµР»СЊ
         other_comp = getattr(other, "_component", None)
         if other_comp is not None:
             already = (
@@ -1220,7 +1221,7 @@ class ComponentItem(QGraphicsObject):
         self._snap_partner = other
 
     def mouseDoubleClickEvent(self, event) -> None:
-        """Двойной клик — войти в composite (если это composite)."""
+        """Р”РІРѕР№РЅРѕР№ РєР»РёРє вЂ” РІРѕР№С‚Рё РІ composite (РµСЃР»Рё СЌС‚Рѕ composite)."""
         if self._asset is not None:
             comps = getattr(self._asset, "components", None)
             if comps:
@@ -1241,9 +1242,9 @@ class ComponentItem(QGraphicsObject):
     def mouseReleaseEvent(self, event) -> None:
         super().mouseReleaseEvent(event)
 
-        # Если компонент привязан к родителю через anchor —
-        # позицией управляет reflow, не трогаем её руками.
-        # Иначе любой клик сдвигал бы точку стыковки.
+        # Р•СЃР»Рё РєРѕРјРїРѕРЅРµРЅС‚ РїСЂРёРІСЏР·Р°РЅ Рє СЂРѕРґРёС‚РµР»СЋ С‡РµСЂРµР· anchor вЂ”
+        # РїРѕР·РёС†РёРµР№ СѓРїСЂР°РІР»СЏРµС‚ reflow, РЅРµ С‚СЂРѕРіР°РµРј РµС‘ СЂСѓРєР°РјРё.
+        # РРЅР°С‡Рµ Р»СЋР±РѕР№ РєР»РёРє СЃРґРІРёРіР°Р» Р±С‹ С‚РѕС‡РєСѓ СЃС‚С‹РєРѕРІРєРё.
         attached = bool(getattr(self._component, "attach_to", ""))
 
         if attached:
@@ -1251,12 +1252,12 @@ class ComponentItem(QGraphicsObject):
             sx = pos.x()
             sy = pos.y()
         elif self._snap_partner is not None:
-            # Сработал snap — не округляем, точная позиция
+            # РЎСЂР°Р±РѕС‚Р°Р» snap вЂ” РЅРµ РѕРєСЂСѓРіР»СЏРµРј, С‚РѕС‡РЅР°СЏ РїРѕР·РёС†РёСЏ
             pos = self.pos()
             sx = pos.x()
             sy = pos.y()
         else:
-            # Свободный компонент — снапим к сетке 0.1 м
+            # РЎРІРѕР±РѕРґРЅС‹Р№ РєРѕРјРїРѕРЅРµРЅС‚ вЂ” СЃРЅР°РїРёРј Рє СЃРµС‚РєРµ 0.1 Рј
             pos = self.pos()
             step = self._snap_step
             sx = round(pos.x() / step) * step
@@ -1265,12 +1266,12 @@ class ComponentItem(QGraphicsObject):
             if abs(sx - pos.x()) > 1e-9 or abs(sy - pos.y()) > 1e-9:
                 self.setPos(sx, sy)
 
-        # Записываем в компонент
+        # Р—Р°РїРёСЃС‹РІР°РµРј РІ РєРѕРјРїРѕРЅРµРЅС‚
         self._component.x = sx
         self._component.y = sy
         self.moved.emit()
 
-        # Undo: если позиция изменилась — сигнал для команды
+        # Undo: РµСЃР»Рё РїРѕР·РёС†РёСЏ РёР·РјРµРЅРёР»Р°СЃСЊ вЂ” СЃРёРіРЅР°Р» РґР»СЏ РєРѕРјР°РЅРґС‹
         if self._drag_old_pos is not None:
             ox, oy = self._drag_old_pos
             if abs(ox - sx) > 1e-6 or abs(oy - sy) > 1e-6:
@@ -1279,7 +1280,7 @@ class ComponentItem(QGraphicsObject):
                 )
             self._drag_old_pos = None
 
-        # Убираем подсветку snap
+        # РЈР±РёСЂР°РµРј РїРѕРґСЃРІРµС‚РєСѓ snap
         self._snap_to_ground = False
         self.clear_snap_highlight()
 
@@ -1290,8 +1291,9 @@ class ComponentItem(QGraphicsObject):
             from PySide6.QtCore import QTimer
             QTimer.singleShot(0, self._rebuild_handles)
         elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
-            # V12: при drag — эмитим moved на каждое изменение позиции,
-            # чтобы дети (окна на слотах) двигались синхронно.
+            # V12: РїСЂРё drag вЂ” СЌРјРёС‚РёРј moved РЅР° РєР°Р¶РґРѕРµ РёР·РјРµРЅРµРЅРёРµ РїРѕР·РёС†РёРё,
+            # С‡С‚РѕР±С‹ РґРµС‚Рё (РѕРєРЅР° РЅР° СЃР»РѕС‚Р°С…) РґРІРёРіР°Р»РёСЃСЊ СЃРёРЅС…СЂРѕРЅРЅРѕ.
             if self._drag_old_pos is not None:
                 self.moved.emit()
         return super().itemChange(change, value)
+### component.py ###
