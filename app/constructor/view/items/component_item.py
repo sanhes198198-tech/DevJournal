@@ -1180,6 +1180,7 @@ class ComponentItem(QGraphicsObject):
 
         if best is None:
             self.clear_snap_highlight()
+            self._pending_snap = None
             return
 
         _, my_tag, other, their_tag, dx, dy = best
@@ -1203,20 +1204,14 @@ class ComponentItem(QGraphicsObject):
         self.set_highlighted_anchor(my_tag)
         other.set_highlighted_anchor(their_tag)
 
-        # V11c: сохранить привязку в модель
+        # V21: candidate сохраняем, attachment коммитим на mouseRelease.
+        # Во время drag модель не мутируется — иначе башня
+        # перепривязывается 3-4 раза за одно движение.
         other_comp = getattr(other, "_component", None)
         if other_comp is not None:
-            already = (
-                self._component.attach_to == other_comp.id
-                and self._component.attach_anchor == my_tag
-                and self._component.parent_anchor == their_tag
+            self._pending_snap = (
+                other_comp.id, my_tag, their_tag,
             )
-            if not already:
-                self._component.set_attachment(
-                    other_comp.id, my_tag, their_tag,
-                )
-                print(f"[SNAP] attach_to={other_comp.id} "
-                      f"my={my_tag} their={their_tag}")
         self._snap_partner = other
 
     def mouseDoubleClickEvent(self, event) -> None:
@@ -1232,6 +1227,8 @@ class ComponentItem(QGraphicsObject):
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self._drag_old_pos = (self.pos().x(), self.pos().y())
+            # V21: сброс pending — новый drag начинается с нуля
+            self._pending_snap = None
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event) -> None:
@@ -1240,6 +1237,21 @@ class ComponentItem(QGraphicsObject):
 
     def mouseReleaseEvent(self, event) -> None:
         super().mouseReleaseEvent(event)
+
+        # V21: commit pending attachment — snap во время drag был preview.
+        pending = getattr(self, "_pending_snap", None)
+        if pending is not None:
+            pid, my_t, their_t = pending
+            already = (
+                self._component.attach_to == pid
+                and self._component.attach_anchor == my_t
+                and self._component.parent_anchor == their_t
+            )
+            if not already:
+                self._component.set_attachment(pid, my_t, their_t)
+                print(f"[SNAP-COMMIT] attach_to={pid} "
+                      f"my={my_t} their={their_t}")
+            self._pending_snap = None
 
         # Если компонент привязан к родителю через anchor —
         # позицией управляет reflow, не трогаем её руками.
