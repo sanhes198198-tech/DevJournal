@@ -396,137 +396,68 @@ class Canvas(QGraphicsView):
         value,
         viewport_pos,
     ):
-        """
-        Меняет масштаб относительно указанной точки
-        viewport.
-
-        Точка под курсором остаётся под курсором после
-        изменения масштаба.
-        """
-
+        """Смена зума. Возвращаем точку под курсор на место."""
         value = max(
             self.MIN_ZOOM,
-            min(
-                self.MAX_ZOOM,
-                int(value),
-            ),
+            min(self.MAX_ZOOM, int(value)),
         )
-
         new_factor = value / 100.0
 
-        if abs(
-            new_factor - self.zoom_factor
-        ) < 0.0001:
+        if abs(new_factor - self.zoom_factor) < 0.0001:
             return
 
-        # Точка сцены, которая сейчас находится под курсором.
-        scene_pos_before = self.mapToScene(
-            viewport_pos
-        )
+        # Сцена под курсором ДО
+        scene_pt = self.mapToScene(viewport_pos)
 
-        # Полностью пересоздаём transform.
-        self.resetTransform()
-
-        self.scale(
-            new_factor,
-            new_factor,
-        )
-
+        # Применяем зум
         self.zoom_factor = new_factor
-
-        # После изменения масштаба определяем,
-        # куда попала та же точка сцены.
-        scene_pos_after = self.mapToScene(
-            viewport_pos
+        self.setTransformationAnchor(
+            QGraphicsView.ViewportAnchor.NoAnchor
         )
+        self.resetTransform()
+        self.scale(new_factor, new_factor)
 
-        delta = (
-            scene_pos_before
-            -
-            scene_pos_after
-        )
+        # Точный возврат точки под курсор через scrollbar
+        target_h = int(scene_pt.x() * new_factor - viewport_pos.x())
+        target_v = int(scene_pt.y() * new_factor - viewport_pos.y())
 
-        self.translate(
-            delta.x(),
-            delta.y(),
-        )
+        self.horizontalScrollBar().setValue(target_h)
+        self.verticalScrollBar().setValue(target_v)
 
         if self.main_window:
-
-            self.main_window.update_zoom_label(
-                value
-            )
+            self.main_window.update_zoom_label(value)
 
         self.viewport().update()
 
     def zoom_in(self):
-
-        current = int(
-            self.zoom_factor * 100
-        )
-
+        current = int(self.zoom_factor * 100)
         center = self.viewport().rect().center()
-
-        self.set_zoom_at(
-            current + self.ZOOM_STEP,
-            center,
-        )
+        self.set_zoom_at(current + self.ZOOM_STEP, center)
 
     def zoom_out(self):
-
-        current = int(
-            self.zoom_factor * 100
-        )
-
+        current = int(self.zoom_factor * 100)
         center = self.viewport().rect().center()
-
-        self.set_zoom_at(
-            current - self.ZOOM_STEP,
-            center,
-        )
+        self.set_zoom_at(current - self.ZOOM_STEP, center)
 
     def wheelEvent(
         self,
         event,
     ):
-        """
-        Колесо мыши управляет масштабом.
-
-        Масштабирование происходит относительно курсора,
-        поэтому пользователь не теряет текущую точку обзора.
-        """
-
         delta = event.angleDelta().y()
-
         if delta == 0:
             event.accept()
             return
 
-        current = int(
-            self.zoom_factor * 100
-        )
-
+        current = int(self.zoom_factor * 100)
         if delta > 0:
-
-            new_value = (
-                current
-                +
-                self.ZOOM_STEP
-            )
-
+            new_value = current + self.ZOOM_STEP
         else:
-
-            new_value = (
-                current
-                -
-                self.ZOOM_STEP
-            )
+            new_value = current - self.ZOOM_STEP
 
         self.set_zoom_at(
             new_value,
             event.position().toPoint(),
         )
-
         event.accept()
 
     # =====================================================
