@@ -7,6 +7,8 @@ Reference Image — сохранение / удаление файлов кар�
 
 from __future__ import annotations
 
+import os
+
 from pathlib import Path
 
 from .storage import ASSETS_DIR, StorageError
@@ -24,10 +26,32 @@ def save_reference_image_png(asset_id: str, png_bytes: bytes) -> str:
 
     filename = f"{asset_id}_ref.png"
     path = ASSETS_DIR / filename
+
+    # V19: атомарная запись — tmp → replace.
+    # Так можно перезаписать файл, даже если он открыт в Photos/просмотрщике.
+    tmp_path = path.with_suffix(".png.tmp")
+
     try:
-        path.write_bytes(png_bytes)
+        tmp_path.write_bytes(png_bytes)
     except OSError as e:
-        raise StorageError(f"Не удалось записать картинку: {e}")
+        raise StorageError(
+            f"Не удалось записать временный файл: {e}"
+        )
+
+    try:
+        os.replace(tmp_path, path)
+    except OSError as e:
+        # чистим tmp
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+        raise StorageError(
+            "Не удалось заменить картинку. "
+            "Закрой её в другой программе (Photos, просмотрщик) "
+            f"и попробуй снова. Детали: {e}"
+        )
+
     return filename
 
 

@@ -40,6 +40,12 @@ class EditableText(QGraphicsTextItem):
         # Защита от повторного входа в focusOutEvent.
         self._ending_editing = False
 
+        # V19: гарантированно включить undo/redo у документа
+        try:
+            self.document().setUndoRedoEnabled(True)
+        except Exception:
+            pass
+
         # По умолчанию редактирование выключено.
         self.set_editing_enabled(False)
 
@@ -240,13 +246,13 @@ class EditableText(QGraphicsTextItem):
                 return
 
             # Ctrl+Z — отменить
+            # Ctrl+Z — отменить
             if key == Qt.Key.Key_Z:
-
                 try:
                     self.document().undo()
+                    self.update()
                 except Exception:
                     pass
-
                 event.accept()
                 return
 
@@ -404,6 +410,8 @@ class EditableText(QGraphicsTextItem):
 
         try:
             cursor = self.textCursor()
+            saved_pos = cursor.position()   # V19: сохранить позицию
+
             cursor.select(QTextCursor.SelectionType.Document)
 
             fmt = QTextCharFormat()
@@ -412,6 +420,7 @@ class EditableText(QGraphicsTextItem):
             cursor.mergeCharFormat(fmt)
 
             cursor.clearSelection()
+            cursor.setPosition(saved_pos)   # V19: вернуть на место
             self.setTextCursor(cursor)
         except Exception:
             pass

@@ -64,7 +64,18 @@ class TextCard(Card):
             width - 24,
         )
 
+        # Сохранить позицию курсора — setTextWidth может её сбросить
+        cursor = self.body_item.textCursor()
+        saved_pos = cursor.position()
+
         self.body_item.document().setTextWidth(text_width)
+
+        # Восстановить позицию курсора
+        try:
+            cursor.setPosition(saved_pos)
+            self.body_item.setTextCursor(cursor)
+        except Exception:
+            pass
 
         body_height = self.body_item.document().size().height()
 
