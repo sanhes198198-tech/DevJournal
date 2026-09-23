@@ -17,7 +17,7 @@
     "c_9e3cbe5a": {
       "id": "c_9e3cbe5a",
       "asset_id": "60d7042003d0",
-      "x": -0.8,
+      "x": 0.0,
       "y": -5.2,
       "rotation": 0.0,
       "scale": 1.0,
@@ -44,7 +44,7 @@
     "c_48977c25": {
       "id": "c_48977c25",
       "asset_id": "4d77b734d939",
-      "x": 1.9604122298602824,
+      "x": 2.7604122298602825,
       "y": -2.345536226707325,
       "rotation": 0.0,
       "scale": 1.0,
@@ -64,7 +64,7 @@
     "c_ff862183": {
       "id": "c_ff862183",
       "asset_id": "4d77b734d939",
-      "x": 1.9604122298602824,
+      "x": 2.7604122298602825,
       "y": -5.845536226707325,
       "rotation": 0.0,
       "scale": 1.0,
@@ -84,7 +84,7 @@
     "c_0f1d0df6": {
       "id": "c_0f1d0df6",
       "asset_id": "4d77b734d939",
-      "x": -3.81974042771847,
+      "x": -3.01974042771847,
       "y": -5.845536226707325,
       "rotation": 0.0,
       "scale": 1.0,
@@ -104,7 +104,7 @@
     "c_31f30abd": {
       "id": "c_31f30abd",
       "asset_id": "4d77b734d939",
-      "x": -3.81974042771847,
+      "x": -3.01974042771847,
       "y": -2.345536226707325,
       "rotation": 0.0,
       "scale": 1.0,
@@ -124,7 +124,7 @@
     "c_a2c2fe83": {
       "id": "c_a2c2fe83",
       "asset_id": "e0f860a55c7e",
-      "x": -0.8902569912901808,
+      "x": -0.09025699129018072,
       "y": -3.9017149089448653,
       "rotation": 0.0,
       "scale": 1.0,
@@ -165,7 +165,7 @@
     "c_0c66d7aa": {
       "id": "c_0c66d7aa",
       "asset_id": "4d77b734d939",
-      "x": 7.960412229860283,
+      "x": 8.760412229860282,
       "y": -5.845536226707325,
       "rotation": 0.0,
       "scale": 1.0,
@@ -185,7 +185,7 @@
     "c_dd580022": {
       "id": "c_dd580022",
       "asset_id": "4d77b734d939",
-      "x": 7.960412229860283,
+      "x": 8.760412229860282,
       "y": -2.345536226707325,
       "rotation": 0.0,
       "scale": 1.0,
@@ -279,7 +279,7 @@
     "c_4db3ee38": {
       "id": "c_4db3ee38",
       "asset_id": "25f092d12df4",
-      "x": 4.945070300207218,
+      "x": 5.745070300207217,
       "y": -4.619393980527538,
       "rotation": 0.0,
       "scale": 1.0,
@@ -294,65 +294,6 @@
       "parent_anchor": "slot_g_ac1967c5_0_0_x1",
       "slot_policy": null,
       "fill_pattern": "diamonds",
-      "locked": false
-    },
-    "c_d7625b3f": {
-      "id": "c_d7625b3f",
-      "asset_id": "d5d9aadc6a4c",
-      "x": 14.369354574604142,
-      "y": -2.5,
-      "rotation": 0.0,
-      "scale": 1.0,
-      "name": "Центральная башня 1 уровень",
-      "layer": 0,
-      "filled": true,
-      "param_overrides": {
-        "height": -0.8,
-        "width": 0.0
-      },
-      "attach_to": "c_9e3cbe5a",
-      "attach_anchor": "bottom",
-      "parent_anchor": "top",
-      "slot_policy": null,
-      "fill_pattern": "",
-      "locked": false
-    },
-    "c_3f0bdb46": {
-      "id": "c_3f0bdb46",
-      "asset_id": "c27aa34ad44f",
-      "x": 14.359500192355167,
-      "y": -5.299999999999999,
-      "rotation": 0.0,
-      "scale": 1.0,
-      "name": "корниз",
-      "layer": 0,
-      "filled": true,
-      "param_overrides": {
-        "height": -0.2
-      },
-      "attach_to": "c_d7625b3f",
-      "attach_anchor": "bottom",
-      "parent_anchor": "top",
-      "slot_policy": null,
-      "fill_pattern": "hatch",
-      "locked": false
-    },
-    "c_779d2fa7": {
-      "id": "c_779d2fa7",
-      "asset_id": "d19f23b952f1",
-      "x": 14.36182248838632,
-      "y": -6.999999999999998,
-      "rotation": 0.0,
-      "scale": 1.0,
-      "name": "Крыша центральная башня 1",
-      "layer": 0,
-      "filled": true,
-      "param_overrides": {},
-      "attach_to": "c_d7625b3f",
-      "attach_anchor": "bottom",
-      "parent_anchor": "top",
-      "slot_policy": null,
-      "fill_pattern": "",
       "locked": false
     }
   },

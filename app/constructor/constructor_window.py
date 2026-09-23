@@ -1206,6 +1206,36 @@ class ConstructorWindow(QMainWindow):
             p_local = parent_anchors.get(child_comp.parent_anchor)
             c_local = child_anchors.get(child_comp.attach_anchor)
             if p_local is None or c_local is None:
+                # V21: attachment существует в модели, но target
+                # не разрешается. Инвалидируем — иначе связь
+                # «мертва», но считается живой.
+                missing = []
+                if p_local is None:
+                    missing.append(
+                        f"parent_anchor={child_comp.parent_anchor!r}"
+                    )
+                if c_local is None:
+                    missing.append(
+                        f"attach_anchor={child_comp.attach_anchor!r}"
+                    )
+                print(
+                    f"[ATTACH-INVALID] {child_comp.id} "
+                    f"parent={parent_id} "
+                    f"missing: {', '.join(missing)}"
+                )
+                try:
+                    child_comp.clear_attachment()
+                except Exception as e:
+                    print(f"[ATTACH-INVALID] clear failed: {e}")
+
+                _nm = (
+                    getattr(child_comp, "name", "")
+                    or child_comp.id
+                )
+                self.statusBar().showMessage(
+                    f"Привязка «{_nm}» сброшена — точка крепления исчезла",
+                    4000,
+                )
                 continue
 
             parent_scene = parent_item.mapToScene(
