@@ -3,22 +3,22 @@
     "project_name": "тест 3",
     "grid_mode": "dots",
     "view": {
-        "zoom": 0.6,
-        "scroll_x": -511,
-        "scroll_y": -472
+        "zoom": 1.1,
+        "scroll_x": -473,
+        "scroll_y": -466
     },
     "items": [
         {
             "type": "card",
-            "card_id": "66d61919-43d3-4095-b51f-bfdc1664aa4c",
-            "x": 1.0,
-            "y": -26.0,
+            "card_id": "b681e2f9-9814-4caf-ad26-2bab6c9110fb",
+            "x": 152.71428571428567,
+            "y": -215.57142857142864,
             "width": 280.0,
-            "height": 71.0,
+            "height": 140.0,
             "color": "#ffffffff",
-            "card_type": "comment",
+            "card_type": "text",
             "title": "",
-            "title_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:12pt; font-weight:600; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>",
+            "title_html": "",
             "text": "",
             "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>"
         },
@@ -38,15 +38,15 @@
         },
         {
             "type": "card",
-            "card_id": "b681e2f9-9814-4caf-ad26-2bab6c9110fb",
-            "x": 152.71428571428567,
-            "y": -215.57142857142864,
+            "card_id": "66d61919-43d3-4095-b51f-bfdc1664aa4c",
+            "x": 1.0,
+            "y": -26.0,
             "width": 280.0,
-            "height": 140.0,
+            "height": 71.0,
             "color": "#ffffffff",
-            "card_type": "text",
-            "title": "",
-            "title_html": "",
+            "card_type": "comment",
+            "title": "ааааааааа   аааааааа",
+            "title_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:12pt; font-weight:600; font-style:normal;\">\n<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" color:#444444;\">ааааааааа   аааааааа</span></p></body></html>",
             "text": "",
             "text_html": "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n<html><head><meta name=\"qrichtext\" content=\"1\" /><meta charset=\"utf-8\" /><style type=\"text/css\">\np, li { white-space: pre-wrap; }\nhr { height: 1px; border-width: 0; }\nli.unchecked::marker { content: \"\\2610\"; }\nli.checked::marker { content: \"\\2612\"; }\n</style></head><body style=\" font-family:'Roboto'; font-size:12pt; font-weight:400; font-style:normal;\">\n<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>"
         }
