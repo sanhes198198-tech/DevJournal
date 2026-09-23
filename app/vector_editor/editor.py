@@ -15,7 +15,7 @@ VectorEditor — QMainWindow V4.
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, QEvent, QElapsedTimer, QBuffer, QIODevice
-from PySide6.QtGui import QAction, QKeySequence, QPixmap
+from PySide6.QtGui import QAction, QShortcut, QKeySequence, QPixmap
 from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
@@ -2933,6 +2933,11 @@ class VectorEditor(QMainWindow):
 
         self._groups_panel.clear_selection()
         self._parameters_panel.clear_selection()
+
+    def _on_delete_shortcut(self) -> None:
+        """V20: удалить выделенные узлы (Delete/Backspace)."""
+        if self._delete_selected_nodes():
+            return
 
     def keyPressEvent(self, event) -> None:
         # Ctrl+A — выделить все узлы
