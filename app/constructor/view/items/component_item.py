@@ -1227,6 +1227,48 @@ class ComponentItem(QGraphicsObject):
             if best is None or best_slot[0] < best[0]:
                 best = best_slot
 
+        # V22 (Mounting): поиск mount locations с ролью компонента.
+        # Только для attachable и только если у компонента задана роль.
+        # Формат best для mount: (dist, "bottom", other, mp_id, ix, iy, dx, dy).
+        best_mount = None
+        if can_attach:
+            _role = getattr(self._component, "role", None)
+            _role_str = _role.value if _role else None
+            my_bottom = my_world.get("bottom")
+            if _role_str and my_bottom is not None:
+                mx, my = my_bottom
+                for other in scene.items():
+                    if other is self:
+                        continue
+                    if not isinstance(other, ComponentItem):
+                        continue
+                    o_comp = getattr(other, "_component", None)
+                    if o_comp is None:
+                        continue
+                    if o_comp.id == self._component.id:
+                        continue
+                    if o_comp.attach_to == self._component.id:
+                        continue
+                    try:
+                        locs = other.mount_locations_by_role(_role_str)
+                    except Exception:
+                        locs = []
+                    for mp_id, ix, iy, sx, sy in locs:
+                        dx = sx - mx
+                        dy = sy - my
+                        dist = (dx * dx + dy * dy) ** 0.5
+                        if dist <= threshold_m:
+                            if best_mount is None or dist < best_mount[0]:
+                                best_mount = (
+                                    dist, "bottom", other,
+                                    mp_id, ix, iy,
+                                    dx, dy,
+                                )
+
+        if best_mount is not None:
+            if best is None or best_mount[0] < best[0]:
+                best = best_mount
+
         # V13: snap к опорной линии (ground line).
         # Если мой bottom anchor близко к Y линии — snap по Y.
         scene = self.scene()
@@ -1254,7 +1296,14 @@ class ComponentItem(QGraphicsObject):
             self._pending_snap = None
             return
 
-        _, my_tag, other, their_tag, dx, dy = best
+        # V22: best может быть 6-tuple (anchor/slot) или 8-tuple (mount).
+        _mount_info = None
+        if len(best) == 8:
+            _, my_tag, other, _mp_id, _ix, _iy, dx, dy = best
+            their_tag = f"mp_{_mp_id}_{_ix}_{_iy}"
+            _mount_info = (_mp_id, _ix, _iy)
+        else:
+            _, my_tag, other, their_tag, dx, dy = best
 
         # Сначала очищаем старую пару
         self.clear_snap_highlight()
@@ -1320,8 +1369,12 @@ class ComponentItem(QGraphicsObject):
             )
             if not already:
                 self._component.set_attachment(pid, my_t, their_t)
+                _kind = (
+                    "mount" if their_t.startswith("mp_")
+                    else "anchor"
+                )
                 print(f"[SNAP-COMMIT] attach_to={pid} "
-                      f"my={my_t} their={their_t}")
+                      f"my={my_t} their={their_t} kind={_kind}")
             self._pending_snap = None
 
         # Если компонент привязан к родителю через anchor —
