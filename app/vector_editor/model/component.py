@@ -32,7 +32,6 @@ class Component:
         attach_to: str = "",
         attach_anchor: str = "",
         parent_anchor: str = "",
-        slot_policy: dict | None = None,
         fill_pattern: str = "",
         locked: bool = False,
         role: MountRole | str | None = None,
@@ -58,12 +57,6 @@ class Component:
         self.attach_to: str = str(attach_to or "")
         self.attach_anchor: str = str(attach_anchor or "")
         self.parent_anchor: str = str(parent_anchor or "")
-        # V11: политика управления видимостью дочерних
-        # компонентов на слотах. None = выключено.
-        # {"enabled": bool, "clearance": float}
-        self.slot_policy: dict | None = (
-            dict(slot_policy) if slot_policy else None
-        )
         # V11: текстура заливки. "" = без текстуры.
         # "hatch" = серая диагональная штриховка.
         # "diamonds" = ромбы (косой крест).
@@ -121,13 +114,6 @@ class Component:
         self.attach_anchor = ""
         self.parent_anchor = ""
 
-    def is_attached(self) -> bool:
-        return bool(
-            self.attach_to
-            and self.attach_anchor
-            and self.parent_anchor
-        )
-
     def to_dict(self) -> dict:
         return {
             "id": self.id,
@@ -143,7 +129,6 @@ class Component:
             "attach_to": self.attach_to,
             "attach_anchor": self.attach_anchor,
             "parent_anchor": self.parent_anchor,
-            "slot_policy": self.slot_policy,
             "fill_pattern": self.fill_pattern,
             "locked": self.locked,
             "role": role_to_str(self.role),
@@ -169,7 +154,6 @@ class Component:
             attach_to=str(d.get("attach_to", "")),
             attach_anchor=str(d.get("attach_anchor", "")),
             parent_anchor=str(d.get("parent_anchor", "")),
-            slot_policy=d.get("slot_policy"),
             fill_pattern=str(d.get("fill_pattern", "")),
             locked=bool(d.get("locked", False)),
             role=parse_role(d.get("role")),
