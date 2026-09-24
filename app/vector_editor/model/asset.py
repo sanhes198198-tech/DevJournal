@@ -356,6 +356,100 @@ class Asset:
     # ДОСТУП
     # ------------------------------------------------------------
 
+    # ------------------------------------------------------------
+    # V23: AssetSnapshot — undo-состояние Asset
+    # ------------------------------------------------------------
+
+    def snapshot(self) -> dict:
+        """Снимок редактируемого состояния Asset для undo.
+
+        Входит:
+          - layers (полные, через VectorLayer.to_dict)
+          - mountpoints (полные, через MountPoint.to_dict)
+          - parameter_values ({name: value}, БЕЗ targets / label)
+
+        НЕ входит:
+          - components, visibility_rules, generation_rules
+          - reference_image, semantic_groups
+          - UI, selection, камера
+
+        snapshot() не мутирует Asset.
+        """
+        parameter_values = {}
+        for p in self.parameters.values():
+            name = getattr(p, "name", "") or ""
+            if not name:
+                continue
+            parameter_values[name] = float(getattr(p, "value", 0.0))
+
+        return {
+            "layers": [
+                layer.to_dict() for layer in self.layers
+            ],
+            "mountpoints": [
+                mp.to_dict() for mp in self.mountpoints
+            ],
+            "parameter_values": parameter_values,
+        }
+
+    def restore(self, snapshot: dict) -> None:
+        """Восстановить состояние Asset из snapshot.
+
+        ВАЖНО:
+          - НЕ вызывает from_dict()
+          - НЕ запускает apply_migration
+          - НЕ трогает UI (editor сам пересоздаёт items)
+
+        Меняет только:
+          - self.layers
+          - self.mountpoints
+          - значения self.parameters[name].value
+        """
+        if not isinstance(snapshot, dict):
+            return
+
+        # 1. Layers
+        raw_layers = snapshot.get("layers")
+        if isinstance(raw_layers, list):
+            new_layers = []
+            for ldict in raw_layers:
+                if not isinstance(ldict, dict):
+                    continue
+                try:
+                    new_layers.append(
+                        VectorLayer.from_dict(ldict)
+                    )
+                except Exception:
+                    continue
+            self.layers = new_layers
+
+        # 2. MountPoints
+        raw_mps = snapshot.get("mountpoints")
+        if isinstance(raw_mps, list):
+            new_mps = []
+            for mdict in raw_mps:
+                if not isinstance(mdict, dict):
+                    continue
+                try:
+                    new_mps.append(
+                        MountPoint.from_dict(mdict)
+                    )
+                except Exception:
+                    continue
+            self.mountpoints = new_mps
+
+        # 3. Parameter values (только value, не targets)
+        raw_pv = snapshot.get("parameter_values")
+        if isinstance(raw_pv, dict):
+            for name, value in raw_pv.items():
+                for p in self.parameters.values():
+                    if getattr(p, "name", "") == name:
+                        try:
+                            p.value = float(value)
+                        except Exception:
+                            pass
+                        break
+
     def points(self) -> list[tuple[float, float]]:
         return [(float(p[0]), float(p[1])) for p in self.geometry.get("contour", [])]
 
