@@ -13,8 +13,6 @@ Panel не знает про сцену. Выделенные node_ids прих�
 
 from __future__ import annotations
 
-import copy
-
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QLabel,
@@ -31,7 +29,6 @@ from PySide6.QtWidgets import (
 )
 
 from .semantic_group_dialog import SemanticGroupDialog
-from .auto_rule_dialog import AutoRuleDialog
 from ..model.analysis import (
     AUTO_GROUP_TYPES,
     generate_auto_group,
@@ -54,8 +51,6 @@ class SemanticGroupsPanel(QWidget):
 
         self._asset = None
         self._selected_node_ids: list[str] = []
-        # V16: буфер скопированного auto_rule
-        self._rule_clipboard: dict | None = None
 
         self._build_ui()
 
@@ -139,49 +134,14 @@ class SemanticGroupsPanel(QWidget):
         self._btn_del.clicked.connect(self._on_delete)
         buttons.addWidget(self._btn_del)
 
-        # V9c: кнопка правила авто-размножения
-        self._btn_rule = QPushButton("⚙ Правило")
-        self._btn_rule.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_rule.setToolTip(
-            "Правило авто-размножения точек группы (нужна "
-            "группа с ровно одной extra-точкой-шаблоном)"
-        )
-        self._btn_rule.clicked.connect(self._on_rule)
-        buttons.addWidget(self._btn_rule)
 
         self._style_button(self._btn_add)
         self._style_button(self._btn_edit)
         self._style_button(self._btn_add_sel)
         self._style_button(self._btn_del)
-        self._style_button(self._btn_rule)
 
         layout.addLayout(buttons)
 
-        # V16: вторая строка — копирование правил
-        buttons2 = QHBoxLayout()
-        buttons2.setContentsMargins(0, 0, 0, 0)
-        buttons2.setSpacing(4)
-
-        self._btn_copy_rule = QPushButton("📋 Скопировать правило")
-        self._btn_copy_rule.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_copy_rule.setToolTip(
-            "Скопировать auto_rule выбранной группы"
-        )
-        self._btn_copy_rule.clicked.connect(self._on_copy_rule)
-        buttons2.addWidget(self._btn_copy_rule, 1)
-
-        self._btn_paste_rule = QPushButton("📋 Вставить")
-        self._btn_paste_rule.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_paste_rule.setToolTip(
-            "Применить скопированное правило к выбранной группе"
-        )
-        self._btn_paste_rule.clicked.connect(self._on_paste_rule)
-        buttons2.addWidget(self._btn_paste_rule)
-
-        self._style_button(self._btn_copy_rule)
-        self._style_button(self._btn_paste_rule)
-
-        layout.addLayout(buttons2)
 
         # ============================================================
         # АВТО-ГРУППЫ
@@ -268,8 +228,7 @@ class SemanticGroupsPanel(QWidget):
             return
 
         for g in sorted(groups, key=lambda x: (x.label or x.name).lower()):
-            rule_mark = " ⚙" if getattr(g, "auto_rule", None) else ""
-            text = f"{g.label}  ({len(g.node_ids)} узлов){rule_mark}"
+            text = f"{g.label}  ({len(g.node_ids)} узлов)"
             item = QListWidgetItem(text)
             item.setData(Qt.ItemDataRole.UserRole, g.id)
             self._list.addItem(item)
@@ -297,46 +256,6 @@ class SemanticGroupsPanel(QWidget):
             and len(self._selected_node_ids) > 0
         )
 
-        # V9c: активна если выбрана группа с ровно одной
-        # extra-точкой-шаблоном (e_* но не e_auto_*)
-        self._btn_rule.setEnabled(
-            has_groups and has_selection and self._can_set_rule()
-        )
-
-        # V16: копирование правил
-        has_rule = False
-        if has_groups and has_selection:
-            gid = self._current_group_id()
-            if gid:
-                g = self._asset.get_semantic_group(gid)
-                if g is not None and g.auto_rule:
-                    has_rule = True
-        self._btn_copy_rule.setEnabled(has_rule)
-        self._btn_paste_rule.setEnabled(
-            has_selection and self._rule_clipboard is not None
-        )
-
-    def _can_set_rule(self) -> bool:
-        """Проверить, можно ли задать auto_rule для выбранной группы."""
-        if self._asset is None:
-            return False
-        gid = self._current_group_id()
-        if gid is None:
-            return False
-        group = self._asset.get_semantic_group(gid)
-        if group is None:
-            return False
-        # V9c-доп: 1+ не-auto точек разрешены
-        non_auto = [
-            nid for nid in group.node_ids
-            if not nid.startswith("e_auto_")
-        ]
-        if not non_auto:
-            return False
-        # Все шаблоны должны быть extra-точками (e_*)
-        return all(nid.startswith("e_") for nid in non_auto)
-
-    # ------------------------------------------------------------
 
     def _current_group_id(self) -> str | None:
         item = self._list.currentItem()
@@ -467,36 +386,6 @@ class SemanticGroupsPanel(QWidget):
         self.refresh()
         self.groups_changed.emit()
 
-    def _on_copy_rule(self) -> None:
-        """V16: скопировать auto_rule выбранной группы в буфер."""
-        if self._asset is None:
-            return
-        gid = self._current_group_id()
-        if gid is None:
-            return
-        group = self._asset.get_semantic_group(gid)
-        if group is None or not group.auto_rule:
-            return
-        self._rule_clipboard = copy.deepcopy(group.auto_rule)
-        self._update_buttons()
-        self.statusBar_message(
-            f"Правило скопировано ({group.label})"
-        ) if hasattr(self, "statusBar_message") else None
-
-    def _on_paste_rule(self) -> None:
-        """V16: применить скопированное правило к выбранной группе."""
-        if self._asset is None or self._rule_clipboard is None:
-            return
-        gid = self._current_group_id()
-        if gid is None:
-            return
-        group = self._asset.get_semantic_group(gid)
-        if group is None:
-            return
-        group.auto_rule = copy.deepcopy(self._rule_clipboard)
-        self.refresh()
-        self.groups_changed.emit()
-
     def _on_delete(self) -> None:
         if self._asset is None:
             return
@@ -528,44 +417,3 @@ class SemanticGroupsPanel(QWidget):
         self.group_selected.emit("")
         self.groups_changed.emit()
 
-    # ------------------------------------------------------------
-    # V9c: ПРАВИЛО АВТО-РАЗМНОЖЕНИЯ
-    # ------------------------------------------------------------
-
-    def _on_rule(self) -> None:
-        """Открыть диалог правила авто-размножения для группы."""
-        if self._asset is None:
-            return
-
-        gid = self._current_group_id()
-        if gid is None:
-            return
-
-        group = self._asset.get_semantic_group(gid)
-        if group is None:
-            return
-
-        if not self._can_set_rule():
-            QMessageBox.information(
-                self,
-                "Правило недоступно",
-                "Для настройки правила нужна группа с ровно "
-                "одной extra-точкой (шаблоном). Создайте точку "
-                "в сцене и добавьте её в группу.",
-            )
-            return
-
-        all_groups = list(self._asset.semantic_groups.values())
-        dlg = AutoRuleDialog(group=group, all_groups=all_groups,
-                             parent=self)
-        if dlg.exec() != AutoRuleDialog.DialogCode.Accepted:
-            return
-
-        # result_rule=None означает "удалить правило"
-        if dlg.result_rule is None:
-            group.auto_rule = None
-        else:
-            group.auto_rule = dict(dlg.result_rule)
-
-        self.refresh()
-        self.groups_changed.emit()
