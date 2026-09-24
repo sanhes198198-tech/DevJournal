@@ -44,6 +44,7 @@ from .view.asset_browser import AssetBrowser
 from .view.scale_dialog import ScaleDialog
 from .model.auto_rule import recalculate_auto_points
 from .view.semantic_groups_panel import SemanticGroupsPanel
+from .view.mount_points_panel import MountPointsPanel
 from .view.layers_panel import LayersPanel
 from .view.arc_dialog import ArcDialog
 from .view.parameters_panel import ParametersPanel
@@ -167,6 +168,7 @@ class VectorEditor(QMainWindow):
         self._browser.refresh()
 
         self._groups_panel = SemanticGroupsPanel()
+        self._mount_points_panel = MountPointsPanel()
         self._parameters_panel = ParametersPanel()
         self._layers_panel = LayersPanel()
 
@@ -174,6 +176,7 @@ class VectorEditor(QMainWindow):
         right_splitter = QSplitter(Qt.Orientation.Vertical)
         right_splitter.addWidget(self._layers_panel)
         right_splitter.addWidget(self._groups_panel)
+        right_splitter.addWidget(self._mount_points_panel)
         right_splitter.addWidget(self._parameters_panel)
         right_splitter.setStretchFactor(0, 0)
         right_splitter.setStretchFactor(1, 1)
@@ -565,6 +568,12 @@ class VectorEditor(QMainWindow):
         self._groups_panel.groups_changed.connect(
             self._on_groups_changed
         )
+        self._mount_points_panel.mount_point_selected.connect(
+            self._on_mount_point_selected
+        )
+        self._mount_points_panel.mount_points_changed.connect(
+            self._on_mount_points_changed
+        )
         self._parameters_panel.value_changed.connect(
             self._on_parameter_value_changed
         )
@@ -924,6 +933,14 @@ class VectorEditor(QMainWindow):
             "Точка добавлена. Выдели её и создай группу "
             "(+ в панели Группы).", 4000,
         )
+
+    def _on_mount_point_selected(self, mp_id: str) -> None:
+        """Пользователь кликнул по точке крепления в панели."""
+        pass
+
+    def _on_mount_points_changed(self) -> None:
+        """Пользователь изменил точки крепления."""
+        self._mark_modified()
 
     def _on_groups_changed(self) -> None:
         """Пользователь изменил группы — отметить Asset как изменённый."""
@@ -1499,6 +1516,7 @@ class VectorEditor(QMainWindow):
 
         self._current_asset = None
         self._groups_panel.set_asset(None)
+        self._mount_points_panel.set_asset(None)
         self._parameters_panel.set_asset(None)
         self._layers_panel.set_asset(None)
 
@@ -1875,6 +1893,7 @@ class VectorEditor(QMainWindow):
         self._current_asset_type = asset.type
 
         self._groups_panel.set_asset(asset)
+        self._mount_points_panel.set_asset(asset)
         self._parameters_panel.set_asset(asset)
         self._layers_panel.set_asset(asset)
         self._update_size_display()
@@ -1968,6 +1987,11 @@ class VectorEditor(QMainWindow):
             # Копируем подложку — иначе она теряется при Save
             asset.reference_image = self._current_asset.reference_image
 
+            # V22: копируем mountpoints — иначе теряются при Save
+            asset.mountpoints = list(
+                getattr(self._current_asset, "mountpoints", []) or []
+            )
+
             # V16: синхронизация слоёв из ContourItem'ов
             # Правки в редакторе → layer.geometry → JSON.
             asset.layers = []
@@ -2032,6 +2056,7 @@ class VectorEditor(QMainWindow):
         # Обновляем current_asset
         self._current_asset = asset
         self._groups_panel.set_asset(asset)
+        self._mount_points_panel.set_asset(asset)
         self._parameters_panel.set_asset(asset)
         self._layers_panel.set_asset(asset)
 
@@ -2080,6 +2105,11 @@ class VectorEditor(QMainWindow):
             asset.parameters = dict(self._current_asset.parameters)
             asset.prune_parameters()
 
+            # V22: mountpoints при Save As тоже копируем
+            asset.mountpoints = list(
+                getattr(self._current_asset, "mountpoints", []) or []
+            )
+
             # Подложка: скопировать PNG под новым asset_id
             old_ref = self._current_asset.reference_image
             if old_ref is not None and old_ref.is_valid():
@@ -2114,6 +2144,7 @@ class VectorEditor(QMainWindow):
         self._current_asset_type = asset.type
 
         self._groups_panel.set_asset(asset)
+        self._mount_points_panel.set_asset(asset)
         self._parameters_panel.set_asset(asset)
 
         self._mark_saved()
@@ -2834,6 +2865,7 @@ class VectorEditor(QMainWindow):
 
                 # Сброс выделения в панелях
                 self._groups_panel.clear_selection()
+                self._mount_points_panel.clear_selection()
                 self._parameters_panel.clear_selection()
 
                 pos = event.scenePos()
@@ -2932,6 +2964,7 @@ class VectorEditor(QMainWindow):
         self._scene.update()
 
         self._groups_panel.clear_selection()
+        self._mount_points_panel.clear_selection()
         self._parameters_panel.clear_selection()
 
     def _on_delete_shortcut(self) -> None:

@@ -397,5 +397,21 @@
         "extra_node_ids": []
       }
     }
+  ],
+  "mountpoints": [
+    {
+      "id": "mp_38c8fed1",
+      "role": "window",
+      "position": [
+        1.0,
+        2.0
+      ],
+      "distribution": {
+        "count_x": 3,
+        "count_y": 2,
+        "spacing_x": 0.0,
+        "spacing_y": 0.0
+      }
+    }
   ]
 }
