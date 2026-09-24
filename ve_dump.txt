@@ -1,0 +1,2246 @@
+﻿### contour_item.py ###
+"""
+ContourItem вЂ” QGraphicsObject, СЂРёСЃСѓРµС‚ Р·Р°РјРєРЅСѓС‚С‹Р№/СЂР°Р·РѕРјРєРЅСѓС‚С‹Р№ РєРѕРЅС‚СѓСЂ.
+
+РџРѕРґРґРµСЂР¶РёРІР°РµС‚:
+  - СѓР·Р»С‹ (NodeItem) вЂ” drag, delete;
+  - РіСЂР°РЅРё (edges) вЂ” hover / selection / extrude;
+  - РґРІРѕР№РЅРѕР№ РєР»РёРє РїРѕ main-СЃРµРіРјРµРЅС‚Сѓ в†’ РІСЃС‚Р°РІРєР° СѓР·Р»Р°;
+  - extra_edges (V8-lite) вЂ” РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹Рµ СЂС‘Р±СЂР° РјРµР¶РґСѓ РЅРµСЃРѕСЃРµРґРЅРёРјРё
+    СѓР·Р»Р°РјРё, С…СЂР°РЅСЏС‚СЃСЏ РєР°Рє РїР°СЂС‹ node_ids.
+
+Р’РЅСѓС‚СЂРµРЅРЅРµРµ СЃРѕСЃС‚РѕСЏРЅРёРµ:
+  - _selected_edge_idx: int | None вЂ” РІС‹РґРµР»РµРЅРЅР°СЏ main-РіСЂР°РЅСЊ;
+  - _hover_edge_idx: int | None вЂ” main-РіСЂР°РЅСЊ РїРѕРґ РєСѓСЂСЃРѕСЂРѕРј;
+  - _selected_extra: tuple[str, str] | None вЂ” РІС‹РґРµР»РµРЅРЅРѕРµ extra-СЂРµР±СЂРѕ;
+  - _hover_extra: tuple[str, str] | None вЂ” extra-СЂРµР±СЂРѕ РїРѕРґ РєСѓСЂСЃРѕСЂРѕРј.
+
+РџСЂРёРѕСЂРёС‚РµС‚ РїСЂРё РєР»РёРєРµ: Extra > Main.
+РџСЂРёРѕСЂРёС‚РµС‚ РїСЂРё hover:   Extra > Main.
+Double-click: С‚РѕР»СЊРєРѕ main (extra РЅРµ РѕР±СЂР°Р±Р°С‚С‹РІР°РµС‚СЃСЏ).
+"""
+
+from __future__ import annotations
+
+from PySide6.QtCore import QPointF, QRectF, Qt, Signal
+from PySide6.QtGui import (
+    QColor, QPainterPath, QPainterPathStroker, QPen,
+)
+from PySide6.QtWidgets import QGraphicsObject
+
+from ...model.contour import VectorContour
+from ...model.geometry import dist_point_to_segment
+from ...model.operations import extrude_face
+from .node_item import NodeItem
+from .arc_handle_item import ArcHandleItem
+from .extra_node_item import ExtraNodeItem
+
+
+class ContourItem(QGraphicsObject):
+    # РњР°РєСЃРёРјР°Р»СЊРЅР°СЏ РєСЂРёРІРёР·РЅР° (1.0 = РґСѓРіР° СЂР°РґРёСѓСЃРѕРј ~РїРѕР»РѕРІРёРЅР° С…РѕСЂРґС‹)
+    MAX_BULGE = 2.0
+    """Р’РёР·СѓР°Р»РёР·Р°С†РёСЏ VectorContour."""
+
+    changed = Signal()
+    node_drag_started = Signal()
+    node_drag_finished = Signal()
+
+    LINE_WIDTH = 1.2
+    LINE_WIDTH_SELECTED = 2.5
+    LINE_WIDTH_HOVER = 2.0
+
+    LINE_COLOR = "#1A1A1A"
+    LINE_COLOR_SELECTED = "#0055CC"
+    LINE_COLOR_HOVER = "#5588DD"
+
+    # Extra edges вЂ” РІРёР·СѓР°Р»СЊРЅРѕ РєР°Рє main (РїРѕ РїСЂРѕСЃСЊР±Рµ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ)
+    EXTRA_COLOR = "#1A1A1A"           # РєР°Рє LINE_COLOR
+    EXTRA_COLOR_SELECTED = "#0055CC"  # РєР°Рє LINE_COLOR_SELECTED
+    EXTRA_WIDTH = 1.2                 # РєР°Рє LINE_WIDTH
+    EXTRA_WIDTH_SELECTED = 2.5        # РєР°Рє LINE_WIDTH_SELECTED
+
+    HIT_THRESHOLD_PX = 8.0
+
+    def __init__(self, contour: VectorContour, parent=None):
+        super().__init__(parent)
+
+        self._contour = contour
+        self._nodes: list[NodeItem] = []
+        self._extra_nodes: list[ExtraNodeItem] = []
+        self._editable: bool = True
+        self._last_ppm: float = 50.0
+
+        self._selected_edge_idx: int | None = None
+        self._hover_edge_idx: int | None = None
+
+        self._selected_extra: tuple[str, str] | None = None
+        self._active_handle = None   # ArcHandleItem РїРѕРґ drag
+        # Р СѓС‡РєРё РґР»СЏ РїРµСЂРµС‚Р°СЃРєРёРІР°РЅРёСЏ РєСЂРёРІРёР·РЅС‹ СЂС‘Р±РµСЂ: {edge_idx: ArcHandleItem}
+        self._arc_handles: dict = {}
+        self._hover_extra: tuple[str, str] | None = None
+
+        self._path = QPainterPath()
+
+        self.setFlag(
+            self.GraphicsItemFlag.ItemIsSelectable,
+            True,
+        )
+        self.setAcceptHoverEvents(True)
+        self.setZValue(1.0)
+
+        self._rebuild_nodes()
+        self._rebuild_extra_nodes()
+        self._rebuild_path()
+
+    # ============================================================
+    # PUBLIC
+    # ============================================================
+
+    @property
+    def contour(self) -> VectorContour:
+        return self._contour
+
+    @property
+    def selected_edge_idx(self) -> int | None:
+        return self._selected_edge_idx
+
+    def selected_extra(self) -> tuple[str, str] | None:
+        return self._selected_extra
+
+    def clear_edge_selection(self) -> None:
+        changed = (
+            self._selected_edge_idx is not None
+            or self._selected_extra is not None
+        )
+        self._selected_edge_idx = None
+        self._selected_extra = None
+        if changed:
+            self.update()
+
+    def clear_extra_selection(self) -> None:
+        if self._selected_extra is not None:
+            self._selected_extra = None
+            self.update()
+
+    def set_editable(self, editable: bool) -> None:
+        self._editable = editable
+        for node in self._nodes:
+            node.setVisible(editable)
+        for node in self._extra_nodes:
+            node.setVisible(editable)
+
+    # ============================================================
+    # EXTRUDE (РїРѕ main-РіСЂР°РЅРё)
+    # ============================================================
+
+    def has_selected_edge(self) -> bool:
+        return self._selected_edge_idx is not None
+
+    def extrude_selected_face(self, distance: float) -> bool:
+        if self._selected_edge_idx is None:
+            return False
+
+        new_points = extrude_face(
+            self._contour.points,
+            self._selected_edge_idx,
+            distance,
+        )
+        if new_points is None:
+            return False
+
+        self._contour.points = new_points
+        self._selected_edge_idx = None
+        self._hover_edge_idx = None
+        self._selected_extra = None
+        self._hover_extra = None
+
+        self._rebuild_nodes()
+        self._rebuild_extra_nodes()
+        self._rebuild_path()
+        self.changed.emit()
+        return True
+
+    # ============================================================
+    # GEOMETRY
+    # ============================================================
+
+    def boundingRect(self) -> QRectF:
+        if self._path.isEmpty():
+            return QRectF()
+        return self._path.boundingRect().adjusted(
+            -1.0, -1.0, 1.0, 1.0
+        )
+
+    def shape(self) -> QPainterPath:
+        """Р¤РѕСЂРјР° РґР»СЏ Qt-hit-test. Р’РєР»СЋС‡Р°РµС‚ extra_edges, С‡С‚РѕР±С‹ Qt
+        РєРѕСЂСЂРµРєС‚РЅРѕ РІС‹Р±РёСЂР°Р» ContourItem РїСЂРё РєР»РёРєРµ РїРѕ extra."""
+        ppm = self._last_ppm or 50.0
+        stroke_w_m = max(self.HIT_THRESHOLD_PX / ppm, 0.01)
+
+        stroker = QPainterPathStroker()
+        stroker.setWidth(stroke_w_m)
+
+        # self._path СѓР¶Рµ СЃРѕРґРµСЂР¶РёС‚ РґСѓРіРё вЂ” РёСЃРїРѕР»СЊР·СѓРµРј РєР°Рє РµСЃС‚СЊ
+        path = QPainterPath(self._path)
+
+        for a_id, b_id in self._contour.extra_edges:
+            p1 = self._contour.get_point_by_id(a_id)
+            p2 = self._contour.get_point_by_id(b_id)
+            if p1 is None or p2 is None:
+                continue
+            path.moveTo(p1[0], p1[1])
+            # Extra edges вЂ” С‚РѕР¶Рµ РјРѕРіСѓС‚ Р±С‹С‚СЊ РґСѓРіР°РјРё
+            self._segment_to(path, a_id, b_id, p1, p2)
+
+        return stroker.createStroke(path)
+
+    # ============================================================
+    # PAINT
+    # ============================================================
+
+    def paint(self, painter, option, widget=None) -> None:
+        self._last_ppm = abs(painter.transform().m11()) or 50.0
+        painter.setRenderHint(painter.RenderHint.Antialiasing, True)
+
+        pts = self._contour.points
+        n = len(pts)
+        if n < 2:
+            return
+
+        segments = (
+            list(range(n)) if self._contour.closed
+            else list(range(n - 1))
+        )
+
+        # --- 1. РћСЃРЅРѕРІРЅРѕР№ РєРѕРЅС‚СѓСЂ ---
+        # РћСЃРЅРѕРІРЅРѕР№ С†РІРµС‚ РєРѕРЅС‚СѓСЂР° РІСЃРµРіРґР° С‚С‘РјРЅС‹Р№.
+        # РџРѕРґСЃРІРµС‚РєР° вЂ” С‚РѕР»СЊРєРѕ С‡РµСЂРµР· _selected_edge_idx / _selected_extra.
+        # isSelected() РЅР°РјРµСЂРµРЅРЅРѕ РЅРµ СѓС‡РёС‚С‹РІР°РµРј: РєР»РёРє РїРѕ СѓР·Р»Сѓ
+        # РІС‹РґРµР»СЏРµС‚ СЂРѕРґРёС‚РµР»СЏ, Рё СЂР°РЅСЊС€Рµ СЌС‚Рѕ РєСЂР°СЃРёР»Рѕ РІРµСЃСЊ РєРѕРЅС‚СѓСЂ.
+        base_color = self.LINE_COLOR
+        pen_base = QPen(QColor(base_color), self.LINE_WIDTH)
+        pen_base.setCosmetic(True)
+        pen_base.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
+        painter.setPen(pen_base)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawPath(self._path)
+
+        # --- 2. Extra edges (РїРѕРІРµСЂС… main) ---
+        for edge in self._contour.extra_edges:
+            a_id, b_id = edge
+            p1 = self._contour.get_point_by_id(a_id)
+            p2 = self._contour.get_point_by_id(b_id)
+            if p1 is None or p2 is None:
+                continue
+
+            is_selected = (
+                self._selected_extra is not None
+                and frozenset(self._selected_extra)
+                == frozenset(edge)
+            )
+            is_hover = (
+                self._hover_extra is not None
+                and frozenset(self._hover_extra)
+                == frozenset(edge)
+                and not is_selected
+            )
+
+            if is_selected:
+                color = QColor(self.EXTRA_COLOR_SELECTED)
+                width = self.EXTRA_WIDTH_SELECTED
+            elif is_hover:
+                color = QColor(self.LINE_COLOR_HOVER)
+                width = self.EXTRA_WIDTH_SELECTED
+            else:
+                color = QColor(self.EXTRA_COLOR)
+                width = self.EXTRA_WIDTH
+
+            style = Qt.PenStyle.SolidLine
+
+            pen = QPen(color, width)
+            pen.setCosmetic(True)
+            pen.setStyle(style)
+            painter.setPen(pen)
+            painter.drawLine(QPointF(*p1), QPointF(*p2))
+
+        # --- 3. Selected main edge (РїРѕРІРµСЂС… РІСЃРµРіРѕ) ---
+        if (
+            self._selected_edge_idx is not None
+            and self._selected_edge_idx in segments
+        ):
+            i = self._selected_edge_idx
+            j = (i + 1) % n
+            p1 = pts[i]
+            p2 = pts[j]
+            ids = self._contour.node_ids
+            a_id = ids[i] if i < len(ids) else None
+            b_id = ids[j] if j < len(ids) else None
+
+            pen = QPen(
+                QColor(self.LINE_COLOR_SELECTED),
+                self.LINE_WIDTH_SELECTED,
+            )
+            pen.setCosmetic(True)
+            painter.setPen(pen)
+
+            sub = QPainterPath()
+            sub.moveTo(p1[0], p1[1])
+            self._segment_to(sub, a_id, b_id, p1, p2)
+            painter.drawPath(sub)
+
+        # --- 4. Hover main edge (РµСЃР»Рё РЅРµ СЃРѕРІРїР°РґР°РµС‚ СЃ selected) ---
+        elif (
+            self._hover_edge_idx is not None
+            and self._hover_edge_idx in segments
+            and self._hover_edge_idx != self._selected_edge_idx
+        ):
+            i = self._hover_edge_idx
+            j = (i + 1) % n
+            p1 = pts[i]
+            p2 = pts[j]
+            ids = self._contour.node_ids
+            a_id = ids[i] if i < len(ids) else None
+            b_id = ids[j] if j < len(ids) else None
+
+            pen = QPen(
+                QColor(self.LINE_COLOR_HOVER),
+                self.LINE_WIDTH_HOVER,
+            )
+            pen.setCosmetic(True)
+            painter.setPen(pen)
+
+            sub = QPainterPath()
+            sub.moveTo(p1[0], p1[1])
+            self._segment_to(sub, a_id, b_id, p1, p2)
+            painter.drawPath(sub)
+
+    # ============================================================
+    # REBUILD
+    # ============================================================
+
+    def _segment_to(self, path, a_id, b_id, p1, p2) -> None:
+        """Р”РѕР±Р°РІРёС‚СЊ РѕС‚СЂРµР·РѕРє РІ path вЂ” РїСЂСЏРјРѕР№ РёР»Рё РґСѓРіСѓ (РїРѕ arcs)."""
+        bulge = 0.0
+        if a_id and b_id:
+            bulge = self._contour.get_arc(a_id, b_id)
+
+        if abs(bulge) < 1e-9:
+            path.lineTo(p2[0], p2[1])
+            return
+
+        x1, y1 = p1
+        x2, y2 = p2
+        dx = x2 - x1
+        dy = y2 - y1
+        length = (dx * dx + dy * dy) ** 0.5
+        if length < 1e-9:
+            path.lineTo(x2, y2)
+            return
+
+        # РЎРµСЂРµРґРёРЅР°
+        mx = (x1 + x2) * 0.5
+        my = (y1 + y2) * 0.5
+
+        # РџРµСЂРїРµРЅРґРёРєСѓР»СЏСЂ (РЅРѕСЂРјР°Р»СЊ)
+        nx = -dy / length
+        ny = dx / length
+
+        # РљРѕРЅС‚СЂРѕР»СЊРЅР°СЏ С‚РѕС‡РєР° РєРІР°РґСЂР°С‚РёС‡РЅРѕР№ Р‘РµР·СЊРµ
+        # C = M + 2 * perp * bulge * L
+        k = 2.0 * bulge * length
+        cx = mx + nx * k
+        cy = my + ny * k
+
+        path.quadTo(cx, cy, x2, y2)
+
+    def _arc_handle_pos(self, edge_idx: int):
+        """РџРѕР·РёС†РёСЏ СЂСѓС‡РєРё РґР»СЏ СЂРµР±СЂР° вЂ” РєРѕРЅС‚СЂРѕР»СЊРЅР°СЏ С‚РѕС‡РєР° РґСѓРіРё."""
+        pts = self._contour.points
+        n = len(pts)
+        if not (0 <= edge_idx < n):
+            return None
+        i = edge_idx
+        j = (i + 1) % n
+        p1 = pts[i]
+        p2 = pts[j]
+
+        ids = self._contour.node_ids
+        a_id = ids[i] if i < len(ids) else None
+        b_id = ids[j] if j < len(ids) else None
+
+        bulge = 0.0
+        if a_id and b_id:
+            bulge = self._contour.get_arc(a_id, b_id)
+
+        x1, y1 = p1
+        x2, y2 = p2
+        dx = x2 - x1
+        dy = y2 - y1
+        L = (dx * dx + dy * dy) ** 0.5
+        if L < 1e-9:
+            return ((x1 + x2) / 2, (y1 + y2) / 2)
+
+        mx = (x1 + x2) / 2
+        my = (y1 + y2) / 2
+        nx = -dy / L
+        ny = dx / L
+        # РљРѕРЅС‚СЂРѕР»СЊРЅР°СЏ С‚РѕС‡РєР° C = M + 2*bulge*L*n
+        k = 2.0 * bulge * L
+        cx = mx + nx * k
+        cy = my + ny * k
+        # РЎРµСЂРµРґРёРЅР° РєРІР°РґСЂР°С‚РёС‡РЅРѕР№ Р‘РµР·СЊРµ: B(0.5) = (M + C)/2
+        bx = (mx + cx) / 2
+        by = (my + cy) / 2
+        return (bx, by)
+
+    def _rebuild_arc_handles(self) -> None:
+        """РџРµСЂРµСЃРѕР±СЂР°С‚СЊ СЂСѓС‡РєРё РґР»СЏ РёР·РѕРіРЅСѓС‚С‹С… СЂС‘Р±РµСЂ."""
+        # РЈРґР°Р»РёС‚СЊ РІСЃРµ
+        for h in self._arc_handles.values():
+            h.setParentItem(None)
+            if h.scene() is not None:
+                h.scene().removeItem(h)
+        self._arc_handles.clear()
+
+        # РўРѕР»СЊРєРѕ РєРѕРіРґР° СЂРµРґР°РєС‚РёСЂСѓРµРј
+        if not self._editable:
+            return
+
+        pts = self._contour.points
+        n = len(pts)
+        if n < 2:
+            return
+
+        segments = (
+            list(range(n)) if self._contour.closed
+            else list(range(n - 1))
+        )
+
+        ids = self._contour.node_ids
+
+        for i in segments:
+            j = (i + 1) % n
+            a_id = ids[i] if i < len(ids) else None
+            b_id = ids[j] if j < len(ids) else None
+            if not (a_id and b_id):
+                continue
+            bulge = self._contour.get_arc(a_id, b_id)
+            if abs(bulge) < 1e-9:
+                continue
+
+            pos = self._arc_handle_pos(i)
+            if pos is None:
+                continue
+
+            handle = ArcHandleItem(i, pos[0], pos[1], parent=self)
+            handle.moved.connect(self._on_arc_handle_moved)
+            handle.released.connect(self._on_arc_handle_released)
+            handle.setVisible(False)   # СЃРєСЂС‹С‚ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
+            self._arc_handles[i] = handle
+
+        # РћР±РЅРѕРІРёС‚СЊ РІРёРґРёРјРѕСЃС‚СЊ РїРѕ С‚РµРєСѓС‰РµРјСѓ СЃРѕСЃС‚РѕСЏРЅРёСЋ
+        self._update_handle_visibility()
+
+    def _update_handle_visibility(self) -> None:
+        """РџРѕРєР°Р·Р°С‚СЊ РєСЂСѓР¶РѕРє С‚РѕР»СЊРєРѕ РґР»СЏ РІС‹РґРµР»РµРЅРЅРѕРіРѕ СЂРµР±СЂР° (РїРѕ РєР»РёРєСѓ)."""
+        if not self._arc_handles:
+            return
+        shown = set()
+        if self._selected_edge_idx is not None:
+            shown.add(self._selected_edge_idx)
+        for idx_h, h in self._arc_handles.items():
+            h.setVisible(idx_h in shown)
+
+    def _on_arc_handle_moved(self, edge_idx: int) -> None:
+        """Р СѓС‡РєСѓ РїРµСЂРµС‚Р°С‰РёР»Рё вЂ” РїРµСЂРµСЃС‡РёС‚Р°С‚СЊ bulge Рё РїРµСЂРµСЂРёСЃРѕРІР°С‚СЊ path."""
+        handle = self._arc_handles.get(edge_idx)
+        if handle is None:
+            return
+
+        pts = self._contour.points
+        n = len(pts)
+        if not (0 <= edge_idx < n):
+            return
+        i = edge_idx
+        j = (i + 1) % n
+        p1 = pts[i]
+        p2 = pts[j]
+
+        ids = self._contour.node_ids
+        a_id = ids[i] if i < len(ids) else None
+        b_id = ids[j] if j < len(ids) else None
+        if not (a_id and b_id):
+            return
+
+        x1, y1 = p1
+        x2, y2 = p2
+        dx = x2 - x1
+        dy = y2 - y1
+        L = (dx * dx + dy * dy) ** 0.5
+        if L < 1e-9:
+            return
+
+        mx = (x1 + x2) / 2
+        my = (y1 + y2) / 2
+        nx = -dy / L
+        ny = dx / L
+
+        # handle.pos() вЂ” СЃРµСЂРµРґРёРЅР° РєСЂРёРІРѕР№. Р’РѕСЃСЃС‚Р°РЅРѕРІРёРј C:
+        # C = 2*handle - M
+        hx = handle.pos().x()
+        hy = handle.pos().y()
+
+        cx = 2 * hx - mx
+        cy = 2 * hy - my
+
+        # C = M + 2*bulge*L*n  =>  bulge = (C - M)В·n / (2L)
+        vx = cx - mx
+        vy = cy - my
+        proj = vx * nx + vy * ny
+        bulge = proj / (2.0 * L)
+
+        # РћРіСЂР°РЅРёС‡РёС‚СЊ РєСЂРёРІРёР·РЅСѓ вЂ” РёРЅР°С‡Рµ С…РµРЅРґР» СѓР№РґС‘С‚ РґР°Р»РµРєРѕ Рё path
+        # СЃС‚Р°РЅРµС‚ РѕРіСЂРѕРјРЅС‹Рј в†’ Р·Р°РІРёСЃР°РЅРёРµ РїСЂРё РїРµСЂРµСЂРёСЃРѕРІРєРµ
+        clamped = False
+        if bulge > self.MAX_BULGE:
+            bulge = self.MAX_BULGE
+            clamped = True
+        elif bulge < -self.MAX_BULGE:
+            bulge = -self.MAX_BULGE
+            clamped = True
+
+        self._contour.set_arc(a_id, b_id, bulge)
+        self._rebuild_path(keep_handles=True)
+
+        # Р•СЃР»Рё РѕРіСЂР°РЅРёС‡РёР»Рё вЂ” РІРµСЂРЅСѓС‚СЊ С…РµРЅРґР» РЅР° РіСЂР°РЅРёС†Сѓ
+        if clamped:
+            pos = self._arc_handle_pos(edge_idx)
+            if pos is not None:
+                handle.setPos(pos[0], pos[1])
+
+    def _on_arc_handle_released(self, edge_idx: int) -> None:
+        """РћС‚РїСѓСЃС‚РёР»Рё СЂСѓС‡РєСѓ вЂ” СЃРѕРѕР±С‰РёС‚СЊ РѕР± РёР·РјРµРЅРµРЅРёСЏС… (РґР»СЏ undo)."""
+        self.changed.emit()
+
+    def _rebuild_path(self, keep_handles: bool = False) -> None:
+        self.prepareGeometryChange()
+
+        path = QPainterPath()
+        pts = self._contour.points
+        n = len(pts)
+        if not pts:
+            self._path = path
+            self.update()
+            return
+
+        node_ids = self._contour.node_ids
+
+        path.moveTo(pts[0][0], pts[0][1])
+
+        if self._contour.closed:
+            for i in range(n):
+                j = (i + 1) % n
+                a_id = node_ids[i] if i < len(node_ids) else None
+                b_id = node_ids[j] if j < len(node_ids) else None
+                # Р”Р»СЏ Р·Р°РјС‹РєР°СЋС‰РµРіРѕ СЂРµР±СЂР° path СѓР¶Рµ РІ С‚РѕС‡РєРµ pts[0]
+                self._segment_to(path, a_id, b_id, pts[i], pts[j])
+            # РџРѕСЃР»Рµ quadTo Рє pts[0] path СѓР¶Рµ Р·Р°РјРєРЅСѓС‚
+            path.closeSubpath()
+        else:
+            for i in range(n - 1):
+                a_id = node_ids[i] if i < len(node_ids) else None
+                b_id = node_ids[i + 1] if i + 1 < len(node_ids) else None
+                self._segment_to(path, a_id, b_id, pts[i], pts[i + 1])
+
+        self._path = path
+        if not keep_handles:
+            self._rebuild_arc_handles()
+        self.update()
+
+    def _rebuild_nodes(self) -> None:
+        for node in self._nodes:
+            if node.scene() is not None:
+                node.scene().removeItem(node)
+            node.setParentItem(None)
+        self._nodes.clear()
+
+        for idx, (x, y) in enumerate(self._contour.points):
+            nid = self._contour.get_node_id(idx) or ""
+            node = NodeItem(idx, x, y, node_id=nid)
+            node.setParentItem(self)
+            node.node_moved.connect(self._on_node_moved)
+            node.drag_started.connect(self.node_drag_started.emit)
+            node.drag_finished.connect(self.node_drag_finished.emit)
+            node.setVisible(self._editable)
+            self._nodes.append(node)
+
+    def _rebuild_extra_nodes(self) -> None:
+        """РџРµСЂРµСЃРѕР·РґР°С‚СЊ ExtraNodeItem РїРѕ current extra_points."""
+        for node in self._extra_nodes:
+            if node.scene() is not None:
+                node.scene().removeItem(node)
+            node.setParentItem(None)
+        self._extra_nodes.clear()
+
+        for nid, (x, y) in zip(
+            self._contour.extra_node_ids,
+            self._contour.extra_points,
+        ):
+            node = ExtraNodeItem(nid, x, y)
+            node.setParentItem(self)
+            node.node_moved.connect(self._on_extra_node_moved)
+            node.drag_started.connect(self.node_drag_started.emit)
+            node.drag_finished.connect(self.node_drag_finished.emit)
+            node.setVisible(self._editable)
+            self._extra_nodes.append(node)
+
+    def _on_extra_node_moved(
+        self, node_id: str, x: float, y: float,
+    ) -> None:
+        if self._contour.set_point_by_id(node_id, x, y):
+            self._rebuild_path()
+            self.changed.emit()
+
+    # ============================================================
+    # NODES VISIBILITY / HIGHLIGHT
+    # ============================================================
+
+    def are_nodes_visible(self) -> bool:
+        if not self._nodes:
+            return self._editable
+        return self._nodes[0].isVisible()
+
+    def set_nodes_visible(self, visible: bool) -> None:
+        for node in self._nodes:
+            node.setVisible(visible)
+        for node in self._extra_nodes:
+            node.setVisible(visible)
+
+    def highlight_nodes(self, node_ids) -> None:
+        wanted = set(node_ids)
+        for node in self._nodes:
+            node.set_highlight(node.node_id in wanted)
+        for node in self._extra_nodes:
+            node.set_highlight(node.node_id in wanted)
+
+    def clear_highlight(self) -> None:
+        for node in self._nodes:
+            node.set_highlight(False)
+        for node in self._extra_nodes:
+            node.set_highlight(False)
+
+    def _on_node_moved(self, idx: int, x: float, y: float) -> None:
+        self._contour.set_point(idx, x, y)
+        self._rebuild_path()
+        self.changed.emit()
+
+    # ============================================================
+    # HIT-TEST: main edges
+    # ============================================================
+
+    def _find_arc_handle_at(self, scene_pos):
+        """РќР°Р№С‚Рё С…РµРЅРґР» РїРѕРґ С‚РѕС‡РєРѕР№ РєР»РёРєР°, РёР»Рё None."""
+        if not self._arc_handles:
+            return None
+        local = self.mapFromScene(scene_pos)
+        for h in self._arc_handles.values():
+            if not h.isVisible():
+                continue
+            hpos = h.pos()
+            dx = local.x() - hpos.x()
+            dy = local.y() - hpos.y()
+            r = h.radius_m() + 0.05
+            if dx * dx + dy * dy <= r * r:
+                return h
+        return None
+
+    def _dist_to_arc(
+        self, px: float, py: float,
+        p1, p2, bulge: float, segments: int = 16,
+    ) -> float:
+        """РњРёРЅРёРјР°Р»СЊРЅРѕРµ СЂР°СЃСЃС‚РѕСЏРЅРёРµ РѕС‚ С‚РѕС‡РєРё РґРѕ РєРІР°РґСЂР°С‚РёС‡РЅРѕР№ Р‘РµР·СЊРµ."""
+        x1, y1 = p1
+        x2, y2 = p2
+        dx = x2 - x1
+        dy = y2 - y1
+        L = (dx * dx + dy * dy) ** 0.5
+        if L < 1e-9:
+            return ((px - x1) ** 2 + (py - y1) ** 2) ** 0.5
+
+        mx = (x1 + x2) / 2
+        my = (y1 + y2) / 2
+        nx = -dy / L
+        ny = dx / L
+        k = 2.0 * bulge * L
+        cx = mx + nx * k
+        cy = my + ny * k
+
+        # Р Р°Р·Р±РёРІР°РµРј Р‘РµР·СЊРµ РЅР° segments РєСѓСЃРєРѕРІ, РёС‰РµРј РјРёРЅРёРјСѓРј РїРѕ РЅРёРј
+        best = float("inf")
+        prev_x = x1
+        prev_y = y1
+        for s in range(1, segments + 1):
+            t = s / segments
+            u = 1 - t
+            bx = u * u * x1 + 2 * u * t * cx + t * t * x2
+            by = u * u * y1 + 2 * u * t * cy + t * t * y2
+            d, _ = dist_point_to_segment(
+                px, py, prev_x, prev_y, bx, by,
+            )
+            if d < best:
+                best = d
+            prev_x = bx
+            prev_y = by
+        return best
+
+    def _find_edge_at(self, scene_x: float, scene_y: float) -> int | None:
+        pts = self._contour.points
+        n = len(pts)
+        if n < 2:
+            return None
+
+        segments = (
+            range(n) if self._contour.closed
+            else range(n - 1)
+        )
+
+        best_dist = float("inf")
+        best_idx: int | None = None
+
+        ids = self._contour.node_ids
+
+        for i in segments:
+            p1 = pts[i]
+            p2 = pts[(i + 1) % n]
+
+            j = (i + 1) % n
+            a_id = ids[i] if i < len(ids) else None
+            b_id = ids[j] if j < len(ids) else None
+
+            bulge = 0.0
+            if a_id and b_id:
+                bulge = self._contour.get_arc(a_id, b_id)
+
+            if abs(bulge) < 1e-9:
+                # РџСЂСЏРјРѕР№ РѕС‚СЂРµР·РѕРє
+                d, _ = dist_point_to_segment(
+                    scene_x, scene_y,
+                    p1[0], p1[1], p2[0], p2[1],
+                )
+            else:
+                # Р”СѓРіР° вЂ” СЃС‡РёС‚Р°РµРј РјРёРЅРёРјР°Р»СЊРЅРѕРµ СЂР°СЃСЃС‚РѕСЏРЅРёРµ РґРѕ РєСЂРёРІРѕР№
+                d = self._dist_to_arc(
+                    scene_x, scene_y, p1, p2, bulge,
+                )
+
+            if d < best_dist:
+                best_dist = d
+                best_idx = i
+
+        ppm = self._last_ppm or 50.0
+        threshold_m = self.HIT_THRESHOLD_PX / ppm
+
+        if best_dist <= threshold_m:
+            return best_idx
+        return None
+
+    # ============================================================
+    # HIT-TEST: extra edges
+    # ============================================================
+
+    def prune_dangling_extra_nodes(self) -> int:
+        """РЈРґР°Р»РёС‚СЊ extra-СѓР·Р»С‹, РЅРµ РІС…РѕРґСЏС‰РёРµ РЅРё РІ РѕРґРЅРѕ extra-СЂРµР±СЂРѕ.
+
+        Р’РѕР·РІСЂР°С‰Р°РµС‚ РєРѕР»РёС‡РµСЃС‚РІРѕ СѓРґР°Р»С‘РЅРЅС‹С… СѓР·Р»РѕРІ.
+        """
+        used_ids: set[str] = set()
+        for a_id, b_id in self._contour.extra_edges:
+            used_ids.add(a_id)
+            used_ids.add(b_id)
+
+        # РћСЃС‚Р°РІР»СЏРµРј extra-СѓР·Р»С‹, РєРѕС‚РѕСЂС‹Рµ Р»РёР±Рѕ РІ extra_edge,
+        # Р»РёР±Рѕ РєС‚Рѕ-С‚Рѕ РµС‰С‘ РЅР° РЅРёС… СЃСЃС‹Р»Р°РµС‚СЃСЏ. Main-СѓР·Р»С‹ РЅРµ С‚СЂРѕРіР°РµРј.
+        to_remove = [
+            nid for nid in self._contour.extra_node_ids
+            if nid not in used_ids
+        ]
+
+        for nid in to_remove:
+            self._contour.remove_extra_point(nid)
+
+        return len(to_remove)
+
+    def _find_extra_edge_at(
+        self, scene_x: float, scene_y: float,
+    ) -> tuple[str, str] | None:
+        """РќР°Р№С‚Рё extra-СЂРµР±СЂРѕ РїРѕРґ РєСѓСЂСЃРѕСЂРѕРј. Р’РѕР·РІСЂР°С‰Р°РµС‚ РїР°СЂСѓ node_ids."""
+        best_dist = float("inf")
+        best_edge: tuple[str, str] | None = None
+
+        for edge in self._contour.extra_edges:
+            a_id, b_id = edge
+            p1 = self._contour.get_point_by_id(a_id)
+            p2 = self._contour.get_point_by_id(b_id)
+            if p1 is None or p2 is None:
+                continue
+
+            d, _ = dist_point_to_segment(
+                scene_x, scene_y,
+                p1[0], p1[1], p2[0], p2[1],
+            )
+            if d < best_dist:
+                best_dist = d
+                best_edge = (a_id, b_id)
+
+        ppm = self._last_ppm or 50.0
+        threshold_m = self.HIT_THRESHOLD_PX / ppm
+
+        if best_dist <= threshold_m:
+            return best_edge
+        return None
+
+    # ============================================================
+    # EVENTS
+    # ============================================================
+
+    def mouseMoveEvent(self, event) -> None:
+        if self._active_handle is not None:
+            self._active_handle.mouseMoveEvent(event)
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event) -> None:
+        if self._active_handle is not None:
+            self._active_handle.mouseReleaseEvent(event)
+            self._active_handle = None
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+    def mousePressEvent(self, event) -> None:
+        """РљР»РёРє РїРѕ РіСЂР°РЅРё вЂ” РІС‹РґРµР»РёС‚СЊ. РџСЂРёРѕСЂРёС‚РµС‚: Extra > Main."""
+        # РџСЂРѕРїСѓСЃРєР°РµРј РєР»РёРє РІ Р·РѕРЅСѓ РєСЂСѓР¶РєР°-СЂСѓС‡РєРё вЂ” С‡С‚РѕР±С‹ ArcHandleItem
+        # РїРѕР»СѓС‡РёР» СЃРѕР±С‹С‚РёРµ РїРµСЂРІС‹Рј (Qt РѕС‚РґР°С‘С‚ СЂРѕРґРёС‚РµР»СЋ СЂР°РЅСЊС€Рµ child)
+        if event.button() == Qt.MouseButton.LeftButton:
+            h = self._find_arc_handle_at(event.scenePos())
+            if h is not None:
+                self._active_handle = h
+                h.mousePressEvent(event)
+                event.accept()
+                return
+
+        if event.button() == Qt.MouseButton.LeftButton:
+            scene_pos = event.scenePos()
+
+            # PRIORITY 1: Extra
+            extra = self._find_extra_edge_at(
+                scene_pos.x(), scene_pos.y(),
+            )
+            if extra is not None:
+                self._selected_extra = extra
+                self._selected_edge_idx = None
+                self.update()
+                event.accept()
+                return
+
+            # PRIORITY 2: Main
+            idx = self._find_edge_at(scene_pos.x(), scene_pos.y())
+            if idx is not None:
+                self._selected_edge_idx = idx
+                self._selected_extra = None
+                self._update_handle_visibility()
+                self.update()
+                event.accept()
+                return
+
+            # РџСѓСЃС‚Рѕ РІРЅСѓС‚СЂРё ContourItem
+            changed = (
+                self._selected_edge_idx is not None
+                or self._selected_extra is not None
+            )
+            self._selected_edge_idx = None
+            self._selected_extra = None
+            self._update_handle_visibility()
+            if changed:
+                self.update()
+
+        super().mousePressEvent(event)
+
+    def hoverMoveEvent(self, event) -> None:
+        if not self._editable:
+            super().hoverMoveEvent(event)
+            return
+
+        scene_pos = event.scenePos()
+
+        extra = self._find_extra_edge_at(
+            scene_pos.x(), scene_pos.y(),
+        )
+
+        idx = None
+        if extra is None:
+            idx = self._find_edge_at(
+                scene_pos.x(), scene_pos.y(),
+            )
+
+        changed = (
+            extra != self._hover_extra
+            or idx != self._hover_edge_idx
+        )
+        self._hover_extra = extra
+        self._hover_edge_idx = idx
+
+        if changed:
+            self.update()
+
+        super().hoverMoveEvent(event)
+
+    def hoverLeaveEvent(self, event) -> None:
+        if (
+            self._hover_edge_idx is not None
+            or self._hover_extra is not None
+        ):
+            self._hover_edge_idx = None
+            self._hover_extra = None
+            self.update()
+
+        super().hoverLeaveEvent(event)
+
+    def mouseDoubleClickEvent(self, event) -> None:
+        """Р”РІРѕР№РЅРѕР№ РєР»РёРє вЂ” РІСЃС‚Р°РІРєР° СѓР·Р»Р°.
+
+        PRIORITY 1: extra-СЂРµР±СЂРѕ в†’ РІСЃС‚Р°РІРёС‚СЊ extra-СѓР·РµР» (РЅРµ РІ main).
+        PRIORITY 2: main-СЃРµРіРјРµРЅС‚ в†’ РІСЃС‚Р°РІРёС‚СЊ main-СѓР·РµР».
+        """
+        if not self._editable:
+            super().mouseDoubleClickEvent(event)
+            return
+
+        scene_pos = event.scenePos()
+
+        # PRIORITY 1: extra edge
+        extra = self._find_extra_edge_at(
+            scene_pos.x(), scene_pos.y(),
+        )
+        if extra is not None:
+            self.mouseDoubleClickEvent_extra(event)
+            event.accept()
+            return
+
+        # PRIORITY 2: main edge
+        pts = self._contour.points
+        n = len(pts)
+        if n < 2:
+            super().mouseDoubleClickEvent(event)
+            return
+
+        best_dist = float("inf")
+        best_seg = -1
+        best_t = 0.0
+
+        segments = (
+            range(n) if self._contour.closed
+            else range(n - 1)
+        )
+
+        for i in segments:
+            p1 = pts[i]
+            p2 = pts[(i + 1) % n]
+            d, t = dist_point_to_segment(
+                scene_pos.x(), scene_pos.y(),
+                p1[0], p1[1], p2[0], p2[1],
+            )
+            if d < best_dist:
+                best_dist = d
+                best_seg = i
+                best_t = t
+
+        ppm = self._last_ppm or 50.0
+        threshold_m = self.HIT_THRESHOLD_PX / ppm
+
+        if best_seg >= 0 and best_dist <= threshold_m:
+            self.insert_node_after_segment(best_seg, best_t)
+            event.accept()
+            return
+
+        super().mouseDoubleClickEvent(event)
+
+    def mouseDoubleClickEvent_extra(self, event) -> None:
+        """Р”РІРѕР№РЅРѕР№ РєР»РёРє РїРѕ extra-СЂРµР±СЂСѓ в†’ РІСЃС‚Р°РІРєР° extra-СѓР·Р»Р°.
+
+        Р’С‹Р·С‹РІР°РµС‚СЃСЏ РёР· РѕСЃРЅРѕРІРЅРѕРіРѕ mouseDoubleClickEvent Р”Рћ РїСЂРѕРІРµСЂРєРё
+        main-СЂС‘Р±РµСЂ. Р”РѕР±Р°РІР»СЏРµС‚ РЅРѕРІСѓСЋ extra-С‚РѕС‡РєСѓ (РЅРµ РІ main), РїСЂРё
+        СЌС‚РѕРј main-РєРѕРЅС‚СѓСЂ РќР• С‚СЂРѕРіР°РµС‚СЃСЏ.
+        """
+        scene_pos = event.scenePos()
+        extra = self._find_extra_edge_at(
+            scene_pos.x(), scene_pos.y(),
+        )
+        if extra is None:
+            return
+
+        a_id, b_id = extra
+        pa = self._contour.get_point_by_id(a_id)
+        pb = self._contour.get_point_by_id(b_id)
+        if pa is None or pb is None:
+            return
+
+        _, t = dist_point_to_segment(
+            scene_pos.x(), scene_pos.y(),
+            pa[0], pa[1], pb[0], pb[1],
+        )
+        t = max(0.1, min(0.9, t))
+
+        x = pa[0] + t * (pb[0] - pa[0])
+        y = pa[1] + t * (pb[1] - pa[1])
+
+        new_id = self._contour.add_extra_point(x, y)
+
+        self._contour.remove_extra_edge(a_id, b_id)
+        self._contour.add_extra_edge(a_id, new_id)
+        self._contour.add_extra_edge(new_id, b_id)
+
+        self._rebuild_extra_nodes()
+        self._rebuild_path()
+        self.update()
+        self.changed.emit()
+
+    # ============================================================
+    # EDITING
+    # ============================================================
+
+    def remove_node(self, idx: int) -> None:
+        pts = self._contour.points
+        if idx < 0 or idx >= len(pts):
+            return
+        if len(pts) <= 3:
+            return
+
+        self._contour.remove_point(idx)
+        self._selected_edge_idx = None
+        self._selected_extra = None
+        self._hover_edge_idx = None
+        self._hover_extra = None
+        self._rebuild_nodes()
+        self._rebuild_extra_nodes()
+        self._rebuild_path()
+        self.changed.emit()
+
+    def insert_node_after_segment(self, seg_idx: int, t: float) -> int:
+        pts = self._contour.points
+        n = len(pts)
+        if n < 2:
+            return -1
+        if seg_idx < 0 or seg_idx >= n:
+            return -1
+
+        p1 = pts[seg_idx]
+        p2 = pts[(seg_idx + 1) % n]
+
+        x = p1[0] + t * (p2[0] - p1[0])
+        y = p1[1] + t * (p2[1] - p1[1])
+
+        self._contour.insert_point(seg_idx + 1, x, y)
+        self._selected_edge_idx = None
+        self._selected_extra = None
+        self._rebuild_nodes()
+        self._rebuild_extra_nodes()
+        self._rebuild_path()
+        self.changed.emit()
+        return seg_idx + 1
+
+
+### node_item.py ###
+"""
+NodeItem вЂ” РјР°СЂРєРµСЂ РѕРґРЅРѕР№ РІРµСЂС€РёРЅС‹ РєРѕРЅС‚СѓСЂР°.
+
+ItemIgnoresTransformations: СѓР·РµР» РІСЃРµРіРґР° ~10x10 РџРРљРЎР•Р›Р•Р™ РЅР° СЌРєСЂР°РЅРµ,
+РЅРµР·Р°РІРёСЃРёРјРѕ РѕС‚ zoom. boundingRect РІ РїРёРєСЃРµР»СЏС… (РЅРµ РІ РјРµС‚СЂР°С…) вЂ”
+СЌС‚Рѕ РґР°С‘С‚ РўРћР§РќР«Р™ Р·Р°С…РІР°С‚ РєР»РёРєР° (СЂР°РЅСЊС€Рµ Р±С‹Р» 1x1 РјРµС‚СЂ, СЃРѕСЃРµРґРё
+РїРµСЂРµС…РІР°С‚С‹РІР°Р»Рё).
+"""
+
+from __future__ import annotations
+
+from PySide6.QtCore import QPointF, QRectF, Qt, Signal
+from PySide6.QtGui import QBrush, QColor, QPen
+from PySide6.QtWidgets import QGraphicsItem, QGraphicsObject
+
+
+NODE_PIXELS = 10.0
+HALF_PIXELS = NODE_PIXELS / 2.0     # 5.0
+HIGHLIGHT_BORDER = QColor("#FF6B00")
+
+
+class NodeItem(QGraphicsObject):
+    """РњР°СЂРєРµСЂ РѕРґРЅРѕР№ РІРµСЂС€РёРЅС‹ РєРѕРЅС‚СѓСЂР°."""
+
+    node_moved = Signal(int, float, float)
+    drag_started = Signal()
+    drag_finished = Signal()
+
+    def __init__(
+        self,
+        idx: int,
+        x: float,
+        y: float,
+        node_id: str = "",
+        parent=None,
+    ):
+        super().__init__(parent)
+
+        self._idx = idx
+        self._node_id = node_id
+
+        self.setFlag(
+            QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True,
+        )
+        self.setFlag(
+            QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True,
+        )
+        self.setFlag(
+            QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True,
+        )
+        # РљР»СЋС‡: РёРіРЅРѕСЂРёСЂСѓРµРј view transform (zoom). РЈР·РµР» РІСЃРµРіРґР°
+        # РѕРґРёРЅР°РєРѕРІРѕРіРѕ СЂР°Р·РјРµСЂР° РЅР° СЌРєСЂР°РЅРµ, hit-test РІ РїРёРєСЃРµР»СЏС….
+        self.setFlag(
+            QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations,
+            True,
+        )
+
+        self.setZValue(10.0)
+        self._dragging = False
+        self._snap_enabled = True
+        self._snap_step = 0.1
+        self.setPos(QPointF(x, y))
+
+        self._hover = False
+        self._highlight = False
+        self.setAcceptHoverEvents(True)
+
+    # ------------------------------------------------------------
+
+    @property
+    def idx(self) -> int:
+        return self._idx
+
+    @property
+    def node_id(self) -> str:
+        return self._node_id
+
+    def set_highlight(self, value: bool) -> None:
+        if self._highlight != value:
+            self._highlight = value
+            self.update()
+
+    def is_highlighted(self) -> bool:
+        return self._highlight
+
+    # ------------------------------------------------------------
+    # GEOMETRY вЂ” РІ РџРРљРЎР•Р›РЇРҐ (Р±Р»Р°РіРѕРґР°СЂСЏ ItemIgnoresTransformations)
+    # ------------------------------------------------------------
+
+    def boundingRect(self) -> QRectF:
+        return QRectF(
+            -HALF_PIXELS, -HALF_PIXELS,
+            NODE_PIXELS, NODE_PIXELS,
+        )
+
+    def shape(self):
+        """РўРѕС‡РЅР°СЏ РѕР±Р»Р°СЃС‚СЊ Р·Р°С…РІР°С‚Р° вЂ” РєРІР°РґСЂР°С‚ NODE_PIXELS x NODE_PIXELS."""
+        from PySide6.QtGui import QPainterPath
+        path = QPainterPath()
+        path.addRect(self.boundingRect())
+        return path
+
+    def paint(self, painter, option, widget=None) -> None:
+        # РџСЂРёРѕСЂРёС‚РµС‚: selected > highlight > hover > РѕР±С‹С‡РЅС‹Р№
+        # РџСЂРёРѕСЂРёС‚РµС‚: highlight > selected > hover > РѕР±С‹С‡РЅС‹Р№.
+        # РљР»РёРєРЅСѓР» РїРѕ РїР°СЂР°РјРµС‚СЂСѓ вЂ” РІРёРґРЅРѕ РІСЃСЋ РіСЂСѓРїРїСѓ, РґР°Р¶Рµ РµСЃР»Рё
+        # С‡Р°СЃС‚СЊ СѓР·Р»РѕРІ Р±С‹Р»Р° РІС‹РґРµР»РµРЅР°.
+        if self._highlight:
+            fill = QColor("#FFFFFF")
+            border = HIGHLIGHT_BORDER
+            pen_width = 2.5
+        elif self.isSelected():
+            fill = QColor("#0055CC")
+            border = QColor("#003399")
+            pen_width = 0
+        elif self._hover:
+            fill = QColor("#8AB4FF")
+            border = QColor("#0055CC")
+            pen_width = 0
+        else:
+            fill = QColor("#FFFFFF")
+            border = QColor("#0055CC")
+            pen_width = 0
+
+        painter.setBrush(QBrush(fill))
+        pen = QPen(border, pen_width)
+        pen.setCosmetic(True)
+        painter.setPen(pen)
+
+        painter.drawRect(
+            QRectF(
+                -HALF_PIXELS, -HALF_PIXELS,
+                NODE_PIXELS, NODE_PIXELS,
+            )
+        )
+
+    # ------------------------------------------------------------
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._dragging = True
+        super().mousePressEvent(event)
+        self.drag_started.emit()
+
+    def mouseReleaseEvent(self, event):
+        self._dragging = False
+        super().mouseReleaseEvent(event)
+        self.drag_finished.emit()
+
+    def hoverEnterEvent(self, event):
+        self._hover = True
+        self.setCursor(Qt.CursorShape.OpenHandCursor)
+        self.update()
+        super().hoverEnterEvent(event)
+
+    def hoverLeaveEvent(self, event):
+        self._hover = False
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+        self.update()
+        super().hoverLeaveEvent(event)
+
+    # ------------------------------------------------------------
+
+    def itemChange(self, change, value):
+        if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange:
+            # РњСЏРіРєРёР№ snap: РїСЂРёР»РёРїР°РµРј С‚РѕР»СЊРєРѕ РµСЃР»Рё Р±Р»РёР·РєРѕ Рє Р»РёРЅРёРё СЃРµС‚РєРё
+            if self._dragging and self._snap_enabled:
+                scene = self.scene()
+                ppm = 50.0
+                if scene is not None:
+                    views = scene.views()
+                    if views:
+                        ppm = abs(views[0].transform().m11()) or 50.0
+                # РџРѕСЂРѕРі: 3 РїРёРєСЃРµР»СЏ СЌРєСЂР°РЅР° РІ РјРµС‚СЂР°С…
+                threshold_m = 3.0 / ppm
+                step = self._snap_step
+
+                x = value.x()
+                y = value.y()
+                nx = round(x / step) * step
+                ny = round(y / step) * step
+                if abs(nx - x) <= threshold_m:
+                    x = nx
+                if abs(ny - y) <= threshold_m:
+                    y = ny
+                return QPointF(x, y)
+        elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
+            self.node_moved.emit(self._idx, value.x(), value.y())
+        elif change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
+            self.update()
+        return super().itemChange(change, value)
+
+
+### extra_node_item.py ###
+"""
+ExtraNodeItem вЂ” РјР°СЂРєРµСЂ extra-only СѓР·Р»Р° РєРѕРЅС‚СѓСЂР°.
+
+РћС‚Р»РёС‡Р°РµС‚СЃСЏ РѕС‚ NodeItem:
+  - РёРґРµРЅС‚РёС„РёС†РёСЂСѓРµС‚СЃСЏ РїРѕ node_id (РЅРµ РїРѕ index вЂ” extra-СѓР·Р»С‹ РЅРµ РёРјРµСЋС‚
+    РїРѕР·РёС†РёРё РІ main-РєРѕРЅС‚СѓСЂРµ);
+  - РІРёР·СѓР°Р»СЊРЅРѕ РјРµРЅСЊС€Рµ вЂ” РјР°Р»РµРЅСЊРєРёР№ РєСЂСѓР¶РѕРє Р·РµР»С‘РЅРѕРіРѕ С†РІРµС‚Р°;
+  - РєРѕРѕСЂРґРёРЅР°С‚С‹ Р±РµСЂСѓС‚СЃСЏ РёР· VectorContour.extra_points.
+"""
+
+from __future__ import annotations
+
+from PySide6.QtCore import QPointF, QRectF, Qt, Signal
+from PySide6.QtGui import QBrush, QColor, QPen
+from PySide6.QtWidgets import QGraphicsItem, QGraphicsObject
+
+
+NODE_PIXELS = 10.0
+HALF_PIXELS = 5.0
+
+
+class ExtraNodeItem(QGraphicsObject):
+    """РњР°СЂРєРµСЂ extra-only СѓР·Р»Р°."""
+
+    node_moved = Signal(str, float, float)   # node_id, x, y
+    drag_started = Signal()
+    drag_finished = Signal()
+
+    FILL = "#FFFFFF"
+    BORDER = "#009944"
+    HOVER_FILL = "#90EE90"
+
+    def __init__(
+        self,
+        node_id: str,
+        x: float,
+        y: float,
+        parent=None,
+    ):
+        super().__init__(parent)
+
+        self._node_id = node_id
+
+        self.setFlag(
+            QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True,
+        )
+        self.setFlag(
+            QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True,
+        )
+        self.setFlag(
+            QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges,
+            True,
+        )
+        self.setFlag(
+            QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations,
+            True,
+        )
+
+        self.setZValue(11.0)
+        self.setPos(QPointF(x, y))
+
+        self._hover = False
+        self._highlight = False
+        self.setAcceptHoverEvents(True)
+
+    # ------------------------------------------------------------
+
+    @property
+    def node_id(self) -> str:
+        return self._node_id
+
+    def set_highlight(self, value: bool) -> None:
+        if self._highlight != value:
+            self._highlight = value
+            self.update()
+
+    def is_highlighted(self) -> bool:
+        return self._highlight
+
+    # ------------------------------------------------------------
+
+    def boundingRect(self) -> QRectF:
+        return QRectF(
+            -HALF_PIXELS, -HALF_PIXELS,
+            NODE_PIXELS, NODE_PIXELS,
+        )
+
+    def shape(self):
+        from PySide6.QtGui import QPainterPath
+        path = QPainterPath()
+        path.addRect(self.boundingRect())
+        return path
+
+    def paint(self, painter, option, widget=None) -> None:
+        if self.isSelected():
+            fill = QColor("#0055CC")
+            border = QColor("#003399")
+            pen_width = 0
+        elif self._highlight:
+            fill = QColor("#FFFFFF")
+            border = QColor("#FF6B00")   # РѕСЂР°РЅР¶РµРІС‹Р№ РєР°Рє Сѓ main
+            pen_width = 2.5
+        elif self._hover:
+            fill = QColor(self.HOVER_FILL)
+            border = QColor(self.BORDER)
+            pen_width = 0
+        else:
+            fill = QColor(self.FILL)
+            border = QColor(self.BORDER)
+            pen_width = 0
+
+        painter.setBrush(QBrush(fill))
+        pen = QPen(border, pen_width)
+        pen.setCosmetic(True)
+        painter.setPen(pen)
+
+        painter.drawRect(
+            QRectF(
+                -HALF_PIXELS, -HALF_PIXELS,
+                NODE_PIXELS, NODE_PIXELS,
+            )
+        )
+
+    # ------------------------------------------------------------
+
+    def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+        self.drag_started.emit()
+
+    def mouseReleaseEvent(self, event):
+        super().mouseReleaseEvent(event)
+        self.drag_finished.emit()
+
+    def hoverEnterEvent(self, event):
+        self._hover = True
+        self.setCursor(Qt.CursorShape.OpenHandCursor)
+        self.update()
+        super().hoverEnterEvent(event)
+
+    def hoverLeaveEvent(self, event):
+        self._hover = False
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+        self.update()
+        super().hoverLeaveEvent(event)
+
+    def itemChange(self, change, value):
+        if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
+            self.node_moved.emit(
+                self._node_id, value.x(), value.y(),
+            )
+        elif change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
+            self.update()
+        return super().itemChange(change, value)
+
+
+### canvas.py ###
+"""
+VectorCanvas вЂ” QGraphicsView СЃ pan/zoom Рё РґРІСѓРјСЏ СЂРµР¶РёРјР°РјРё:
+
+  - "select"  в†’ РІС‹РґРµР»РµРЅРёРµ, pan, drag СѓР·Р»РѕРІ
+  - "draw"    в†’ СЃРѕР·РґР°РЅРёРµ РЅРѕРІРѕРіРѕ РєРѕРЅС‚СѓСЂР° РєР»РёРєР°РјРё
+
+Р’ СЂРµР¶РёРјРµ draw:
+  - Р›РљРњ в†’ РїРѕСЃС‚Р°РІРёС‚СЊ С‚РѕС‡РєСѓ
+  - Р›РљРњ СЂСЏРґРѕРј СЃ РїРµСЂРІРѕР№ С‚РѕС‡РєРѕР№ (Рё С‚РѕС‡РµРє в‰Ґ 3) в†’ Р·Р°РјРєРЅСѓС‚СЊ РєРѕРЅС‚СѓСЂ
+  - Enter в†’ Р·Р°РјРєРЅСѓС‚СЊ РєРѕРЅС‚СѓСЂ (РµСЃР»Рё С‚РѕС‡РµРє в‰Ґ 3)
+  - Esc в†’ РѕС‚РјРµРЅР°
+"""
+
+from __future__ import annotations
+
+import math
+
+from PySide6.QtCore import QPoint, QPointF, QRectF, Qt, Signal
+from PySide6.QtGui import QCursor
+from PySide6.QtWidgets import QGraphicsView
+
+from .scene import VectorScene
+from .items.drawing_preview import DrawingPreviewItem
+from ..model.contour import VectorContour
+
+
+PPM_MIN = 2.0
+PPM_MAX = 2000.0
+PPM_DEFAULT = 50.0
+
+# Р Р°РґРёСѓСЃ (РІ РїРёРєСЃРµР»СЏС… СЌРєСЂР°РЅР°), РІРЅСѓС‚СЂРё РєРѕС‚РѕСЂРѕРіРѕ РєР»РёРє РїРѕ РїРµСЂРІРѕР№ С‚РѕС‡РєРµ
+# РІ СЂРµР¶РёРјРµ draw СЃС‡РёС‚Р°РµС‚СЃСЏ Р·Р°РјС‹РєР°РЅРёРµРј.
+CLOSE_PIXELS = 12.0
+
+
+class VectorCanvas(QGraphicsView):
+    """Canvas СЃ pan/zoom Рё СЂРµР¶РёРјР°РјРё select/draw."""
+
+    # Р“РѕС‚РѕРІС‹Р№ РЅРѕРІС‹Р№ РєРѕРЅС‚СѓСЂ (Р·Р°РјРєРЅСѓС‚С‹Р№)
+    contour_created = Signal(object)
+    # РљР»РёРє РїРѕ СЃС†РµРЅРµ, РЅРµ РїРѕРїР°РІС€РёР№ РЅРё РІ СѓР·РµР», РЅРё РІ СЂРµР±СЂРѕ
+    empty_click = Signal()
+    # Extrude-СЂРµР¶РёРј: РєР»РёРє РІ СЃС†РµРЅРµ вЂ” СЃРѕР·РґР°С‚СЊ РЅРѕРІСѓСЋ С‚РѕС‡РєСѓ
+    extrude_click = Signal(float, float)
+    # V9c: СЂРµР¶РёРј С‚РѕС‡РєРё вЂ” РєР»РёРє РїРѕ СЃС†РµРЅРµ СЃРѕР·РґР°С‘С‚ extra-С‚РѕС‡РєСѓ
+    point_click = Signal(float, float)
+    # Extrude-СЂРµР¶РёРј РѕС‚РјРµРЅС‘РЅ (Esc) РёР»Рё Р·Р°РІРµСЂС€С‘РЅ
+    extrude_finished = Signal()
+    # Rubber band (РџРљРњ+drag) вЂ” РїСЂСЏРјРѕСѓРіРѕР»СЊРЅРёРє РІ scene-РєРѕРѕСЂРґРёРЅР°С‚Р°С…
+    rubber_band_finished = Signal(QRectF)
+
+    def __init__(self, scene: VectorScene, parent=None):
+        super().__init__(scene, parent)
+
+        self._panning = False
+        self._pan_start = QPoint()
+
+        self._tool = "select"
+
+        # Preview РґР»СЏ СЂРµР¶РёРјР° draw
+        self._preview: DrawingPreviewItem | None = None
+        # Anchor РґР»СЏ preview РІ extrude-СЂРµР¶РёРјРµ (scene coords РІ РјРµС‚СЂР°С…)
+        self._extrude_anchor: tuple[float, float] | None = None
+        # Rubber band: РЅР°С‡Р°Р»Рѕ РїСЂСЏРјРѕСѓРіРѕР»СЊРЅРёРєР° (scene coords)
+        self._rubber_origin: QPointF | None = None
+
+        self.setDragMode(QGraphicsView.DragMode.NoDrag)
+        self.setTransformationAnchor(
+            QGraphicsView.ViewportAnchor.NoAnchor
+        )
+        self.setResizeAnchor(QGraphicsView.ViewportAnchor.NoAnchor)
+        self.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.setMouseTracking(True)
+        self.setContextMenuPolicy(
+            Qt.ContextMenuPolicy.NoContextMenu
+        )
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+
+        self.setViewportUpdateMode(
+            QGraphicsView.ViewportUpdateMode.FullViewportUpdate
+        )
+
+        self.reset_view()
+
+    # ============================================================
+    # TOOL
+    # ============================================================
+
+    def current_tool(self) -> str:
+        return self._tool
+
+    def set_tool(self, tool: str) -> None:
+        if tool not in ("select", "draw", "extrude", "point"):
+            return
+
+        if tool != "draw":
+            self._cancel_preview()
+
+        self._tool = tool
+
+        if tool in ("draw", "extrude", "point"):
+            self.setFocus()
+            self.setCursor(QCursor(Qt.CursorShape.CrossCursor))
+        else:
+            self.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
+            # РЈС…РѕРґСЏ РёР· extrude вЂ” СѓР±СЂР°С‚СЊ preview
+            if self._extrude_anchor is not None:
+                self._extrude_anchor = None
+                self.viewport().update()
+
+        # РЈС…РѕРґСЏ РёР· extrude вЂ” СЃРѕРѕР±С‰РёС‚СЊ РЅР°СЂСѓР¶Сѓ
+        if tool != "extrude":
+            pass   # editor СЃР°Рј Р·РЅР°РµС‚ РїСЂРѕ СЃРјРµРЅСѓ СЂРµР¶РёРјР°
+
+    # ============================================================
+    # ZOOM
+    # ============================================================
+
+    def wheelEvent(self, event) -> None:
+        delta = event.angleDelta().y()
+        if delta == 0:
+            return
+
+        factor = 1.1 ** (delta / 120.0)
+        anchor = event.position().toPoint()
+        self._zoom_by(factor, anchor)
+        event.accept()
+
+    def _zoom_by(self, factor: float, viewport_anchor: QPoint) -> None:
+        current_ppm = abs(self.transform().m11())
+        new_ppm = current_ppm * factor
+        if new_ppm < PPM_MIN or new_ppm > PPM_MAX:
+            return
+
+        before = self.mapToScene(viewport_anchor)
+        self.scale(factor, factor)
+        after = self.mapToScene(viewport_anchor)
+        delta = after - before
+        self.translate(delta.x(), delta.y())
+
+    def current_ppm(self) -> float:
+        return abs(self.transform().m11())
+
+    # ============================================================
+    # MOUSE
+    # ============================================================
+
+    def mousePressEvent(self, event) -> None:
+        # Middle в†’ pan РІСЃРµРіРґР°
+        if event.button() == Qt.MouseButton.MiddleButton:
+            self._start_pan(event)
+            return
+
+        # РџРљРњ в†’ rubber band (С‚РѕР»СЊРєРѕ РІ select-СЂРµР¶РёРјРµ)
+        if (
+            event.button() == Qt.MouseButton.RightButton
+            and self._tool == "select"
+        ):
+            self._rubber_origin = self.mapToScene(
+                event.position().toPoint()
+            )
+            self.viewport().update()
+            event.accept()
+            return
+
+        # Р›РљРњ РІ select-СЂРµР¶РёРјРµ Р±РµР· Shift: РµСЃР»Рё РєР»РёРє РЅРµ РїРѕРїР°Р» РЅРё РІ СѓР·РµР»,
+        # РЅРё РІ СЂРµР±СЂРѕ вЂ” СЃРёРіРЅР°Р»РёРј РЅР°СЂСѓР¶Сѓ Рё РќР• РїСЂРѕРїСѓСЃРєР°РµРј РІ scene.
+        if (
+            self._tool == "select"
+            and event.button() == Qt.MouseButton.LeftButton
+            and not (
+                event.modifiers()
+                & Qt.KeyboardModifier.ShiftModifier
+            )
+        ):
+            scene_pos = self.mapToScene(event.position().toPoint())
+            if not self._hit_test_node_or_edge(scene_pos):
+                self.empty_click.emit()
+                event.accept()
+                return
+
+        # Shift + Р›РљРњ в†’ pan РІСЃРµРіРґР°
+        if (
+            event.button() == Qt.MouseButton.LeftButton
+            and event.modifiers() & Qt.KeyboardModifier.ShiftModifier
+        ):
+            self._start_pan(event)
+            return
+
+        # point в†’ РєР»РёРє РїРѕ СЃС†РµРЅРµ СЃРѕР·РґР°С‘С‚ extra-С‚РѕС‡РєСѓ
+        if (
+            self._tool == "point"
+            and event.button() == Qt.MouseButton.LeftButton
+        ):
+            scene_pos = self.mapToScene(event.position().toPoint())
+            self.point_click.emit(scene_pos.x(), scene_pos.y())
+            event.accept()
+            return
+
+        # draw в†’ РєР»РёРє РїРѕ СЃС†РµРЅРµ
+        if (
+            self._tool == "draw"
+            and event.button() == Qt.MouseButton.LeftButton
+        ):
+            self._on_draw_click(event)
+            return
+
+        # extrude в†’ РєР»РёРє СЃРѕР·РґР°С‘С‚ РЅРѕРІСѓСЋ С‚РѕС‡РєСѓ
+        if (
+            self._tool == "extrude"
+            and event.button() == Qt.MouseButton.LeftButton
+        ):
+            scene_pos = self.mapToScene(
+                event.position().toPoint()
+            )
+            self.extrude_click.emit(scene_pos.x(), scene_pos.y())
+            event.accept()
+            return
+
+        # select в†’ РѕР±С‹С‡РЅР°СЏ Р»РѕРіРёРєР° QGraphicsView (drag СѓР·Р»РѕРІ)
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event) -> None:
+        if self._rubber_origin is not None:
+            self.viewport().update()
+            event.accept()
+            return
+
+        if self._panning:
+            self._pan_move(event)
+            return
+
+        # draw в†’ РѕР±РЅРѕРІР»СЏРµРј В«СЂРµР·РёРЅРєСѓВ»
+        if self._tool == "draw" and self._preview is not None:
+            scene_pos = self.mapToScene(event.position().toPoint())
+            self._preview.set_cursor(scene_pos.x(), scene_pos.y())
+            event.accept()
+            return
+
+        # extrude в†’ РїСЂРѕСЃС‚Рѕ РїРµСЂРµСЂРёСЃРѕРІР°С‚СЊ (РґР»СЏ preview-Р»РёРЅРёРё)
+        if self._tool == "extrude" and self._extrude_anchor is not None:
+            self.viewport().update()
+            event.accept()
+            return
+
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event) -> None:
+        # РџРљРњ в†’ Р·Р°РІРµСЂС€РµРЅРёРµ rubber band
+        if (
+            event.button() == Qt.MouseButton.RightButton
+            and self._rubber_origin is not None
+        ):
+            end = self.mapToScene(event.position().toPoint())
+            origin = self._rubber_origin
+            self._rubber_origin = None
+            self.viewport().update()
+
+            rect = QRectF(origin, end).normalized()
+            self.rubber_band_finished.emit(rect)
+            event.accept()
+            return
+
+        if self._panning and event.button() in (
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.MiddleButton,
+        ):
+            self._panning = False
+            if self._tool == "draw":
+                self.setCursor(QCursor(Qt.CursorShape.CrossCursor))
+            else:
+                self.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+    # ============================================================
+    # PAN
+    # ============================================================
+
+    def _start_pan(self, event) -> None:
+        self._panning = True
+        self._pan_start = event.position().toPoint()
+        self.setCursor(QCursor(Qt.CursorShape.ClosedHandCursor))
+        event.accept()
+
+    def _pan_move(self, event) -> None:
+        current = event.position().toPoint()
+        delta = current - self._pan_start
+        self._pan_start = current
+
+        self.horizontalScrollBar().setValue(
+            self.horizontalScrollBar().value() - delta.x()
+        )
+        self.verticalScrollBar().setValue(
+            self.verticalScrollBar().value() - delta.y()
+        )
+        event.accept()
+
+    # ============================================================
+    # DRAW MODE
+    # ============================================================
+
+    def _hit_test_node_or_edge(self, scene_pos) -> bool:
+        """True, РµСЃР»Рё РєР»РёРє РїРѕРїР°Р» РІ NodeItem РёР»Рё РІ СЂРµР±СЂРѕ ContourItem.
+
+        РџСЂРѕРІРµСЂСЏРµС‚ Рё main, Рё extra СЂС‘Р±СЂР°. Extra РёРјРµРµС‚ РїСЂРёРѕСЂРёС‚РµС‚ РЅР°Рґ
+        main, РЅРѕ РґР»СЏ hit-test СЌС‚Рѕ РЅРµ РІР°Р¶РЅРѕ вЂ” РІР°Р¶РµРЅ СЃР°Рј С„Р°РєС‚ В«РїРѕРїР°Р»В».
+
+        Р‘РµР· СЌС‚РѕР№ РїСЂРѕРІРµСЂРєРё РєР»РёРє РїРѕ extra СЃС‡РёС‚Р°Р»СЃСЏ Р±С‹ В«РїСѓСЃС‚С‹РјВ» Рё РЅРµ
+        РґРѕС…РѕРґРёР» РґРѕ ContourItem.mousePressEvent.
+        """
+        from .items.node_item import NodeItem
+        from .items.contour_item import ContourItem
+
+        items = self.scene().items(scene_pos)
+
+        for it in items:
+            if isinstance(it, NodeItem):
+                return True
+
+        for it in items:
+            if not isinstance(it, ContourItem):
+                continue
+
+            # РЎРЅР°С‡Р°Р»Р° extra (РїСЂРёРѕСЂРёС‚РµС‚)
+            try:
+                extra = it._find_extra_edge_at(
+                    scene_pos.x(), scene_pos.y(),
+                )
+            except Exception:
+                extra = None
+
+            if extra is not None:
+                return True
+
+            # РџРѕС‚РѕРј main
+            try:
+                idx = it._find_edge_at(
+                    scene_pos.x(), scene_pos.y(),
+                )
+            except Exception:
+                idx = None
+
+            if idx is not None:
+                return True
+
+        return False
+
+    def set_extrude_anchor(self, x: float, y: float) -> None:
+        """Р—Р°РїРѕРјРЅРёС‚СЊ С‚РѕС‡РєСѓ СЃС‚Р°СЂС‚Р° РІС‹С‚СЏРіРёРІР°РЅРёСЏ РґР»СЏ preview-Р»РёРЅРёРё."""
+        self._extrude_anchor = (float(x), float(y))
+        self.viewport().update()
+
+    def clear_extrude_anchor(self) -> None:
+        self._extrude_anchor = None
+        self.viewport().update()
+
+    def _on_draw_click(self, event) -> None:
+        # Р“Р°СЂР°РЅС‚РёСЂСѓРµРј С„РѕРєСѓСЃ, С‡С‚РѕР±С‹ РєР»Р°РІРёС€Рё (Esc / Backspace) С€Р»Рё СЃСЋРґР°
+        self.setFocus()
+        scene_pos = self.mapToScene(event.position().toPoint())
+
+        # РџРµСЂРІС‹Р№ РєР»РёРє вЂ” СЃРѕР·РґР°С‘Рј preview
+        if self._preview is None:
+            self._preview = DrawingPreviewItem()
+            self.scene().addItem(self._preview)
+
+        # Р•СЃР»Рё СѓР¶Рµ РµСЃС‚СЊ >= 3 С‚РѕС‡РєРё Рё РєР»РёРє Р±Р»РёР·РєРѕ Рє РїРµСЂРІРѕР№ вЂ” Р·Р°РјС‹РєР°РµРј
+        if self._preview.count() >= 3:
+            first = self._preview.first_point()
+            if first is not None:
+                ppm = self.current_ppm() or 1.0
+                dist_px = math.hypot(
+                    scene_pos.x() - first[0],
+                    scene_pos.y() - first[1],
+                ) * ppm
+
+                if dist_px < CLOSE_PIXELS:
+                    self._finish_drawing()
+                    event.accept()
+                    return
+
+        # РРЅР°С‡Рµ вЂ” РґРѕР±Р°РІР»СЏРµРј С‚РѕС‡РєСѓ
+        self._preview.add_point(scene_pos.x(), scene_pos.y())
+        self._preview.set_cursor(scene_pos.x(), scene_pos.y())
+
+        event.accept()
+
+    def _finish_drawing(self, closed: bool = True) -> None:
+        """Р—Р°РІРµСЂС€РёС‚СЊ С‡РµСЂРЅРѕРІРёРє.
+
+        closed=True  в†’ Р·Р°РјРєРЅСѓС‚С‹Р№ РєРѕРЅС‚СѓСЂ
+        closed=False в†’ СЂР°Р·РѕРјРєРЅСѓС‚Р°СЏ РїРѕР»РёР»РёРЅРёСЏ (Shift+Enter)
+        """
+        if self._preview is None or self._preview.count() < 2:
+            self._cancel_preview()
+            return
+
+        # Р”Р»СЏ Р·Р°РјРєРЅСѓС‚РѕРіРѕ РЅСѓР¶РЅРѕ в‰Ґ 3 С‚РѕС‡РµРє
+        if closed and self._preview.count() < 3:
+            self._cancel_preview()
+            return
+
+        points = list(self._preview._points)
+        contour = VectorContour(
+            points=points,
+            closed=closed,
+            name="РљРѕРЅС‚СѓСЂ",
+        )
+
+        self._cancel_preview()
+        self.contour_created.emit(contour)
+
+    def _cancel_preview(self) -> None:
+        if self._preview is not None:
+            scene = self.scene()
+            if scene is not None:
+                scene.removeItem(self._preview)
+            self._preview = None
+
+    # ============================================================
+    # KEYBOARD
+    # ============================================================
+
+    def keyPressEvent(self, event) -> None:
+        # 0 в†’ reset view
+        if event.key() == Qt.Key.Key_0:
+            self.reset_view()
+            event.accept()
+            return
+
+        # Esc в†’ РѕС‚РјРµРЅР° С‚РµРєСѓС‰РµРіРѕ РєРѕРЅС‚СѓСЂР° РІ draw, РІС‹С…РѕРґ РІ select
+        if event.key() == Qt.Key.Key_Escape:
+            if self._preview is not None:
+                self._cancel_preview()
+                event.accept()
+                return
+            if self._tool == "extrude":
+                self.extrude_finished.emit()
+                self.set_tool("select")
+                event.accept()
+                return
+            if self._tool != "select":
+                self.set_tool("select")
+                event.accept()
+                return
+
+        # Enter в†’ Р·Р°РІРµСЂС€РёС‚СЊ extrude (РµСЃР»Рё РЅРёС‡РµРіРѕ РЅРµ СЃС‚СЂРѕРёРј)
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            if self._tool == "extrude":
+                self.extrude_finished.emit()
+                self.set_tool("select")
+                event.accept()
+                return
+
+        # Enter в†’ Р·Р°РјРєРЅСѓС‚СЊ РєРѕРЅС‚СѓСЂ (в‰Ґ3 С‚РѕС‡РєРё)
+        # Shift+Enter в†’ Р·Р°РІРµСЂС€РёС‚СЊ СЂР°Р·РѕРјРєРЅСѓС‚С‹Рј (в‰Ґ2 С‚РѕС‡РєРё)
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            if self._preview is not None:
+                shift = bool(
+                    event.modifiers()
+                    & Qt.KeyboardModifier.ShiftModifier
+                )
+                if shift and self._preview.count() >= 2:
+                    self._finish_drawing(closed=False)
+                    event.accept()
+                    return
+                if (
+                    not shift
+                    and self._preview.count() >= 3
+                ):
+                    self._finish_drawing(closed=True)
+                    event.accept()
+                    return
+
+        super().keyPressEvent(event)
+
+    # ============================================================
+    # RESET
+    # ============================================================
+
+    def drawForeground(self, painter, rect) -> None:
+        """Preview-Р»РёРЅРёСЏ РІ extrude + rubber band РїСЂСЏРјРѕСѓРіРѕР»СЊРЅРёРє."""
+        super().drawForeground(painter, rect)
+
+        # Rubber band (РџРљРњ+drag)
+        if self._rubber_origin is not None:
+            from PySide6.QtGui import QPen, QColor, QBrush
+
+            cursor_scene = self.mapToScene(
+                self.viewport().mapFromGlobal(QCursor.pos())
+            )
+            band = QRectF(
+                self._rubber_origin, cursor_scene,
+            ).normalized()
+
+            pen = QPen(QColor("#0055CC"), 1.0)
+            pen.setCosmetic(True)
+            pen.setStyle(Qt.PenStyle.DashLine)
+            painter.setPen(pen)
+            painter.setBrush(QBrush(QColor(0, 85, 204, 40)))
+            painter.drawRect(band)
+
+        if (
+            self._tool != "extrude"
+            or self._extrude_anchor is None
+        ):
+            return
+
+        cursor_scene = self.mapToScene(
+            self.viewport().mapFromGlobal(QCursor.pos())
+        )
+
+        from PySide6.QtGui import QPen, QColor
+        from PySide6.QtCore import QPointF
+
+        pen = QPen(QColor("#0078D4"), 0)
+        pen.setCosmetic(True)
+        pen.setStyle(__import__("PySide6.QtCore", fromlist=["Qt"])
+                     .Qt.PenStyle.DashLine)
+        painter.setPen(pen)
+
+        ax, ay = self._extrude_anchor
+        painter.drawLine(
+            QPointF(ax, ay),
+            QPointF(cursor_scene.x(), cursor_scene.y()),
+        )
+
+    def reset_view(self) -> None:
+        self.resetTransform()
+        self.scale(PPM_DEFAULT, PPM_DEFAULT)
+        self.centerOn(0.0, 0.0)
+
+    def fit_to_rect(
+        self, x0: float, y0: float, x1: float, y1: float,
+        margin: float = 0.6,
+    ) -> None:
+        """V-A: РїРѕРґРѕРіРЅР°С‚СЊ РІРёРґ РїРѕРґ РїСЂСЏРјРѕСѓРіРѕР»СЊРЅРёРє (x0,y0)-(x1,y1).
+
+        margin вЂ” РґРѕР»СЏ РѕС‚ viewport (0.9 = Р·Р°РїР°СЃ 10% СЃ РєР°Р¶РґРѕР№ СЃС‚РѕСЂРѕРЅС‹).
+        ppm РѕРіСЂР°РЅРёС‡РёРІР°РµС‚СЃСЏ PPM_MIN / PPM_MAX.
+        """
+        vw = max(self.viewport().width(), 50)
+        vh = max(self.viewport().height(), 50)
+        bw = max(abs(x1 - x0), 0.01)
+        bh = max(abs(y1 - y0), 0.01)
+
+        ppm = min(vw / bw, vh / bh) * margin
+        ppm = max(PPM_MIN, min(PPM_MAX, ppm))
+
+        self.resetTransform()
+        self.scale(ppm, ppm)
+        cx = (x0 + x1) / 2.0
+        cy = (y0 + y1) / 2.0
+        self.centerOn(cx, cy)
+
+
+### editor.py: _mirror_axis ###
+
+> app\vector_editor\editor.py:2585:    def _mirror_axis(self, axis: str) -> None:
+  app\vector_editor\editor.py:2586:        """V16: зеркальная копия всего контура РЯДОМ (не поверх).
+  app\vector_editor\editor.py:2587:
+  app\vector_editor\editor.py:2588:        Отражает по правой (X) или верхней (Y) границе bbox —
+  app\vector_editor\editor.py:2589:        копия появляется сбоку/сверху от оригинала, соприкасаясь.
+  app\vector_editor\editor.py:2590:        Копируются: main-точки (соединяются рёбрами), extra-точки.
+  app\vector_editor\editor.py:2591:        """
+  app\vector_editor\editor.py:2592:        if self._contour_item is None:
+  app\vector_editor\editor.py:2593:            return
+  app\vector_editor\editor.py:2594:
+  app\vector_editor\editor.py:2595:        c = self._contour_item.contour
+  app\vector_editor\editor.py:2596:        main_pts = list(c.points)
+  app\vector_editor\editor.py:2597:        main_ids = list(c.node_ids)
+  app\vector_editor\editor.py:2598:        extra_pts = list(c.extra_points)
+  app\vector_editor\editor.py:2599:        extra_ids = list(c.extra_node_ids)
+  app\vector_editor\editor.py:2600:
+  app\vector_editor\editor.py:2601:        all_pts = main_pts + extra_pts
+  app\vector_editor\editor.py:2602:        if not all_pts:
+  app\vector_editor\editor.py:2603:            self.statusBar().showMessage(
+  app\vector_editor\editor.py:2604:                "Контур пустой", 2000,
+  app\vector_editor\editor.py:2605:            )
+  app\vector_editor\editor.py:2606:            return
+  app\vector_editor\editor.py:2607:
+  app\vector_editor\editor.py:2608:        xs = [p[0] for p in all_pts]
+  app\vector_editor\editor.py:2609:        ys = [p[1] for p in all_pts]
+  app\vector_editor\editor.py:2610:
+  app\vector_editor\editor.py:2611:        # Точка отражения — правая/верхняя граница + зазор.
+  app\vector_editor\editor.py:2612:        GAP = 0.5  # м
+  app\vector_editor\editor.py:2613:        if axis == "x":
+  app\vector_editor\editor.py:2614:            pivot = max(xs) + GAP
+  app\vector_editor\editor.py:2615:        else:
+  app\vector_editor\editor.py:2616:            pivot = max(ys) + GAP
+  app\vector_editor\editor.py:2617:
+  app\vector_editor\editor.py:2618:        self._push_contour_snapshot()
+  app\vector_editor\editor.py:2619:
+  app\vector_editor\editor.py:2620:        # 1. Отражаем main-точки → новые extra
+  app\vector_editor\editor.py:2621:        id_map: dict[str, str] = {}
+  app\vector_editor\editor.py:2622:        for nid, pt in zip(main_ids, main_pts):
+  app\vector_editor\editor.py:2623:            if axis == "x":
+  app\vector_editor\editor.py:2624:                nx = 2.0 * pivot - pt[0]
+  app\vector_editor\editor.py:2625:                ny = pt[1]
+  app\vector_editor\editor.py:2626:            else:
+  app\vector_editor\editor.py:2627:                nx = pt[0]
+  app\vector_editor\editor.py:2628:                ny = 2.0 * pivot - pt[1]
+  app\vector_editor\editor.py:2629:            new_id = c.add_extra_point(nx, ny)
+  app\vector_editor\editor.py:2630:            id_map[nid] = new_id
+  app\vector_editor\editor.py:2631:
+  app\vector_editor\editor.py:2632:        # 2. Рёбра между отражёнными main-точками
+  app\vector_editor\editor.py:2633:        n = len(main_ids)
+  app\vector_editor\editor.py:2634:        if n >= 2:
+  app\vector_editor\editor.py:2635:            closed = bool(getattr(c, "closed", True))
+  app\vector_editor\editor.py:2636:            segments = range(n) if closed else range(n - 1)
+  app\vector_editor\editor.py:2637:            for i in segments:
+  app\vector_editor\editor.py:2638:                a = main_ids[i]
+  app\vector_editor\editor.py:2639:                b = main_ids[(i + 1) % n]
+  app\vector_editor\editor.py:2640:                if a in id_map and b in id_map:
+  app\vector_editor\editor.py:2641:                    try:
+  app\vector_editor\editor.py:2642:                        c.add_extra_edge(id_map[a], id_map[b])
+  app\vector_editor\editor.py:2643:                    except Exception:
+  app\vector_editor\editor.py:2644:                        pass
+  app\vector_editor\editor.py:2645:
+  app\vector_editor\editor.py:2646:        # 3. Отражаем extra-точки → новые extra
+  app\vector_editor\editor.py:2647:        for pt in extra_pts:
+  app\vector_editor\editor.py:2648:            if axis == "x":
+  app\vector_editor\editor.py:2649:                nx = 2.0 * pivot - pt[0]
+  app\vector_editor\editor.py:2650:                ny = pt[1]
+  app\vector_editor\editor.py:2651:            else:
+  app\vector_editor\editor.py:2652:                nx = pt[0]
+  app\vector_editor\editor.py:2653:                ny = 2.0 * pivot - pt[1]
+  app\vector_editor\editor.py:2654:            try:
+  app\vector_editor\editor.py:2655:                c.add_extra_point(nx, ny)
+  app\vector_editor\editor.py:2656:            except Exception:
+  app\vector_editor\editor.py:2657:                pass
+  app\vector_editor\editor.py:2658:
+  app\vector_editor\editor.py:2659:        self._contour_item._rebuild_extra_nodes()
+  app\vector_editor\editor.py:2660:        self._contour_item._rebuild_path()
+  app\vector_editor\editor.py:2661:        self._mark_modified()
+  app\vector_editor\editor.py:2662:
+  app\vector_editor\editor.py:2663:        self.statusBar().showMessage(
+  app\vector_editor\editor.py:2664:            f"Зеркало по {axis.upper()}: скопировано рядом "
+  app\vector_editor\editor.py:2665:            f"({len(id_map)} узлов + {len(extra_pts)} extra)",
+
+
+
+
+### editor.py: _on_add_extra_edge ###
+
+> app\vector_editor\editor.py:2210:    def _on_add_extra_edge(self) -> None:
+  app\vector_editor\editor.py:2211:        """Соединить два выделенных узла дополнительным ребром."""
+  app\vector_editor\editor.py:2212:        if self._contour_item is None:
+  app\vector_editor\editor.py:2213:            self.statusBar().showMessage(
+  app\vector_editor\editor.py:2214:                "Сначала создайте или откройте контур", 3000,
+  app\vector_editor\editor.py:2215:            )
+  app\vector_editor\editor.py:2216:            return
+  app\vector_editor\editor.py:2217:
+  app\vector_editor\editor.py:2218:        nodes = [
+  app\vector_editor\editor.py:2219:            it for it in self._scene.selectedItems()
+  app\vector_editor\editor.py:2220:            if isinstance(it, (NodeItem, ExtraNodeItem))
+  app\vector_editor\editor.py:2221:        ]
+  app\vector_editor\editor.py:2222:
+  app\vector_editor\editor.py:2223:        if len(nodes) != 2:
+  app\vector_editor\editor.py:2224:            self.statusBar().showMessage(
+  app\vector_editor\editor.py:2225:                "Выберите ровно ДВА узла через Ctrl+клик, затем Ctrl+J",
+  app\vector_editor\editor.py:2226:                5000,
+  app\vector_editor\editor.py:2227:            )
+  app\vector_editor\editor.py:2228:            return
+  app\vector_editor\editor.py:2229:
+  app\vector_editor\editor.py:2230:        a_id = nodes[0].node_id
+  app\vector_editor\editor.py:2231:        b_id = nodes[1].node_id
+  app\vector_editor\editor.py:2232:
+  app\vector_editor\editor.py:2233:        if not a_id or not b_id:
+  app\vector_editor\editor.py:2234:            self.statusBar().showMessage(
+  app\vector_editor\editor.py:2235:                "У одного из узлов нет node_id", 3000,
+  app\vector_editor\editor.py:2236:            )
+  app\vector_editor\editor.py:2237:            return
+  app\vector_editor\editor.py:2238:
+  app\vector_editor\editor.py:2239:        contour = self._contour_item.contour
+  app\vector_editor\editor.py:2240:        snapshot = contour.snapshot()
+  app\vector_editor\editor.py:2241:
+  app\vector_editor\editor.py:2242:        if not contour.add_extra_edge(a_id, b_id):
+  app\vector_editor\editor.py:2243:            self.statusBar().showMessage(
+  app\vector_editor\editor.py:2244:                "Такое extra-ребро уже существует "
+  app\vector_editor\editor.py:2245:                "или узлы недействительны", 3500,
+  app\vector_editor\editor.py:2246:            )
+  app\vector_editor\editor.py:2247:            return
+  app\vector_editor\editor.py:2248:
+  app\vector_editor\editor.py:2249:        self._contour_item._selected_extra = None
+  app\vector_editor\editor.py:2250:        self._contour_item._selected_edge_idx = None
+  app\vector_editor\editor.py:2251:        self._contour_item.update()
+  app\vector_editor\editor.py:2252:
+  app\vector_editor\editor.py:2253:        self._record_undo(
+  app\vector_editor\editor.py:2254:            (self._contour_item, snapshot)
+  app\vector_editor\editor.py:2255:        )
+  app\vector_editor\editor.py:2256:
+  app\vector_editor\editor.py:2257:        self._mark_modified()
+  app\vector_editor\editor.py:2258:        self.statusBar().showMessage(
+  app\vector_editor\editor.py:2259:            f"Extra создано: {a_id} ↔ {b_id}", 2500,
+  app\vector_editor\editor.py:2260:        )
+  app\vector_editor\editor.py:2261:
+  app\vector_editor\editor.py:2262:    # ============================================================
+  app\vector_editor\editor.py:2263:    # EXTRUDE
+  app\vector_editor\editor.py:2264:    # ============================================================
+  app\vector_editor\editor.py:2265:
+  app\vector_editor\editor.py:2266:    def _on_extrude(self) -> None:
+  app\vector_editor\editor.py:2267:        item = self._contour_item
+  app\vector_editor\editor.py:2268:        if item is None or not item.has_selected_edge():
+  app\vector_editor\editor.py:2269:            self.statusBar().showMessage(
+  app\vector_editor\editor.py:2270:                "Сначала кликните по грани контура", 3000
+
+
+
+
+### editor.py: _delete_selected_nodes ###
+
+> app\vector_editor\editor.py:2958:    def _delete_selected_nodes(self) -> bool:
+  app\vector_editor\editor.py:2959:        """Удалить выделенное: extra_edge ИЛИ узлы.
+  app\vector_editor\editor.py:2960:
+  app\vector_editor\editor.py:2961:        - Если выделена extra_edge — удалить только её.
+  app\vector_editor\editor.py:2962:        - Иначе — существующая логика для узлов:
+  app\vector_editor\editor.py:2963:            выделены ВСЕ → удалить весь контур (с подтверждением).
+  app\vector_editor\editor.py:2964:            останется < 3 → предупреждение.
+  app\vector_editor\editor.py:2965:            иначе — массовое удаление + одна undo-запись.
+  app\vector_editor\editor.py:2966:        """
+  app\vector_editor\editor.py:2967:        if self._contour_item is None:
+  app\vector_editor\editor.py:2968:            return False
+  app\vector_editor\editor.py:2969:
+  app\vector_editor\editor.py:2970:        item = self._contour_item
+  app\vector_editor\editor.py:2971:
+  app\vector_editor\editor.py:2972:        # ---- EXTRA NODES (ExtraNodeItem) -----------------------
+  app\vector_editor\editor.py:2973:        extra_nodes = [
+  app\vector_editor\editor.py:2974:            it for it in self._scene.selectedItems()
+  app\vector_editor\editor.py:2975:            if isinstance(it, ExtraNodeItem)
+  app\vector_editor\editor.py:2976:        ]
+  app\vector_editor\editor.py:2977:        if extra_nodes:
+  app\vector_editor\editor.py:2978:            snapshot = item.contour.snapshot()
+  app\vector_editor\editor.py:2979:
+  app\vector_editor\editor.py:2980:            n = 0
+  app\vector_editor\editor.py:2981:            for node in extra_nodes:
+  app\vector_editor\editor.py:2982:                if item.contour.remove_extra_point(node.node_id):
+  app\vector_editor\editor.py:2983:                    n += 1
+  app\vector_editor\editor.py:2984:
+  app\vector_editor\editor.py:2985:            if n > 0:
+  app\vector_editor\editor.py:2986:                item._selected_extra = None
+  app\vector_editor\editor.py:2987:                item._hover_extra = None
+  app\vector_editor\editor.py:2988:                item._rebuild_extra_nodes()
+  app\vector_editor\editor.py:2989:                item.update()
+  app\vector_editor\editor.py:2990:
+  app\vector_editor\editor.py:2991:                self._record_undo((item, snapshot))
+  app\vector_editor\editor.py:2992:                self._mark_modified()
+  app\vector_editor\editor.py:2993:                self.statusBar().showMessage(
+  app\vector_editor\editor.py:2994:                    f"Удалено extra-узлов: {n}", 2500,
+  app\vector_editor\editor.py:2995:                )
+  app\vector_editor\editor.py:2996:                return True
+  app\vector_editor\editor.py:2997:
+  app\vector_editor\editor.py:2998:        # ---- EXTRA EDGE ----------------------------------------
+  app\vector_editor\editor.py:2999:        extra = getattr(item, "_selected_extra", None)
+  app\vector_editor\editor.py:3000:        if extra is not None:
+  app\vector_editor\editor.py:3001:            a_id, b_id = extra
+  app\vector_editor\editor.py:3002:            snapshot = item.contour.snapshot()
+  app\vector_editor\editor.py:3003:
+  app\vector_editor\editor.py:3004:            if item.contour.remove_extra_edge(a_id, b_id):
+  app\vector_editor\editor.py:3005:                # Каскад: подчистить висящие extra-узлы
+  app\vector_editor\editor.py:3006:                item.prune_dangling_extra_nodes()
+  app\vector_editor\editor.py:3007:
+  app\vector_editor\editor.py:3008:                item._selected_extra = None
+  app\vector_editor\editor.py:3009:                item._hover_extra = None
+  app\vector_editor\editor.py:3010:                item._rebuild_extra_nodes()
+  app\vector_editor\editor.py:3011:                item.update()
+  app\vector_editor\editor.py:3012:
+  app\vector_editor\editor.py:3013:                self._record_undo((item, snapshot))
+  app\vector_editor\editor.py:3014:                self._mark_modified()
+  app\vector_editor\editor.py:3015:                self.statusBar().showMessage(
+  app\vector_editor\editor.py:3016:                    f"Extra удалено: {a_id} — {b_id}", 2500,
+  app\vector_editor\editor.py:3017:                )
+  app\vector_editor\editor.py:3018:                return True
+  app\vector_editor\editor.py:3019:
+  app\vector_editor\editor.py:3020:        # ---- NODES ---------------------------------------------
+  app\vector_editor\editor.py:3021:        selected = [
+  app\vector_editor\editor.py:3022:            it for it in self._scene.selectedItems()
+  app\vector_editor\editor.py:3023:            if isinstance(it, NodeItem)
+  app\vector_editor\editor.py:3024:        ]
+  app\vector_editor\editor.py:3025:        if not selected:
+  app\vector_editor\editor.py:3026:            return False
+  app\vector_editor\editor.py:3027:
+  app\vector_editor\editor.py:3028:        item = self._contour_item
+  app\vector_editor\editor.py:3029:        n_total = len(item.contour.points)
+  app\vector_editor\editor.py:3030:        n_del = len(selected)
+  app\vector_editor\editor.py:3031:
+  app\vector_editor\editor.py:3032:        # Все узлы → удалить контур целиком
+  app\vector_editor\editor.py:3033:        if n_del == n_total:
+  app\vector_editor\editor.py:3034:            reply = QMessageBox.question(
+  app\vector_editor\editor.py:3035:                self, "Удалить контур",
+  app\vector_editor\editor.py:3036:                f"Выделены все {n_total} узлов.\n\n"
+  app\vector_editor\editor.py:3037:                f"Удалить весь контур?",
+  app\vector_editor\editor.py:3038:                QMessageBox.StandardButton.Yes
+  app\vector_editor\editor.py:3039:                | QMessageBox.StandardButton.No,
+  app\vector_editor\editor.py:3040:                QMessageBox.StandardButton.No,
+  app\vector_editor\editor.py:3041:            )
+  app\vector_editor\editor.py:3042:            if reply != QMessageBox.StandardButton.Yes:
+  app\vector_editor\editor.py:3043:                return True
+  app\vector_editor\editor.py:3044:
+  app\vector_editor\editor.py:3045:            self._remove_contour_only()
+  app\vector_editor\editor.py:3046:            self._mark_modified()
+  app\vector_editor\editor.py:3047:            self.statusBar().showMessage("Контур удалён", 2000)
+  app\vector_editor\editor.py:3048:            return True
+  app\vector_editor\editor.py:3049:
+  app\vector_editor\editor.py:3050:        # Проверка минимума
+  app\vector_editor\editor.py:3051:        n_remaining = n_total - n_del
+  app\vector_editor\editor.py:3052:        if n_remaining < 3:
+  app\vector_editor\editor.py:3053:            self.statusBar().showMessage(
+  app\vector_editor\editor.py:3054:                f"Нельзя удалить: останется {n_remaining}, "
+  app\vector_editor\editor.py:3055:                f"минимум 3.", 3000,
+  app\vector_editor\editor.py:3056:            )
+  app\vector_editor\editor.py:3057:            return True
+  app\vector_editor\editor.py:3058:
+  app\vector_editor\editor.py:3059:        # Undo snapshot
+  app\vector_editor\editor.py:3060:        snapshot = item.contour.snapshot()
+  app\vector_editor\editor.py:3061:
+  app\vector_editor\editor.py:3062:        # Индексы выделенных
+  app\vector_editor\editor.py:3063:        indices = sorted(
+  app\vector_editor\editor.py:3064:            {node.idx for node in selected},
+  app\vector_editor\editor.py:3065:            reverse=True,
+  app\vector_editor\editor.py:3066:        )
+  app\vector_editor\editor.py:3067:
+  app\vector_editor\editor.py:3068:        # Удалять с конца, чтобы индексы не сдвигались
+  app\vector_editor\editor.py:3069:        for idx in indices:
+  app\vector_editor\editor.py:3070:            item.contour.remove_point(idx)
+  app\vector_editor\editor.py:3071:
+  app\vector_editor\editor.py:3072:        item._selected_edge_idx = None
+  app\vector_editor\editor.py:3073:        item._rebuild_nodes()
+  app\vector_editor\editor.py:3074:        item._rebuild_path()
+  app\vector_editor\editor.py:3075:
+  app\vector_editor\editor.py:3076:        self._record_undo((item, snapshot))
+  app\vector_editor\editor.py:3077:        self._mark_modified()
+  app\vector_editor\editor.py:3078:        self.statusBar().showMessage(
+
+

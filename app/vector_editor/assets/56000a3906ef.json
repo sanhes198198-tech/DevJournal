@@ -27,7 +27,7 @@
       "param_overrides": {
         "height": -1.2054803086671768,
         "extend_bottom": 0.0,
-        "extend_right": 10.3,
+        "extend_right": 6.4,
         "extend_top": -0.15858920263374365,
         "width": 0.2258465805805021
       },
@@ -44,8 +44,8 @@
     "c_48977c25": {
       "id": "c_48977c25",
       "asset_id": "4d77b734d939",
-      "x": 2.6604122298602824,
-      "y": -2.345536226707325,
+      "x": 2.660412229860283,
+      "y": -2.3455362267073205,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Okno2",
@@ -64,8 +64,8 @@
     "c_ff862183": {
       "id": "c_ff862183",
       "asset_id": "4d77b734d939",
-      "x": 2.6604122298602824,
-      "y": -5.845536226707325,
+      "x": 2.660412229860283,
+      "y": -5.8455362267073205,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Okno2",
@@ -84,8 +84,8 @@
     "c_31f30abd": {
       "id": "c_31f30abd",
       "asset_id": "4d77b734d939",
-      "x": -3.11974042771847,
-      "y": -5.845536226707325,
+      "x": -3.1197404277184697,
+      "y": -2.3455362267073205,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Okno2",
@@ -96,7 +96,7 @@
       },
       "attach_to": "c_9e3cbe5a",
       "attach_anchor": "bottom",
-      "parent_anchor": "slot_g_335f08fa_0_1",
+      "parent_anchor": "slot_g_335f08fa_0_0",
       "slot_policy": null,
       "fill_pattern": "diamonds",
       "locked": false
@@ -104,8 +104,8 @@
     "c_a2c2fe83": {
       "id": "c_a2c2fe83",
       "asset_id": "e0f860a55c7e",
-      "x": -0.19025699129018073,
-      "y": -3.9017149089448653,
+      "x": -0.19025699129018037,
+      "y": -3.901714908944861,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "okno",
@@ -124,7 +124,7 @@
     "c_e65d4c68": {
       "id": "c_e65d4c68",
       "asset_id": "c2dd0d912a21",
-      "x": -6.6000000000000005,
+      "x": -5.800000000000001,
       "y": -3.8000000000000003,
       "rotation": 0.0,
       "scale": 1.0,
@@ -145,8 +145,8 @@
     "c_0c66d7aa": {
       "id": "c_0c66d7aa",
       "asset_id": "4d77b734d939",
-      "x": 8.660412229860283,
-      "y": -5.845536226707325,
+      "x": 8.700000000000001,
+      "y": -5.800000000000001,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Okno2",
@@ -155,9 +155,9 @@
       "param_overrides": {
         "height": 0.0460944718728129
       },
-      "attach_to": "c_9e3cbe5a",
-      "attach_anchor": "bottom",
-      "parent_anchor": "slot_g_ac1967c5_0_1_x2",
+      "attach_to": "",
+      "attach_anchor": "",
+      "parent_anchor": "",
       "slot_policy": null,
       "fill_pattern": "diamonds",
       "locked": false
@@ -165,8 +165,8 @@
     "c_dd580022": {
       "id": "c_dd580022",
       "asset_id": "4d77b734d939",
-      "x": 8.660412229860283,
-      "y": -2.345536226707325,
+      "x": 8.700000000000001,
+      "y": -2.3000000000000003,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Okno2",
@@ -175,9 +175,9 @@
       "param_overrides": {
         "height": -0.7682169720430423
       },
-      "attach_to": "c_9e3cbe5a",
-      "attach_anchor": "bottom",
-      "parent_anchor": "slot_g_ac1967c5_0_0_x2",
+      "attach_to": "",
+      "attach_anchor": "",
+      "parent_anchor": "",
       "slot_policy": null,
       "fill_pattern": "diamonds",
       "locked": false
@@ -185,7 +185,7 @@
     "c_b18af25d": {
       "id": "c_b18af25d",
       "asset_id": "0b83487c4eea",
-      "x": -6.642308446218867,
+      "x": -5.842308446218867,
       "y": -10.61938718559356,
       "rotation": 0.0,
       "scale": 1.0,
@@ -205,7 +205,7 @@
     "c_87250d1e": {
       "id": "c_87250d1e",
       "asset_id": "3ec907f2b564",
-      "x": -6.693224603471955,
+      "x": -5.893224603471955,
       "y": -13.0916871378342,
       "rotation": 0.0,
       "scale": 1.0,
@@ -223,7 +223,7 @@
     "c_21a93e2b": {
       "id": "c_21a93e2b",
       "asset_id": "4a02a5eeace1",
-      "x": -6.700842850646091,
+      "x": -5.900842850646091,
       "y": -15.718090834190956,
       "rotation": 0.0,
       "scale": 1.0,
@@ -241,7 +241,7 @@
     "c_5c7aaf57": {
       "id": "c_5c7aaf57",
       "asset_id": "2d7f96953f11",
-      "x": -6.667909538795299,
+      "x": -5.867909538795299,
       "y": -20.08099521141855,
       "rotation": 0.0,
       "scale": 1.0,
@@ -256,31 +256,11 @@
       "fill_pattern": "",
       "locked": false
     },
-    "c_4db3ee38": {
-      "id": "c_4db3ee38",
-      "asset_id": "25f092d12df4",
-      "x": 11.645070300207218,
-      "y": -4.619393980527538,
-      "rotation": 0.0,
-      "scale": 1.0,
-      "name": "Okno3",
-      "layer": 0,
-      "filled": false,
-      "param_overrides": {
-        "height": 0.19700342126900905
-      },
-      "attach_to": "c_9e3cbe5a",
-      "attach_anchor": "bottom",
-      "parent_anchor": "slot_g_ac1967c5_0_0_x3",
-      "slot_policy": null,
-      "fill_pattern": "diamonds",
-      "locked": false
-    },
-    "c_c0e645ea": {
-      "id": "c_c0e645ea",
+    "c_7983eeda": {
+      "id": "c_7983eeda",
       "asset_id": "4d77b734d939",
-      "x": -3.11974042771847,
-      "y": -2.345536226707325,
+      "x": -3.1197404277184697,
+      "y": -5.8455362267073205,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Okno2",
@@ -291,23 +271,119 @@
       },
       "attach_to": "c_9e3cbe5a",
       "attach_anchor": "bottom",
-      "parent_anchor": "slot_g_335f08fa_0_0",
+      "parent_anchor": "slot_g_335f08fa_0_1",
+      "slot_policy": null,
+      "fill_pattern": "diamonds",
+      "locked": false
+    },
+    "c_3220d432": {
+      "id": "c_3220d432",
+      "asset_id": "d5d9aadc6a4c",
+      "x": 10.8,
+      "y": -2.5,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "Центральная башня 1 уровень",
+      "layer": 0,
+      "filled": true,
+      "param_overrides": {
+        "height": -1.3
+      },
+      "attach_to": "",
+      "attach_anchor": "",
+      "parent_anchor": "",
       "slot_policy": null,
       "fill_pattern": "",
       "locked": false
     },
-    "c_c83e8f49": {
-      "id": "c_c83e8f49",
+    "c_e604099c": {
+      "id": "c_e604099c",
+      "asset_id": "c27aa34ad44f",
+      "x": 10.790145617751026,
+      "y": -5.999999999999998,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "корниз",
+      "layer": 0,
+      "filled": true,
+      "param_overrides": {},
+      "attach_to": "c_3220d432",
+      "attach_anchor": "bottom",
+      "parent_anchor": "top",
+      "slot_policy": null,
+      "fill_pattern": "diamonds",
+      "locked": false
+    },
+    "c_b463b5c3": {
+      "id": "c_b463b5c3",
       "asset_id": "ae24551135aa",
-      "x": 5.652108450239426,
-      "y": -5.295536226707324,
+      "x": 10.782949636822392,
+      "y": -3.354342667712814,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Окна для центральной башни 1",
       "layer": 0,
       "filled": false,
       "param_overrides": {
-        "height": -0.7
+        "height": -0.1
+      },
+      "attach_to": "c_3220d432",
+      "attach_anchor": "bottom",
+      "parent_anchor": "slot_g_4cb42e0a_0_0",
+      "slot_policy": null,
+      "fill_pattern": "diamonds",
+      "locked": false
+    },
+    "c_02859ea7": {
+      "id": "c_02859ea7",
+      "asset_id": "d19f23b952f1",
+      "x": 10.792467913782179,
+      "y": -7.499999999999998,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "Крыша центральная башня 1",
+      "layer": 0,
+      "filled": false,
+      "param_overrides": {},
+      "attach_to": "c_3220d432",
+      "attach_anchor": "bottom",
+      "parent_anchor": "top",
+      "slot_policy": null,
+      "fill_pattern": "",
+      "locked": false
+    },
+    "c_8ac99ad4": {
+      "id": "c_8ac99ad4",
+      "asset_id": "4d77b734d939",
+      "x": 5.660412229860283,
+      "y": -2.3455362267073205,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "Okno2",
+      "layer": 0,
+      "filled": false,
+      "param_overrides": {
+        "height": -0.7682169720430423
+      },
+      "attach_to": "c_9e3cbe5a",
+      "attach_anchor": "bottom",
+      "parent_anchor": "slot_g_ac1967c5_0_0_x1",
+      "slot_policy": null,
+      "fill_pattern": "",
+      "locked": false
+    },
+    "c_f24dc041": {
+      "id": "c_f24dc041",
+      "asset_id": "4d77b734d939",
+      "x": 5.660412229860283,
+      "y": -5.8455362267073205,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "Okno2",
+      "layer": 0,
+      "filled": false,
+      "param_overrides": {
+        "height": 0.0460944718728129
       },
       "attach_to": "c_9e3cbe5a",
       "attach_anchor": "bottom",
