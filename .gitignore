@@ -33,3 +33,4 @@ Thumbs.db
 
 _debug.log
 dump_*.txt
+*.patch

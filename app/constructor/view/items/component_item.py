@@ -31,8 +31,6 @@ SNAP_THRESHOLD_PX = 40.0
 SNAP_ANCHOR_COLOR = QColor("#FF3333")
 
 # V9d: маркеры слотов (auto_rule группы)
-SLOT_COLOR = QColor("#00B050")
-SLOT_RADIUS_M = 0.08
 
 # Совместимые пары (наш_tag, их_tag)
 SNAP_PAIRS = frozenset({
@@ -591,20 +589,6 @@ class ComponentItem(QGraphicsObject):
                     painter.setBrush(QBrush(QColor("#FFFFFF")))
                     painter.drawEllipse(QPointF(lx, ly), r_m, r_m)
 
-        # V9d: маркеры слотов (auto_rule) — только у выделенного
-        if self.isSelected():
-            slots = self.slots_local()
-            if slots:
-                ppm = abs(painter.transform().m11()) or 50.0
-                slot_r = 5.0 / ppm  # ~5 пикселей экрана
-                pen = QPen(SLOT_COLOR, 1.6)
-                pen.setCosmetic(True)
-                painter.setPen(pen)
-                painter.setBrush(Qt.BrushStyle.NoBrush)
-                for key, (lx, ly) in slots.items():
-                    painter.drawEllipse(
-                        QPointF(lx, ly), slot_r, slot_r,
-                    )
 
         # Габариты (B) — только у выделенного
         if self.isSelected():
@@ -694,22 +678,6 @@ class ComponentItem(QGraphicsObject):
             return 0.0
         return self._path.boundingRect().height()
 
-    def slot_y_from_bottom(self, slot_key: str) -> float | None:
-        """V11: расстояние слота от низа контура (в метрах).
-
-        Возвращает None, если слот не найден.
-        """
-        if self._path.isEmpty():
-            return None
-        slots = self.slots_local()
-        pos = slots.get(slot_key)
-        if pos is None:
-            return None
-        rect = self._path.boundingRect()
-        # rect.bottom() = max_y = foundation (низ контура)
-        # pos[1] — y слота в тех же (path) координатах.
-        return rect.bottom() - pos[1]
-
     def anchors_local(self) -> dict[str, tuple[float, float]]:
         """Anchor'ы ссылочного asset'а в ЛОКАЛЬНЫХ координатах item.
 
@@ -782,190 +750,6 @@ class ComponentItem(QGraphicsObject):
 
         return result
 
-    def slots_local(self) -> dict[str, tuple[float, float]]:
-        """V9d-4d: слоты (auto_rule) — пересчитываются на лету
-        с учётом param_overrides.
-
-        Возвращает {slot_key: (x, y)} в ЛОКАЛЬНЫХ координатах item.
-        Ключ вида "slot_<groupname>_<idx>".
-        """
-        if self._asset is None:
-            return {}
-
-        sg = getattr(self._asset, "semantic_groups", None) or {}
-        rule_groups = [
-            g for g in sg.values()
-            if getattr(g, "auto_rule", None) and g.node_ids
-        ]
-        if not rule_groups:
-            return {}
-
-        # V16: точки из ВСЕХ видимых слоёв (иначе слоты
-        # теряются, если они в неактивном слое).
-        pts_by_id: dict[str, tuple[float, float]] = {}
-        layers = getattr(self._asset, "layers", None) or []
-        layer_geoms = []
-        if layers:
-            for layer in layers:
-                if not getattr(layer, "visible", True):
-                    continue
-                layer_geoms.append(layer.geometry or {})
-        if not layer_geoms:
-            layer_geoms = [self._asset.geometry or {}]
-
-        for g_geom in layer_geoms:
-            contour = g_geom.get("contour", [])
-            node_ids = g_geom.get("node_ids", [])
-            for i, nid in enumerate(node_ids):
-                if i < len(contour):
-                    x, y = contour[i]
-                    pts_by_id[nid] = (float(x), float(y))
-            extra_pts = g_geom.get("extra_points", [])
-            extra_ids = g_geom.get("extra_node_ids", [])
-            for i, nid in enumerate(extra_ids):
-                if i < len(extra_pts):
-                    x, y = extra_pts[i]
-                    pts_by_id[nid] = (float(x), float(y))
-
-        # Override-сдвиги по узлам
-        overrides = getattr(self._component, "param_overrides", None) or {}
-        deltas: dict[str, tuple[float, float]] = {}
-        if overrides:
-            params = getattr(self._asset, "parameters", None) or {}
-            for p in params.values():
-                ov = overrides.get(p.name)
-                if ov is None:
-                    continue
-                shift = float(ov) - float(p.value)
-                if abs(shift) < 1e-12:
-                    continue
-                nd = compute_delta_for_parameter(p, shift, sg)
-                for nid, (dx, dy) in nd.items():
-                    px, py = deltas.get(nid, (0.0, 0.0))
-                    deltas[nid] = (px + dx, py + dy)
-
-        def _pos(nid):
-            p = pts_by_id.get(nid)
-            if p is None:
-                return None
-            dx, dy = deltas.get(nid, (0.0, 0.0))
-            return (p[0] + dx, p[1] + dy)
-
-        def _centroid(group):
-            xs, ys = [], []
-            for nid in group.node_ids:
-                pp = _pos(nid)
-                if pp is None:
-                    continue
-                xs.append(pp[0])
-                ys.append(pp[1])
-            if not xs:
-                return None
-            return (sum(xs) / len(xs), sum(ys) / len(ys))
-
-        result: dict[str, tuple[float, float]] = {}
-
-        for group in rule_groups:
-            rule = group.auto_rule
-            axis = rule.get("axis", "y")
-            axis_idx = 0 if axis == "x" else 1
-            step = float(rule.get("step", 1.0))
-            if abs(step) < 1e-9:
-                continue
-
-            # V9c-доп: все не-auto точки группы — независимые шаблоны
-            templates: list = []
-            for nid in group.node_ids:
-                if not nid.startswith("e_auto_"):
-                    p = _pos(nid)
-                    if p is not None:
-                        templates.append(p)
-            if not templates:
-                continue
-
-            # Граница (until_group)
-            until_name = rule.get("until_group") or ""
-            limit_val = None
-            if until_name:
-                limit_group = None
-                for gg in sg.values():
-                    if gg.name == until_name:
-                        limit_group = gg
-                        break
-                if limit_group is not None:
-                    c = _centroid(limit_group)
-                    if c is not None:
-                        limit_val = c[axis_idx]
-
-            max_count = int(rule.get("max_count", 30))
-
-            # V15: вторая ось (сетка точек)
-            axis2_name = rule.get("axis_x") or ""
-            step2 = float(rule.get("step_x") or 0.0)
-            until2_name = rule.get("until_group_x") or ""
-            axis2_idx = None
-            limit2_val = None
-            if (axis2_name and abs(step2) > 1e-9 and until2_name):
-                axis2_idx = 0 if axis2_name == "x" else 1
-                if axis2_idx != axis_idx:
-                    for gg in sg.values():
-                        if gg.name == until2_name:
-                            c = _centroid(gg)
-                            if c is not None:
-                                limit2_val = c[axis2_idx]
-                            break
-                    if limit2_val is None:
-                        axis2_idx = None
-
-            for tpl_idx, template_pos in enumerate(templates):
-                # Базовая цепочка по первой оси
-                chain1 = [tuple(template_pos)]
-                if limit_val is not None:
-                    cur = template_pos[axis_idx] + step
-                    i1 = 0
-                    while i1 < max_count:
-                        if step > 0 and cur >= limit_val:
-                            break
-                        if step < 0 and cur <= limit_val:
-                            break
-                        pt = list(template_pos)
-                        pt[axis_idx] = cur
-                        chain1.append(tuple(pt))
-                        cur += step
-                        i1 += 1
-
-                for i1, base_pt in enumerate(chain1):
-                    # Базовая точка — старая схема ключа
-                    key = f"slot_{group.id}_{tpl_idx}_{i1}"
-                    result[key] = (
-                        base_pt[0] - self._center_x,
-                        base_pt[1] - self._center_y,
-                    )
-
-                    # Вторая ось (копии вбок)
-                    if axis2_idx is None or limit2_val is None:
-                        continue
-                    cur2 = base_pt[axis2_idx] + step2
-                    j = 1
-                    while j <= max_count:
-                        if step2 > 0 and cur2 >= limit2_val:
-                            break
-                        if step2 < 0 and cur2 <= limit2_val:
-                            break
-                        pt2 = list(base_pt)
-                        pt2[axis2_idx] = cur2
-                        key2 = (
-                            f"slot_{group.id}_{tpl_idx}_{i1}_x{j}"
-                        )
-                        result[key2] = (
-                            pt2[0] - self._center_x,
-                            pt2[1] - self._center_y,
-                        )
-                        cur2 += step2
-                        j += 1
-
-        return result
-
     def set_highlighted_anchor(self, tag: str | None) -> None:
         if self._highlighted_anchor != tag:
             self._highlighted_anchor = tag
@@ -985,15 +769,6 @@ class ComponentItem(QGraphicsObject):
         for tag, (lx, ly) in self.anchors_local().items():
             sp = self.mapToScene(QPointF(lx, ly))
             result[tag] = (sp.x(), sp.y())
-        return result
-
-    def slots_world(self) -> dict[str, tuple[float, float]]:
-        """V9d-4: слоты (auto_rule) в scene-координатах."""
-        from PySide6.QtCore import QPointF
-        result = {}
-        for key, (lx, ly) in self.slots_local().items():
-            sp = self.mapToScene(QPointF(lx, ly))
-            result[key] = (sp.x(), sp.y())
         return result
 
     # ============================================================
@@ -1163,111 +938,7 @@ class ComponentItem(QGraphicsObject):
                     == self._component.id):
                 continue
 
-            # V9d-4: окно НЕ привязываем к другому окну по anchor.
-            # Окна цепляются только к слотам стен (или к не-окнам).
-            my_type = getattr(self._asset, "type", "") if self._asset else ""
-            their_type = (
-                getattr(other._asset, "type", "")
-                if other._asset else ""
-            )
-            if my_type == "window" and their_type == "window":
-                continue
-
-            for my_tag, (mx, my) in my_world.items():
-                for their_tag, (tx, ty) in their_world.items():
-                    if (my_tag, their_tag) not in SNAP_PAIRS:
-                        continue
-                    # V15: "встать сверху" (bottom→top) разрешено
-                    # всем — крыша/купол/башня ставятся на стену.
-                    # Другие пары (top→bottom) — только attachable.
-                    if (not can_attach
-                            and (my_tag, their_tag) != ("bottom", "top")):
-                        continue
-
-                    # V20: не-attachable (башня/стена/крыша) не липнет
-                    # к окнам/дверям/декору — только к крупному
-                    # (стена, башня, крыша, купол).
-                    if not can_attach:
-                        _o_asset = getattr(other, "_asset", None)
-                        _o_type = (
-                            getattr(_o_asset, "type", "")
-                            if _o_asset is not None else ""
-                        )
-                        if _o_type in ATTACHABLE:
-                            continue
-
-                    dx = tx - mx
-                    dy = ty - my
-                    dist = (dx * dx + dy * dy) ** 0.5
-                    if dist <= threshold_m:
-                        if best is None or dist < best[0]:
-                            best = (dist, my_tag, other, their_tag,
-                                    dx, dy)
-
-        # V9d-4: поиск слотов (auto_rule) на соседних стенах.
-        # Приоритет у слота — если он ближе, чем anchor-пара.
-        best_slot = None
-        my_bottom = my_world.get("bottom")
-        if my_bottom is not None:
-            mx, my = my_bottom
-
-            # Собрать занятые слоты: {parent_comp_id: {slot_key, ...}}
-            occupied: dict[str, set] = {}
-            for cand in scene.items():
-                if cand is self:
-                    continue
-                if not isinstance(cand, ComponentItem):
-                    continue
-                c_comp = getattr(cand, "_component", None)
-                if c_comp is None or not c_comp.attach_to:
-                    continue
-                if c_comp.parent_anchor.startswith("slot_"):
-                    occupied.setdefault(
-                        c_comp.attach_to, set()
-                    ).add(c_comp.parent_anchor)
-
-            if not can_attach:
-                pass
-            else:
-              for other in scene.items():
-                if other is self:
-                    continue
-                if not isinstance(other, ComponentItem):
-                    continue
-                their_slots = other.slots_world()
-                if not their_slots:
-                    continue
-
-                o_comp = getattr(other, "_component", None)
-                if o_comp is None:
-                    continue
-                if o_comp.id == self._component.id:
-                    continue
-                # Пропустить, если other привязан к НАМ
-                if o_comp.attach_to == self._component.id:
-                    continue
-
-                taken = occupied.get(o_comp.id, set())
-
-                for slot_key, (sx, sy) in their_slots.items():
-                    if slot_key in taken:
-                        continue
-                    dx = sx - mx
-                    dy = sy - my
-                    dist = (dx * dx + dy * dy) ** 0.5
-                    if dist <= threshold_m:
-                        if best_slot is None or dist < best_slot[0]:
-                            best_slot = (
-                                dist, "bottom", other, slot_key,
-                                dx, dy,
-                            )
-
-        # Выбор: если слот ближе anchor-пары — берём слот
-        if best_slot is not None:
-            if best is None or best_slot[0] < best[0]:
-                best = best_slot
-
-        # V22 (Mounting): поиск mount locations с ролью компонента.
+            # V22 (Mounting): поиск mount locations с ролью компонента.
         # Только для attachable и только если у компонента задана роль.
         # Формат best для mount: (dist, "bottom", other, mp_id, ix, iy, dx, dy).
         best_mount = None
