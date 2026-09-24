@@ -26,6 +26,8 @@ class MountPointsPanel(QWidget):
 
     mount_point_selected = Signal(str)
     mount_points_changed = Signal()
+    # V23: эмитится ДО мутации — для undo-snapshot
+    mount_points_will_change = Signal()
 
     WIDTH = 260
 
@@ -235,6 +237,7 @@ class MountPointsPanel(QWidget):
 
         if not hasattr(self._asset, "mountpoints"):
             self._asset.mountpoints = []
+        self.mount_points_will_change.emit()
         self._asset.mountpoints.append(dlg.result_mountpoint)
 
         self.refresh()
@@ -248,6 +251,8 @@ class MountPointsPanel(QWidget):
         if mp is None:
             return
 
+        # V23: snapshot ДО редактирования (dlg мутирует mp)
+        self.mount_points_will_change.emit()
         dlg = MountPointDialog(mountpoint=mp, parent=self)
         if dlg.exec() != MountPointDialog.DialogCode.Accepted:
             return
@@ -274,6 +279,7 @@ class MountPointsPanel(QWidget):
         if reply != QMessageBox.StandardButton.Yes:
             return
 
+        self.mount_points_will_change.emit()
         self._asset.mountpoints = [
             m for m in self._asset.mountpoints if m.id != mp_id
         ]

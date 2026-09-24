@@ -577,6 +577,9 @@ class VectorEditor(QMainWindow):
         self._mount_points_panel.mount_points_changed.connect(
             self._on_mount_points_changed
         )
+        self._mount_points_panel.mount_points_will_change.connect(
+            self._on_mount_points_will_change
+        )
         self._parameters_panel.value_changed.connect(
             self._on_parameter_value_changed
         )
@@ -971,6 +974,10 @@ class VectorEditor(QMainWindow):
                 panel._list.setCurrentItem(it)
                 break
 
+    def _on_mount_point_item_drag_started(self) -> None:
+        """V23: перед drag MountPoint — push Asset snapshot."""
+        self._push_asset_snapshot()
+
     def _on_mount_point_item_moved(
         self, mp_id: str, x: float, y: float,
     ) -> None:
@@ -1075,6 +1082,9 @@ class VectorEditor(QMainWindow):
             )
             item.selected.connect(self._on_mount_point_item_selected)
             item.moved.connect(self._on_mount_point_item_moved)
+            item.drag_started.connect(
+                self._on_mount_point_item_drag_started
+            )
             self._scene.addItem(item)
             self._mount_point_items[mp.id] = item
 
@@ -1668,6 +1678,10 @@ class VectorEditor(QMainWindow):
     # ============================================================
 
     def _on_contour_created(self, contour: VectorContour) -> None:
+        # V23: push Asset snapshot ДО создания нового контура,
+        # чтобы Ctrl+Z мог откатить рисование
+        self._push_asset_snapshot()
+
         self._counter += 1
         contour.name = f"Контур {self._counter}"
 
@@ -2501,17 +2515,126 @@ class VectorEditor(QMainWindow):
             contour.set_point_by_id(str(ref), x, y)
 
     def _record_undo(self, entry) -> None:
-        """Push в undo-стек. Новое действие очищает redo."""
+        """Push в undo-стек.
+
+        entry:
+          - dict — AssetSnapshot (V23, предпочтительный формат)
+          - tuple — legacy (item, contour_snapshot [, param_id, old_value])
+
+        Новое действие очищает redo.
+        """
         if not self._in_undo_redo:
             self._redo_stack.clear()
         self._undo_stack.append(entry)
 
     def _push_contour_snapshot(self) -> None:
-        """Сохранить snapshot для undo."""
+        """Legacy: snapshot одного контура."""
         if self._contour_item is None:
             return
         snapshot = self._contour_item.contour.snapshot()
         self._record_undo((self._contour_item, snapshot))
+
+    def _push_asset_snapshot(self) -> None:
+        """V23: snapshot всего Asset (layers + mountpoints + params)."""
+        if self._current_asset is None:
+            return
+        if self._in_undo_redo:
+            return
+        self._record_undo(self._current_asset.snapshot())
+
+    def _on_mount_points_will_change(self) -> None:
+        """V23: перед изменением MountPoint — push Asset snapshot."""
+        self._push_asset_snapshot()
+
+    def _rebuild_all_from_asset(self) -> None:
+        """V23: пересоздать все items и панели из текущего Asset.
+
+        Используется после asset.restore() в undo/redo.
+        """
+        if self._current_asset is None:
+            return
+
+        from .model.contour import VectorContour
+        from .view.items.contour_item import ContourItem
+
+        asset = self._current_asset
+
+        # 1. Удалить старые ContourItem'ы
+        for item in list(self._layer_items.values()):
+            if item is not None and item.scene() is not None:
+                self._scene.removeItem(item)
+        self._layer_items.clear()
+        self._contour_item = None
+
+        # 2. Пересоздать ContourItem'ы из asset.layers
+        active_id = None
+        for layer in asset.layers:
+            layer_geo = layer.geometry or {}
+            try:
+                layer_contour = VectorContour(
+                    points=[
+                        (float(p[0]), float(p[1]))
+                        for p in layer_geo.get("contour", [])
+                    ],
+                    node_ids=list(
+                        layer_geo.get("node_ids", [])
+                    ),
+                    closed=bool(layer_geo.get("closed", True)),
+                    name=layer.name,
+                    extra_edges=[
+                        tuple(e) for e in layer_geo.get(
+                            "extra_edges", []
+                        )
+                    ],
+                    extra_points=[
+                        (float(p[0]), float(p[1]))
+                        for p in layer_geo.get(
+                            "extra_points", []
+                        )
+                    ],
+                    extra_node_ids=list(
+                        layer_geo.get("extra_node_ids", [])
+                    ),
+                    arcs=_parse_arcs(layer_geo.get("arcs")),
+                )
+            except Exception:
+                layer_contour = VectorContour(points=[])
+
+            item = ContourItem(layer_contour)
+            item.changed.connect(self._on_contour_changed)
+            item.node_drag_started.connect(
+                self._on_node_drag_started
+            )
+            item.node_drag_finished.connect(
+                self._on_node_drag_finished
+            )
+            self._scene.addItem(item)
+            self._layer_items[layer.id] = item
+
+            if active_id is None and layer.visible:
+                active_id = layer.id
+
+        # 3. Активный слой
+        if active_id is not None:
+            self._active_layer_id = active_id
+            self._contour_item = self._layer_items[active_id]
+        else:
+            self._active_layer_id = None
+
+        # 4. MountPoint items
+        self._rebuild_mount_point_items()
+
+        # 5. Панели
+        self._groups_panel.set_asset(asset)
+        self._mount_points_panel.set_asset(asset)
+        self._parameters_panel.set_asset(asset)
+        self._layers_panel.set_asset(asset)
+
+        # 6. Size display
+        try:
+            self._update_size_display()
+        except Exception:
+            pass
 
     def _align_x(self) -> None:
         """Выровнять выделенные узлы (main + extra) по среднему X."""
@@ -2847,6 +2970,42 @@ class VectorEditor(QMainWindow):
         self._in_undo_redo = True
 
         entry = self._undo_stack.pop()
+
+        # ============================================================
+        # V23: новый формат AssetSnapshot (dict)
+        # ============================================================
+        if (
+            isinstance(entry, dict)
+            and "layers" in entry
+            and "mountpoints" in entry
+        ):
+            # current state → redo (тоже как dict)
+            if self._current_asset is not None:
+                try:
+                    self._redo_stack.append(
+                        self._current_asset.snapshot()
+                    )
+                except Exception:
+                    pass
+
+            if self._current_asset is None:
+                self._in_undo_redo = False
+                return
+
+            try:
+                self._current_asset.restore(entry)
+                self._rebuild_all_from_asset()
+            except Exception as e:
+                print(f"[UNDO-DICT] restore failed: {e}")
+
+            self._mark_modified()
+            self.statusBar().showMessage("Отменено", 2000)
+            self._in_undo_redo = False
+            return
+
+        # ============================================================
+        # Legacy: (item, contour_snapshot [, param_id, old_value])
+        # ============================================================
         item = entry[0]
         snapshot = entry[1]
 
@@ -2936,6 +3095,41 @@ class VectorEditor(QMainWindow):
         self._in_undo_redo = True
 
         entry = self._redo_stack.pop()
+
+        # ============================================================
+        # V23: новый формат AssetSnapshot (dict)
+        # ============================================================
+        if (
+            isinstance(entry, dict)
+            and "layers" in entry
+            and "mountpoints" in entry
+        ):
+            if self._current_asset is not None:
+                try:
+                    self._record_undo(
+                        self._current_asset.snapshot()
+                    )
+                except Exception:
+                    pass
+
+            if self._current_asset is None:
+                self._in_undo_redo = False
+                return
+
+            try:
+                self._current_asset.restore(entry)
+                self._rebuild_all_from_asset()
+            except Exception as e:
+                print(f"[REDO-DICT] restore failed: {e}")
+
+            self._mark_modified()
+            self.statusBar().showMessage("Возвращено", 2000)
+            self._in_undo_redo = False
+            return
+
+        # ============================================================
+        # Legacy
+        # ============================================================
         item = entry[0]
         snapshot = entry[1]
 
