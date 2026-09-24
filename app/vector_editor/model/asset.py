@@ -19,6 +19,7 @@ from .reference_image import ReferenceImage
 from .component import Component
 from .visibility_rule import VisibilityRule
 from .vector_layer import VectorLayer
+from .mounting import MountPoint, apply_migration
 
 
 # ============================================================
@@ -79,6 +80,11 @@ class Asset:
         # V16: слои. Пока только модель — UI позже.
         # При загрузке старого JSON создаётся один слой из geometry.
         self.layers: list[VectorLayer] = []
+
+        # V22 (Mounting): точки крепления (новая модель).
+        # Пусто для новых ассетов; заполняется через apply_migration
+        # при загрузке старого JSON без поля "mountpoints".
+        self.mountpoints: list[MountPoint] = []
 
     # ------------------------------------------------------------
     # ФАБРИКИ
@@ -221,10 +227,17 @@ class Asset:
             "ground_line_y": self.ground_line_y,
             "ground_line_visible": self.ground_line_visible,
             "layers": [l.to_dict() for l in self.layers],
+            "mountpoints": [
+                mp.to_dict() for mp in self.mountpoints
+            ],
         }
 
     @classmethod
     def from_dict(cls, d: dict) -> "Asset":
+        # V22: было ли поле mountpoints в исходном JSON.
+        # Если нет — это старый ассет, мигрируем legacy в конце.
+        _has_mountpoints_field = "mountpoints" in d
+
         groups_raw = d.get("semantic_groups") or {}
         groups: dict[str, SemanticGroup] = {}
         for gid, gdict in groups_raw.items():
@@ -314,6 +327,28 @@ class Asset:
                 name="Основной",
                 geometry=dict(asset.geometry),
             ))
+
+        # V22 (Mounting): читаем mountpoints из JSON
+        mps_raw = d.get("mountpoints")
+        if isinstance(mps_raw, list):
+            for mdict in mps_raw:
+                if not isinstance(mdict, dict):
+                    continue
+                try:
+                    asset.mountpoints.append(
+                        MountPoint.from_dict(mdict)
+                    )
+                except Exception:
+                    continue
+
+        # V22: если поля mountpoints не было — мигрируем legacy
+        # (semantic_groups + auto_rule -> MountPoint).
+        # Миграция идемпотентна и не мутирует semantic_groups.
+        if not _has_mountpoints_field:
+            try:
+                apply_migration(asset)
+            except Exception:
+                pass
 
         return asset
 
