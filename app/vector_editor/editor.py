@@ -889,6 +889,9 @@ class VectorEditor(QMainWindow):
             # V9b: пересчёт авто-точек после сдвига
             self._recalc_auto_points()
 
+            # V22: пересоздать маркеры MountPoint (bbox изменился)
+            self._rebuild_mount_point_items()
+
         param.value = new_value
         self._mark_modified()
 
@@ -976,10 +979,66 @@ class VectorEditor(QMainWindow):
             return
         for mp in getattr(self._current_asset, "mountpoints", []):
             if mp.id == mp_id:
-                mp.position = (float(x), float(y))
+                # V22: для relative_xy — обновить anchor_x/y по новой позиции
+                anchor_mode = getattr(mp, "anchor_mode", "absolute")
+                if anchor_mode == "relative_xy":
+                    bbox = self._asset_bbox()
+                    if bbox is not None:
+                        xmin, ymin, xmax, ymax = bbox
+                        w = xmax - xmin
+                        h = ymax - ymin
+                        if w > 1e-9:
+                            mp.anchor_x = max(
+                                0.0, min(1.0, (x - xmin) / w)
+                            )
+                        if h > 1e-9:
+                            mp.anchor_y = max(
+                                0.0, min(1.0, (y - ymin) / h)
+                            )
+                else:
+                    mp.position = (float(x), float(y))
                 break
         self._mark_modified()
         self._mount_points_panel.refresh()
+
+    def _asset_bbox(self):
+        """Актуальный bbox по всем слоям.
+
+        V22: читаем из VectorContour в памяти (_layer_items),
+        а НЕ из layer.geometry (JSON) — параметры уже применены
+        к точкам контура.
+        """
+        if self._current_asset is None:
+            return None
+
+        xs, ys = [], []
+        layer_items = getattr(self, "_layer_items", None) or {}
+        for item in layer_items.values():
+            if item is None:
+                continue
+            c = getattr(item, "contour", None)
+            if c is None:
+                continue
+            for p in c.points:
+                xs.append(p[0])
+                ys.append(p[1])
+            for p in c.extra_points:
+                xs.append(p[0])
+                ys.append(p[1])
+
+        if not xs:
+            # Fallback — asset.geometry (для пустых случаев)
+            g = getattr(self._current_asset, "geometry", {}) or {}
+            for p in (g.get("contour", []) or []):
+                xs.append(p[0])
+                ys.append(p[1])
+            for p in (g.get("extra_points", []) or []):
+                xs.append(p[0])
+                ys.append(p[1])
+
+        if not xs:
+            return None
+        return (min(xs), min(ys), max(xs), max(ys))
 
     def _rebuild_mount_point_items(self) -> None:
         """Пересоздать маркеры MountPoint в сцене."""
@@ -992,9 +1051,17 @@ class VectorEditor(QMainWindow):
         if self._current_asset is None:
             return
 
+        bbox = self._asset_bbox()
         for mp in getattr(self._current_asset, "mountpoints", []) or []:
-            x, y = mp.position
-            # role может быть MountRole или str — приводим к str
+            # V22: позиция зависит от anchor_mode
+            anchor_mode = getattr(mp, "anchor_mode", "absolute")
+            if anchor_mode == "relative_xy" and bbox is not None:
+                xmin, ymin, xmax, ymax = bbox
+                x = xmin + mp.anchor_x * (xmax - xmin)
+                y = ymin + mp.anchor_y * (ymax - ymin)
+            else:
+                x, y = mp.position
+
             role_str = None
             if mp.role:
                 role_str = getattr(mp.role, "value", str(mp.role))

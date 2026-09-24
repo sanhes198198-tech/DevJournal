@@ -997,6 +997,39 @@ class ComponentItem(QGraphicsObject):
     # V22 (Mounting): MountPoint locations
     # ============================================================
 
+    def _asset_bbox(self):
+        """Локальный bbox asset по всем видимым слоям.
+
+        Возвращает (xmin, ymin, xmax, ymax) или None.
+        """
+        if self._asset is None:
+            return None
+
+        xs, ys = [], []
+        layers = getattr(self._asset, "layers", None) or []
+        geometries = []
+        if layers:
+            for layer in layers:
+                if not getattr(layer, "visible", True):
+                    continue
+                geometries.append(layer.geometry or {})
+        if not geometries:
+            geometries = [getattr(self._asset, "geometry", {}) or {}]
+
+        for g in geometries:
+            contour = g.get("contour", []) or []
+            for p in contour:
+                xs.append(p[0])
+                ys.append(p[1])
+            extra = g.get("extra_points", []) or []
+            for p in extra:
+                xs.append(p[0])
+                ys.append(p[1])
+
+        if not xs:
+            return None
+        return (min(xs), min(ys), max(xs), max(ys))
+
     def mount_locations_local(self) -> dict:
         """Развернуть asset.mountpoints в локальные координаты item.
 
@@ -1012,9 +1045,10 @@ class ComponentItem(QGraphicsObject):
             return {}
 
         result: dict = {}
+        bbox = self._asset_bbox()
         for mp in mps:
             try:
-                locs = mp.resolve()
+                locs = mp.resolve(bbox=bbox)
             except Exception:
                 continue
             arr = []

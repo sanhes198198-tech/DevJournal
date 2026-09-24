@@ -71,6 +71,9 @@ class MountPoint:
         distribution: Distribution | None = None,
         legacy_group_id: str | None = None,
         legacy_auto_rule: dict | None = None,
+        anchor_mode: str = "absolute",
+        anchor_x: float = 0.5,
+        anchor_y: float = 0.5,
     ):
         self.id = id or self._generate_id()
         self.role: MountRole | None = parse_role(role)
@@ -92,19 +95,47 @@ class MountPoint:
             dict(legacy_auto_rule) if legacy_auto_rule else None
         )
 
+        # V22: Anchor mode — привязка к bbox контура.
+        # "absolute"     — position в локальных координатах ассета (не едет)
+        # "relative_xy"  — position вычисляется как xmin + ax*(xmax-xmin)
+        self.anchor_mode: str = (
+            str(anchor_mode) if anchor_mode else "absolute"
+        )
+        self.anchor_x: float = float(anchor_x)
+        self.anchor_y: float = float(anchor_y)
+
     @staticmethod
     def _generate_id() -> str:
         return "mp_" + uuid.uuid4().hex[:8]
 
     # ------------------------------------------------------------
 
-    def resolve(self) -> list["MountLocation"]:
+    def resolve(self, bbox=None) -> list["MountLocation"]:
         """Развернуть MountPoint в список MountLocation.
 
         position - первая location. count_x=3 -> ровно 3 позиции.
+
+        bbox = (xmin, ymin, xmax, ymax) — если задан И anchor_mode="relative_xy",
+        вычисляем X/Y как долю от bbox.
         """
+        # V22: определить базовую точку
+        if (
+            self.anchor_mode == "relative_xy"
+            and bbox is not None
+            and len(bbox) == 4
+        ):
+            xmin, ymin, xmax, ymax = bbox
+            # anchor_x: 0 = левый край, 1 = правый (X не инвертирован)
+            x0 = xmin + self.anchor_x * (xmax - xmin)
+            # anchor_y: 0 = ВИЗУАЛЬНЫЙ низ, 1 = ВИЗУАЛЬНЫЙ верх.
+            # VE использует Y-down (больше Y — ниже экран).
+            # Значит ymin = верх, ymax = низ.
+            # Для ay=1 (верх) нужно ymin → y0 = ymax - ay*height.
+            y0 = ymax - self.anchor_y * (ymax - ymin)
+        else:
+            x0, y0 = self.position
+
         result: list[MountLocation] = []
-        x0, y0 = self.position
         sx = self.distribution.spacing_x
         sy = self.distribution.spacing_y
 
@@ -136,6 +167,10 @@ class MountPoint:
             "position": [self.position[0], self.position[1]],
             "distribution": self.distribution.to_dict(),
         }
+        if self.anchor_mode != "absolute":
+            d["anchor_mode"] = self.anchor_mode
+            d["anchor_x"] = self.anchor_x
+            d["anchor_y"] = self.anchor_y
         if self.legacy_group_id is not None:
             d["legacy_group_id"] = self.legacy_group_id
         if self.legacy_auto_rule is not None:
@@ -164,6 +199,9 @@ class MountPoint:
             ),
             legacy_group_id=d.get("legacy_group_id"),
             legacy_auto_rule=legacy_ar,
+            anchor_mode=str(d.get("anchor_mode", "absolute")),
+            anchor_x=float(d.get("anchor_x", 0.5)),
+            anchor_y=float(d.get("anchor_y", 0.5)),
         )
 
 

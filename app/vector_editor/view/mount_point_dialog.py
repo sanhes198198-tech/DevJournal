@@ -96,6 +96,27 @@ class MountPointDialog(QDialog):
         self._y_spin.setSuffix(" м")
         form.addRow("Y:", self._y_spin)
 
+        # V22: режим привязки
+        self._anchor_combo = QComboBox()
+        self._anchor_combo.addItem("Абсолютный (не едет)", "absolute")
+        self._anchor_combo.addItem("Относительный (% bbox)", "relative_xy")
+        self._anchor_combo.currentIndexChanged.connect(
+            self._on_anchor_mode_changed
+        )
+        form.addRow("Привязка:", self._anchor_combo)
+
+        self._anchor_x_spin = QDoubleSpinBox()
+        self._anchor_x_spin.setRange(0.0, 1.0)
+        self._anchor_x_spin.setDecimals(3)
+        self._anchor_x_spin.setSingleStep(0.05)
+        form.addRow("Anchor X (0-1):", self._anchor_x_spin)
+
+        self._anchor_y_spin = QDoubleSpinBox()
+        self._anchor_y_spin.setRange(0.0, 1.0)
+        self._anchor_y_spin.setDecimals(3)
+        self._anchor_y_spin.setSingleStep(0.05)
+        form.addRow("Anchor Y (0-1):", self._anchor_y_spin)
+
         layout.addLayout(form)
 
         dist_title = QLabel("Размножение")
@@ -155,6 +176,15 @@ class MountPointDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
+    def _on_anchor_mode_changed(self, idx: int) -> None:
+        mode = self._anchor_combo.currentData() or "absolute"
+        enabled = (mode == "relative_xy")
+        self._anchor_x_spin.setEnabled(enabled)
+        self._anchor_y_spin.setEnabled(enabled)
+        # В absolute — X/Y спинбоксы активны
+        self._x_spin.setEnabled(not enabled)
+        self._y_spin.setEnabled(not enabled)
+
     def _load_from(self, mp: MountPoint) -> None:
         # Приводим role к строке (может быть enum или str)
         role_str = ""
@@ -175,6 +205,19 @@ class MountPointDialog(QDialog):
         self._spacing_x_spin.setValue(d.spacing_x)
         self._spacing_y_spin.setValue(d.spacing_y)
 
+        # V22: anchor
+        mode = getattr(mp, "anchor_mode", "absolute") or "absolute"
+        mi = self._anchor_combo.findData(mode)
+        if mi >= 0:
+            self._anchor_combo.setCurrentIndex(mi)
+        self._anchor_x_spin.setValue(
+            float(getattr(mp, "anchor_x", 0.5))
+        )
+        self._anchor_y_spin.setValue(
+            float(getattr(mp, "anchor_y", 0.5))
+        )
+        self._on_anchor_mode_changed(0)
+
     def _on_accept(self) -> None:
         role_str = self._role_combo.currentData() or ""
         role = parse_role(role_str) if role_str else None
@@ -186,6 +229,10 @@ class MountPointDialog(QDialog):
             spacing_y=self._spacing_y_spin.value(),
         )
 
+        anchor_mode = self._anchor_combo.currentData() or "absolute"
+        anchor_x = self._anchor_x_spin.value()
+        anchor_y = self._anchor_y_spin.value()
+
         if self._is_edit:
             self._original.role = role
             self._original.position = (
@@ -193,6 +240,9 @@ class MountPointDialog(QDialog):
                 self._y_spin.value(),
             )
             self._original.distribution = dist
+            self._original.anchor_mode = anchor_mode
+            self._original.anchor_x = anchor_x
+            self._original.anchor_y = anchor_y
             self.result_mountpoint = self._original
         else:
             self.result_mountpoint = MountPoint(
@@ -202,6 +252,9 @@ class MountPointDialog(QDialog):
                     self._y_spin.value(),
                 ),
                 distribution=dist,
+                anchor_mode=anchor_mode,
+                anchor_x=anchor_x,
+                anchor_y=anchor_y,
             )
 
         self.accept()
