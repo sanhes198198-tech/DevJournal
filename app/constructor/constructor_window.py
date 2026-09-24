@@ -1208,6 +1208,65 @@ class ConstructorWindow(QMainWindow):
             if not child_comp.attach_anchor or not child_comp.parent_anchor:
                 continue
 
+            # V22: mount-attachment — parent_anchor формата
+            # mp_<hex>__<ix>__<iy>. Разрешаем через mount_locations_local.
+            if "__" in child_comp.parent_anchor:
+                parts = child_comp.parent_anchor.split("__")
+                if len(parts) == 3:
+                    mp_id = parts[0]
+                    try:
+                        ix = int(parts[1])
+                        iy = int(parts[2])
+                    except Exception:
+                        ix, iy = -1, -1
+
+                    mp_local = parent_item.mount_locations_local()
+                    arr = mp_local.get(mp_id, [])
+                    p_local = None
+                    for lx_ix, lx_iy, _role, lx, ly in arr:
+                        if lx_ix == ix and lx_iy == iy:
+                            p_local = (lx, ly)
+                            break
+
+                    child_anchors = child_item.anchors_local()
+                    c_local = child_anchors.get(
+                        child_comp.attach_anchor
+                    )
+
+                    if p_local is None or c_local is None:
+                        # target не разрешается — инвалидируем
+                        print(
+                            f"[ATTACH-INVALID] {child_comp.id} "
+                            f"parent={parent_id} "
+                            f"mp_anchor={child_comp.parent_anchor!r}"
+                        )
+                        try:
+                            child_comp.clear_attachment()
+                        except Exception:
+                            pass
+                        _nm = (
+                            getattr(child_comp, "name", "")
+                            or child_comp.id
+                        )
+                        self.statusBar().showMessage(
+                            f"Привязка «{_nm}» сброшена — "
+                            f"точка крепления исчезла",
+                            4000,
+                        )
+                        continue
+
+                    parent_scene = parent_item.mapToScene(
+                        QPointF(p_local[0], p_local[1])
+                    )
+                    new_x = parent_scene.x() - c_local[0]
+                    new_y = parent_scene.y() - c_local[1]
+                    child_comp.x = new_x
+                    child_comp.y = new_y
+                    child_item.setPos(new_x, new_y)
+                    child_item.update()
+                    self._reflow_children(child_id, visited)
+                    continue
+
             # V9d-4: если parent_anchor — слот (slot_*),
             # берём из slots_local вместо anchors_local.
             if child_comp.parent_anchor.startswith("slot_"):

@@ -15,16 +15,20 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from ..model.mounting import MountPoint, MountRole, Distribution
+from ..model.mounting import (
+    MountPoint, MountRole, Distribution, parse_role,
+)
 
 
+# Храним СТРОКИ, потому что PySide конвертирует StrEnum в str
+# при QComboBox.addItem(label, data) — .currentData() вернёт строку.
 ROLE_LABELS = [
-    (None, "— без роли —"),
-    (MountRole.WINDOW, "Окно"),
-    (MountRole.DOOR, "Дверь"),
-    (MountRole.FOUNDATION, "Фундамент"),
-    (MountRole.CORNICE, "Карниз"),
-    (MountRole.DECOR, "Декор"),
+    ("", "— без роли —"),
+    ("window", "Окно"),
+    ("door", "Дверь"),
+    ("foundation", "Фундамент"),
+    ("cornice", "Карниз"),
+    ("decor", "Декор"),
 ]
 
 
@@ -152,9 +156,15 @@ class MountPointDialog(QDialog):
         layout.addWidget(buttons)
 
     def _load_from(self, mp: MountPoint) -> None:
-        idx = self._role_combo.findData(mp.role)
+        # Приводим role к строке (может быть enum или str)
+        role_str = ""
+        if mp.role is not None:
+            role_str = getattr(mp.role, "value", str(mp.role))
+        idx = self._role_combo.findData(role_str)
         if idx >= 0:
             self._role_combo.setCurrentIndex(idx)
+        else:
+            self._role_combo.setCurrentIndex(0)
 
         self._x_spin.setValue(mp.position[0])
         self._y_spin.setValue(mp.position[1])
@@ -166,7 +176,8 @@ class MountPointDialog(QDialog):
         self._spacing_y_spin.setValue(d.spacing_y)
 
     def _on_accept(self) -> None:
-        role = self._role_combo.currentData()
+        role_str = self._role_combo.currentData() or ""
+        role = parse_role(role_str) if role_str else None
 
         dist = Distribution(
             count_x=self._count_x_spin.value(),

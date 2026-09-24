@@ -1021,9 +1021,12 @@ class ComponentItem(QGraphicsObject):
             for loc in locs:
                 lx = loc.position[0] - self._center_x
                 ly = loc.position[1] - self._center_y
-                role_str = (
-                    loc.role.value if loc.role else None
-                )
+                # role может быть MountRole или str
+                role_str = None
+                if loc.role:
+                    role_str = getattr(
+                        loc.role, "value", str(loc.role),
+                    )
                 arr.append((
                     loc.index_x, loc.index_y, role_str,
                     float(lx), float(ly),
@@ -1300,7 +1303,9 @@ class ComponentItem(QGraphicsObject):
         _mount_info = None
         if len(best) == 8:
             _, my_tag, other, _mp_id, _ix, _iy, dx, dy = best
-            their_tag = f"mp_{_mp_id}_{_ix}_{_iy}"
+            # V22: формат mount-tag: mp_<hex>__<ix>__<iy>
+            # (двойное __ как разделитель — mp_id уже содержит mp_)
+            their_tag = f"{_mp_id}__{_ix}__{_iy}"
             _mount_info = (_mp_id, _ix, _iy)
         else:
             _, my_tag, other, their_tag, dx, dy = best

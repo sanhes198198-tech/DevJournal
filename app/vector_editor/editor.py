@@ -994,7 +994,10 @@ class VectorEditor(QMainWindow):
 
         for mp in getattr(self._current_asset, "mountpoints", []) or []:
             x, y = mp.position
-            role_str = mp.role.value if mp.role else None
+            # role может быть MountRole или str — приводим к str
+            role_str = None
+            if mp.role:
+                role_str = getattr(mp.role, "value", str(mp.role))
             item = MountPointItem(mp.id, role_str, x, y)
             item.selected.connect(self._on_mount_point_item_selected)
             item.moved.connect(self._on_mount_point_item_moved)
