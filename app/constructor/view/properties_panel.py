@@ -6,6 +6,8 @@ PropertiesPanel — правая панель свойств Component'а.
 """
 from __future__ import annotations
 
+from app.vector_editor.model.mounting import MountRole
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QComboBox,
@@ -40,6 +42,8 @@ class PropertiesPanel(QWidget):
     fill_pattern_changed = Signal(str, str)
     # (comp_id, locked) — V12: блокировка
     locked_changed = Signal(str, bool)
+    # (comp_id, role_value) — V22: роль в композите
+    role_changed = Signal(str, str)
 
     WIDTH = 260
 
@@ -165,6 +169,19 @@ class PropertiesPanel(QWidget):
         )
         form.addRow("Текстура:", self._pattern_combo)
 
+        # V22: роль компонента в композите (для snap по роли)
+        self._role_combo = QComboBox()
+        self._role_combo.addItem("— без роли —", "")
+        self._role_combo.addItem("Окно", "window")
+        self._role_combo.addItem("Дверь", "door")
+        self._role_combo.addItem("Фундамент", "foundation")
+        self._role_combo.addItem("Карниз", "cornice")
+        self._role_combo.addItem("Декор", "decor")
+        self._role_combo.currentIndexChanged.connect(
+            self._on_role_changed
+        )
+        form.addRow("Роль:", self._role_combo)
+
         layout.addLayout(form)
 
         # Параметры sub-ассета (динамически)
@@ -218,6 +235,7 @@ class PropertiesPanel(QWidget):
         self._layer_spin.setValue(0)
         self._filled_check.setChecked(False)
         self._pattern_combo.setCurrentIndex(0)
+        self._role_combo.setCurrentIndex(0)
         self._btn_lock.setChecked(False)
         self._btn_lock.setText("🔒 Заблокировать")
         self._muted = False
@@ -251,6 +269,15 @@ class PropertiesPanel(QWidget):
             self._pattern_combo.setCurrentIndex(pi)
         else:
             self._pattern_combo.setCurrentIndex(0)
+
+        # V22: роль
+        role = getattr(comp, "role", None)
+        role_val = role.value if role else ""
+        ri = self._role_combo.findData(role_val)
+        if ri >= 0:
+            self._role_combo.setCurrentIndex(ri)
+        else:
+            self._role_combo.setCurrentIndex(0)
 
         # V12: блокировка
         locked = bool(getattr(comp, "locked", False))
@@ -378,6 +405,15 @@ class PropertiesPanel(QWidget):
             "🔓 Разблокировать" if checked else "🔒 Заблокировать"
         )
         self.locked_changed.emit(self._current_comp.id, bool(checked))
+
+    def _on_role_changed(self, idx: int) -> None:
+        """V22: пользователь выбрал роль компонента."""
+        if self._muted or self._current_comp is None:
+            return
+        role_val = self._role_combo.currentData() or ""
+        self.role_changed.emit(
+            self._current_comp.id, str(role_val),
+        )
 
     def _on_pattern_changed(self, idx: int) -> None:
         """V11: пользователь выбрал текстуру заливки."""

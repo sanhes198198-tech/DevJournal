@@ -294,6 +294,9 @@ class ConstructorWindow(QMainWindow):
         self._properties.param_override_changed.connect(
             self._on_prop_param_override
         )
+        self._properties.role_changed.connect(
+            self._on_prop_role_changed
+        )
 
     def _load_assets(self) -> None:
         if self._registry is None:
@@ -890,6 +893,16 @@ class ConstructorWindow(QMainWindow):
             on_apply=lambda: self._apply_property(comp_id),
         )
         self._undo_stack.push(cmd)
+
+    def _on_prop_role_changed(
+        self, comp_id: str, role_val: str,
+    ) -> None:
+        """V22: пользователь выбрал роль компонента."""
+        comp = self._current_composite.get_component(comp_id)
+        if comp is None:
+            return
+        from app.vector_editor.model.mounting import parse_role
+        comp.role = parse_role(role_val)
 
     def _on_prop_filled_changed(
         self, comp_id: str, filled: bool,
