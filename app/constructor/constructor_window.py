@@ -1170,9 +1170,15 @@ class ConstructorWindow(QMainWindow):
                 )
                 break
 
-        # V12: пересчитать позиции всех детей сдвинутого компонента
-        # Phase 2 Step 1: reflow удалён — позиции детей больше не
-        # пересчитываются автоматически. Вернётся как ReflowEngine в Phase 12.
+        # Phase 12: ReflowEngine — дети едут за mount-точками
+        # родителя. Только для mount-attachment (mp_*), рекурсивно.
+        if moved_comp_id is not None:
+            from .reflow_engine import reflow_from
+            reflow_from(
+                moved_comp_id,
+                self._items_by_comp_id,
+                self._current_composite,
+            )
 
     def _apply_visibility_rules(self) -> None:
         """Применить все visibility-правила к items.
