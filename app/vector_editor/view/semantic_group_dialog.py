@@ -33,11 +33,6 @@ KNOWN_GROUP_TYPES: list[tuple[str, str]] = [
     ("top", "Корниз"),
     ("left", "Левая грань"),
     ("right", "Правая грань"),
-    ("window_slot", "Слот окна"),
-    ("anchor_top", "Якорь верх"),
-    ("anchor_bottom", "Якорь низ"),
-    ("anchor_left", "Якорь лево"),
-    ("anchor_right", "Якорь право"),
 ]
 
 CUSTOM_SLUG = "__custom__"
@@ -157,20 +152,6 @@ class SemanticGroupDialog(QDialog):
 
         # По умолчанию — Custom (для нового диалога)
         self._apply_custom_mode(True)
-
-        # A-доп: авто-выбор window_slot если 1 extra-точка.
-        # Не в режиме редактирования — только для создания.
-        if not self._is_edit and self._is_single_extra():
-            idx = self._type_combo.findData("window_slot")
-            if idx >= 0:
-                self._type_combo.setCurrentIndex(idx)
-
-    def _is_single_extra(self) -> bool:
-        """True, если ровно одна выделенная точка и она extra (e_*)."""
-        ids = self._default_node_ids
-        if len(ids) != 1:
-            return False
-        return ids[0].startswith("e_") and not ids[0].startswith("e_auto_")
 
     # ------------------------------------------------------------
 
