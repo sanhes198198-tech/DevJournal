@@ -69,6 +69,8 @@ class MountPoint:
         role: MountRole | str | None = None,
         position: tuple[float, float] = (0.0, 0.0),
         distribution: Distribution | None = None,
+        legacy_group_id: str | None = None,
+        legacy_auto_rule: dict | None = None,
     ):
         self.id = id or self._generate_id()
         self.role: MountRole | None = parse_role(role)
@@ -79,6 +81,15 @@ class MountPoint:
         self.distribution = (
             distribution if isinstance(distribution, Distribution)
             else Distribution()
+        )
+
+        # Поля для миграции из legacy (semantic_groups + auto_rule).
+        # Если MountPoint создан вручную — None.
+        self.legacy_group_id: str | None = (
+            str(legacy_group_id) if legacy_group_id else None
+        )
+        self.legacy_auto_rule: dict | None = (
+            dict(legacy_auto_rule) if legacy_auto_rule else None
         )
 
     @staticmethod
@@ -119,12 +130,17 @@ class MountPoint:
 
     def to_dict(self) -> dict:
         from .mount_role import role_to_str
-        return {
+        d = {
             "id": self.id,
             "role": role_to_str(self.role),
             "position": [self.position[0], self.position[1]],
             "distribution": self.distribution.to_dict(),
         }
+        if self.legacy_group_id is not None:
+            d["legacy_group_id"] = self.legacy_group_id
+        if self.legacy_auto_rule is not None:
+            d["legacy_auto_rule"] = dict(self.legacy_auto_rule)
+        return d
 
     @classmethod
     def from_dict(cls, d: dict) -> "MountPoint":
@@ -135,6 +151,10 @@ class MountPoint:
         if not isinstance(pos_raw, (list, tuple)) or len(pos_raw) < 2:
             pos_raw = [0.0, 0.0]
 
+        legacy_ar = d.get("legacy_auto_rule")
+        if legacy_ar is not None and not isinstance(legacy_ar, dict):
+            legacy_ar = None
+
         return cls(
             id=d.get("id"),
             role=parse_role(d.get("role")),
@@ -142,6 +162,8 @@ class MountPoint:
             distribution=Distribution.from_dict(
                 d.get("distribution") or {}
             ),
+            legacy_group_id=d.get("legacy_group_id"),
+            legacy_auto_rule=legacy_ar,
         )
 
 
