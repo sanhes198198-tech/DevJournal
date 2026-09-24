@@ -111,34 +111,44 @@ class MountPoint:
     # ------------------------------------------------------------
 
     def resolve(self, bbox=None) -> list["MountLocation"]:
-        """Развернуть MountPoint в список MountLocation.
+        """V22 + V23: развернуть MountPoint в список MountLocation.
 
-        position - первая location. count_x=3 -> ровно 3 позиции.
-
-        bbox = (xmin, ymin, xmax, ymax) — если задан И anchor_mode="relative_xy",
-        вычисляем X/Y как долю от bbox.
+        V22: anchor_mode="relative_xy" -> x0/y0 считаются от bbox.
+        V23: AUTO-FILL — если spacing=0 и count>1, шаг считается от bbox
+             (равномерно от края до края стены).
         """
-        # V22: определить базовую точку
-        if (
+        has_bbox = (
             self.anchor_mode == "relative_xy"
             and bbox is not None
             and len(bbox) == 4
-        ):
+        )
+
+        if has_bbox:
             xmin, ymin, xmax, ymax = bbox
-            # anchor_x: 0 = левый край, 1 = правый (X не инвертирован)
-            x0 = xmin + self.anchor_x * (xmax - xmin)
-            # anchor_y: 0 = ВИЗУАЛЬНЫЙ низ, 1 = ВИЗУАЛЬНЫЙ верх.
-            # VE использует Y-down (больше Y — ниже экран).
-            # Значит ymin = верх, ymax = низ.
-            # Для ay=1 (верх) нужно ymin → y0 = ymax - ay*height.
-            y0 = ymax - self.anchor_y * (ymax - ymin)
+            sx = self.distribution.spacing_x
+            sy = self.distribution.spacing_y
+            cx = self.distribution.count_x
+            cy = self.distribution.count_y
+
+            # V23: X — auto-fill или anchor
+            if sx == 0.0 and cx > 1:
+                sx = (xmax - xmin) / (cx - 1)
+                x0 = xmin
+            else:
+                x0 = xmin + self.anchor_x * (xmax - xmin)
+
+            # V23: Y — auto-fill или anchor (VE Y-down: ymin=верх, ymax=низ)
+            if sy == 0.0 and cy > 1:
+                sy = (ymax - ymin) / (cy - 1)
+                y0 = ymin
+            else:
+                y0 = ymax - self.anchor_y * (ymax - ymin)
         else:
             x0, y0 = self.position
+            sx = self.distribution.spacing_x
+            sy = self.distribution.spacing_y
 
         result: list[MountLocation] = []
-        sx = self.distribution.spacing_x
-        sy = self.distribution.spacing_y
-
         for ix in range(self.distribution.count_x):
             for iy in range(self.distribution.count_y):
                 px = x0 + ix * sx

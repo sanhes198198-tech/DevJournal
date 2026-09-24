@@ -41,6 +41,9 @@ SNAP_PAIRS = frozenset({
 })
 
 
+LEGACY_SNAP_ENABLED = False  # A2: Pure Mount — legacy anchor/slot/ground отключены
+
+
 class ComponentItem(QGraphicsObject):
     """QGraphicsObject-обёртка для Component."""
 
@@ -1308,11 +1311,16 @@ class ComponentItem(QGraphicsObject):
             # принудительно, не сравнивая расстояние.
             best = best_mount
             best_slot = None
+        elif not LEGACY_SNAP_ENABLED:
+            # A2: Pure Mount — legacy запрещён. Если mount не найден —
+            # не привязываемся ни к чему.
+            best = None
+            best_slot = None
 
         # V13: snap к опорной линии (ground line).
         # Если мой bottom anchor близко к Y линии — snap по Y.
         scene = self.scene()
-        if scene is not None and hasattr(scene, "ground_line_y"):
+        if LEGACY_SNAP_ENABLED and scene is not None and hasattr(scene, "ground_line_y"):
             gy = scene.ground_line_y()
             if gy is not None and scene.ground_line_visible():
                 my_bottom = my_world.get("bottom")

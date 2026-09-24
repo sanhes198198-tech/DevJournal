@@ -779,13 +779,13 @@
       ],
       "distribution": {
         "count_x": 5,
-        "count_y": 1,
-        "spacing_x": 2.0,
-        "spacing_y": 1.5
+        "count_y": 3,
+        "spacing_x": 0.0,
+        "spacing_y": 0.0
       },
       "anchor_mode": "relative_xy",
-      "anchor_x": 0.046786171808945745,
-      "anchor_y": 0.0003937680276242993
+      "anchor_x": 0.5,
+      "anchor_y": 0.5
     }
   ]
 }
