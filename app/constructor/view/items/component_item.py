@@ -993,6 +993,77 @@ class ComponentItem(QGraphicsObject):
             result[key] = (sp.x(), sp.y())
         return result
 
+    # ============================================================
+    # V22 (Mounting): MountPoint locations
+    # ============================================================
+
+    def mount_locations_local(self) -> dict:
+        """Развернуть asset.mountpoints в локальные координаты item.
+
+        Возвращает {mp_id: [(ix, iy, role_str, lx, ly), ...]}.
+        role_str — "window"/"door"/... или None.
+        Координаты lx/ly — в системе item (минус _center_x/y).
+        """
+        if self._asset is None:
+            return {}
+
+        mps = getattr(self._asset, "mountpoints", None) or []
+        if not mps:
+            return {}
+
+        result: dict = {}
+        for mp in mps:
+            try:
+                locs = mp.resolve()
+            except Exception:
+                continue
+            arr = []
+            for loc in locs:
+                lx = loc.position[0] - self._center_x
+                ly = loc.position[1] - self._center_y
+                role_str = (
+                    loc.role.value if loc.role else None
+                )
+                arr.append((
+                    loc.index_x, loc.index_y, role_str,
+                    float(lx), float(ly),
+                ))
+            result[mp.id] = arr
+        return result
+
+    def mount_locations_world(self) -> dict:
+        """То же, но в scene-координатах.
+
+        Возвращает {mp_id: [(ix, iy, role_str, sx, sy), ...]}.
+        """
+        local = self.mount_locations_local()
+        result: dict = {}
+        for mp_id, arr in local.items():
+            world_arr = []
+            for ix, iy, role_str, lx, ly in arr:
+                sp = self.mapToScene(QPointF(lx, ly))
+                world_arr.append((
+                    ix, iy, role_str,
+                    float(sp.x()), float(sp.y()),
+                ))
+            result[mp_id] = world_arr
+        return result
+
+    def mount_locations_by_role(self, role: str) -> list:
+        """Все mount locations с указанной ролью в scene-координатах.
+
+        Возвращает [(mp_id, ix, iy, sx, sy), ...].
+        """
+        if not role:
+            return []
+        result = []
+        world = self.mount_locations_world()
+        for mp_id, arr in world.items():
+            for ix, iy, r, sx, sy in arr:
+                if r == role:
+                    result.append((mp_id, ix, iy, sx, sy))
+        return result
+
     def _try_snap(self) -> None:
         """Найти ближайший совместимый anchor и прилипнуть."""
         scene = self.scene()
