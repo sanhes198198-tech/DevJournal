@@ -64,7 +64,11 @@ class MountPointItem(QGraphicsObject):
         )
 
         self.setZValue(100.0)
+
+        # V22: не эмитить moved при первичной установке позиции
+        self._initializing = True
         self.setPos(QPointF(x, y))
+        self._initializing = False
 
         self._hover = False
         self.setAcceptHoverEvents(True)
@@ -154,8 +158,9 @@ class MountPointItem(QGraphicsObject):
 
     def itemChange(self, change, value):
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
-            p = self.pos()
-            self.moved.emit(self._mp_id, p.x(), p.y())
+            if not getattr(self, "_initializing", False):
+                p = self.pos()
+                self.moved.emit(self._mp_id, p.x(), p.y())
         elif change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
             self.update()
         return super().itemChange(change, value)

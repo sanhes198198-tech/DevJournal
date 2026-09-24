@@ -56,6 +56,7 @@ from .model.parameter import (
 from .view.save_asset_dialog import SaveAssetDialog
 from .view.items.contour_item import ContourItem
 from .view.items.node_item import NodeItem
+from .view.items.mount_point_item import MountPointItem
 from .view.items.extra_node_item import ExtraNodeItem
 from .view.items.reference_item import ReferenceImageItem
 from .view.reference_properties_dialog import ReferencePropertiesDialog
@@ -129,6 +130,8 @@ class VectorEditor(QMainWindow):
         self._contour_item: ContourItem | None = None
         # V16: слои — все items, активный id
         self._layer_items: dict = {}
+        # V22: маркеры точек крепления в сцене
+        self._mount_point_items: dict = {}
         self._active_layer_id: str | None = None
 
         # Флаг изменений
@@ -935,12 +938,68 @@ class VectorEditor(QMainWindow):
         )
 
     def _on_mount_point_selected(self, mp_id: str) -> None:
-        """Пользователь кликнул по точке крепления в панели."""
-        pass
+        """Клик в панели — подсветить маркер + центрировать."""
+        for item in self._mount_point_items.values():
+            item.setSelected(False)
+        if not mp_id:
+            return
+        item = self._mount_point_items.get(mp_id)
+        if item is None:
+            return
+        item.setSelected(True)
+        # V22: центрировать камеру на точке
+        p = item.pos()
+        self._canvas.centerOn(p.x(), p.y())
 
     def _on_mount_points_changed(self) -> None:
         """Пользователь изменил точки крепления."""
+        self._rebuild_mount_point_items()
         self._mark_modified()
+
+    def _on_mount_point_item_selected(self, mp_id: str) -> None:
+        """Клик по маркеру в сцене — выделить запись в панели."""
+        if not mp_id:
+            return
+        # найти в списке и выделить
+        panel = self._mount_points_panel
+        for i in range(panel._list.count()):
+            it = panel._list.item(i)
+            if it.data(0x0100) == mp_id:  # Qt.UserRole == 0x0100
+                panel._list.setCurrentItem(it)
+                break
+
+    def _on_mount_point_item_moved(
+        self, mp_id: str, x: float, y: float,
+    ) -> None:
+        """Маркер перетащили в сцене — обновить модель."""
+        if self._current_asset is None:
+            return
+        for mp in getattr(self._current_asset, "mountpoints", []):
+            if mp.id == mp_id:
+                mp.position = (float(x), float(y))
+                break
+        self._mark_modified()
+        self._mount_points_panel.refresh()
+
+    def _rebuild_mount_point_items(self) -> None:
+        """Пересоздать маркеры MountPoint в сцене."""
+        # удалить старые
+        for item in list(self._mount_point_items.values()):
+            if item.scene() is not None:
+                self._scene.removeItem(item)
+        self._mount_point_items.clear()
+
+        if self._current_asset is None:
+            return
+
+        for mp in getattr(self._current_asset, "mountpoints", []) or []:
+            x, y = mp.position
+            role_str = mp.role.value if mp.role else None
+            item = MountPointItem(mp.id, role_str, x, y)
+            item.selected.connect(self._on_mount_point_item_selected)
+            item.moved.connect(self._on_mount_point_item_moved)
+            self._scene.addItem(item)
+            self._mount_point_items[mp.id] = item
 
     def _on_groups_changed(self) -> None:
         """Пользователь изменил группы — отметить Asset как изменённый."""
@@ -1515,6 +1574,11 @@ class VectorEditor(QMainWindow):
             self._reference_item = None
 
         self._current_asset = None
+        # V22: очистить маркеры MountPoint
+        for item in list(self._mount_point_items.values()):
+            if item.scene() is not None:
+                self._scene.removeItem(item)
+        self._mount_point_items.clear()
         self._groups_panel.set_asset(None)
         self._mount_points_panel.set_asset(None)
         self._parameters_panel.set_asset(None)
@@ -1903,6 +1967,7 @@ class VectorEditor(QMainWindow):
         if self._reference_item is not None:
             self._reference_item.set_interactive(True)
 
+        self._rebuild_mount_point_items()
         self._mark_saved()
 
         self._canvas.set_tool("select")

@@ -210,7 +210,24 @@ class MountPointsPanel(QWidget):
         if self._asset is None:
             return
 
-        dlg = MountPointDialog(parent=self)
+        # V22: дефолт = центр bbox asset.geometry
+        default_pos = (0.0, 0.0)
+        try:
+            pts = self._asset.points()
+            if pts:
+                xs = [p[0] for p in pts]
+                ys = [p[1] for p in pts]
+                default_pos = (
+                    (min(xs) + max(xs)) / 2.0,
+                    (min(ys) + max(ys)) / 2.0,
+                )
+        except Exception:
+            pass
+
+        dlg = MountPointDialog(
+            default_position=default_pos,
+            parent=self,
+        )
         if dlg.exec() != MountPointDialog.DialogCode.Accepted:
             return
         if dlg.result_mountpoint is None:
