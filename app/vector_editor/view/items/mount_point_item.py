@@ -10,12 +10,19 @@ Item - top-level item сцены, чтобы hit-test работал корре�
 from __future__ import annotations
 
 from PySide6.QtCore import QPointF, QRectF, Qt, Signal
-from PySide6.QtGui import QBrush, QColor, QPen, QFont
+from PySide6.QtGui import QBrush, QColor, QPen, QFont, QPainterPath
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsObject
 
 
 NODE_RADIUS = 12.0
 FONT_SIZE = 10
+
+
+GHOST_RADIUS = 6.0
+GHOST_MAX_DRAW = 50
+GHOST_COLOR = QColor("#FFD93D")
+GHOST_OPACITY = 0.4
+BOUNDING_PAD = 1000.0
 
 
 ROLE_COLORS = {
@@ -42,12 +49,22 @@ class MountPointItem(QGraphicsObject):
         role: str | None,
         x: float,
         y: float,
+        count_x: int = 1,
+        count_y: int = 1,
+        spacing_x: float = 0.0,
+        spacing_y: float = 0.0,
         parent=None,
     ):
         super().__init__(parent)
 
         self._mp_id = mp_id
         self._role = role or ""
+
+        # V22: distribution — для ghost-точек при выделении
+        self._count_x = max(1, int(count_x))
+        self._count_y = max(1, int(count_y))
+        self._spacing_x = max(0.0, float(spacing_x))
+        self._spacing_y = max(0.0, float(spacing_y))
 
         self.setFlag(
             QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True,
@@ -87,11 +104,12 @@ class MountPointItem(QGraphicsObject):
         self.update()
 
     def boundingRect(self) -> QRectF:
-        r = NODE_RADIUS + 3
-        return QRectF(-r, -r, 2 * r, 2 * r)
+        # V22: с запасом — чтобы влезали ghost-точки при выделении
+        p = BOUNDING_PAD
+        return QRectF(-p, -p, 2 * p, 2 * p)
 
     def shape(self):
-        from PySide6.QtGui import QPainterPath
+        # V22: кликабельна ТОЛЬКО базовая точка, не ghost'ы
         path = QPainterPath()
         path.addEllipse(QPointF(0, 0), NODE_RADIUS, NODE_RADIUS)
         return path
@@ -105,10 +123,61 @@ class MountPointItem(QGraphicsObject):
             ).lighter(120)
         return ROLE_COLORS.get(self._role, DEFAULT_COLOR)
 
+    def _draw_ghosts(self, painter) -> None:
+        """Ghost-точки при выделении: показывают распределение.
+
+        ItemIgnoresTransformations=True — рисуем прямо в пикселях,
+        transform уже учтён. spacing в метрах * ppm = пиксели.
+        """
+        if self._count_x == 1 and self._count_y == 1:
+            return
+
+        # ppm — пиксели на метр (масштаб Canvas)
+        ppm = 50.0
+        if self.scene() and self.scene().views():
+            try:
+                ppm = abs(
+                    self.scene().views()[0].transform().m11()
+                ) or 50.0
+            except Exception:
+                ppm = 50.0
+
+        ghost_pen = QPen(QColor("#1A1A1A"), 1.0)
+        ghost_pen.setCosmetic(True)
+        painter.setPen(ghost_pen)
+        painter.setBrush(QBrush(GHOST_COLOR))
+
+        painter.save()
+        painter.setOpacity(GHOST_OPACITY)
+
+        drawn = 0
+        for iy in range(self._count_y):
+            for ix in range(self._count_x):
+                if ix == 0 and iy == 0:
+                    continue
+                if drawn >= GHOST_MAX_DRAW:
+                    painter.restore()
+                    return
+
+                # пиксели относительно item
+                gx = ix * self._spacing_x * ppm
+                gy = -iy * self._spacing_y * ppm
+
+                painter.drawEllipse(
+                    QPointF(gx, gy), GHOST_RADIUS, GHOST_RADIUS,
+                )
+                drawn += 1
+
+        painter.restore()
+
     def paint(self, painter, option, widget=None):
         painter.setRenderHint(
             painter.RenderHint.Antialiasing, True,
         )
+
+        # V22: ghost'ы при выделении — под базовым маркером
+        if self.isSelected():
+            self._draw_ghosts(painter)
 
         fill = self._fill_color()
         border = QColor("#1A1A1A")

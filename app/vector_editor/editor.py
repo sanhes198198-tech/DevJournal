@@ -998,7 +998,14 @@ class VectorEditor(QMainWindow):
             role_str = None
             if mp.role:
                 role_str = getattr(mp.role, "value", str(mp.role))
-            item = MountPointItem(mp.id, role_str, x, y)
+            d = mp.distribution
+            item = MountPointItem(
+                mp.id, role_str, x, y,
+                count_x=d.count_x,
+                count_y=d.count_y,
+                spacing_x=d.spacing_x,
+                spacing_y=d.spacing_y,
+            )
             item.selected.connect(self._on_mount_point_item_selected)
             item.moved.connect(self._on_mount_point_item_moved)
             self._scene.addItem(item)
