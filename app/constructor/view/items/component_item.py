@@ -851,17 +851,17 @@ class ComponentItem(QGraphicsObject):
         return result
 
     def _try_snap(self) -> None:
-        """Найти ближайший совместимый anchor и прилипнуть."""
+        """Найти ближайший MountLocation с подходящей ролью и прилипнуть.
+
+        Логика поиска вынесена в snap_resolver.find_mount_snap().
+        Здесь — только подготовка (can_attach, threshold) и применение.
+        """
         scene = self.scene()
         if scene is None:
             return
 
-        # V14: к другим компонентам (anchor/slot) прилипают только
-        # окна/двери/декор. Стены, башни, крыши — сами к себе
-        # не цепляются, но могут прилипнуть к опорной линии.
-        # V16: к другим компонентам прилипают "мелкие" элементы.
-        # Определяем по типу ассета ИЛИ по имени компонента
-        # (потому что окна часто имеют тип tower_body).
+        # Снапится только окно/дверь/декор. Тип asset — window/door/ornament,
+        # либо имя содержит okno/окно/door/двер.
         ATTACHABLE = ("window", "door", "ornament")
         _mt = getattr(self._asset, "type", "") if self._asset else ""
         _name_lower = (
@@ -875,10 +875,19 @@ class ComponentItem(QGraphicsObject):
         )
         can_attach = (_mt in ATTACHABLE) or _name_ok
 
-        my_world = self.anchors_world()
-        if not my_world:
+        _role = getattr(self._component, "role", None)
+        _role_str = _role.value if _role else None
+
+        if not (can_attach and _role_str):
             self.clear_snap_highlight()
-            self._component.clear_attachment()
+            self._pending_snap = None
+            return
+
+        my_world = self.anchors_world()
+        my_bottom = my_world.get("bottom")
+        if my_bottom is None:
+            self.clear_snap_highlight()
+            self._pending_snap = None
             return
 
         views = scene.views()
@@ -887,85 +896,37 @@ class ComponentItem(QGraphicsObject):
             ppm = abs(views[0].transform().m11()) or 50.0
         threshold_m = SNAP_THRESHOLD_PX / ppm
 
-        best = None  # (dist, my_tag, their_item, their_tag, dx, dy)
+        from ...snap_resolver import find_mount_snap
+        result = find_mount_snap(
+            scene, self, my_bottom, _role_str, threshold_m,
+            ComponentItem,
+        )
 
-        best_mount = None
-        if can_attach:
-            _role = getattr(self._component, "role", None)
-            _role_str = _role.value if _role else None
-            my_bottom = my_world.get("bottom")
-            if _role_str and my_bottom is not None:
-                mx, my = my_bottom
-                for other in scene.items():
-                    if other is self:
-                        continue
-                    if not isinstance(other, ComponentItem):
-                        continue
-                    o_comp = getattr(other, "_component", None)
-                    if o_comp is None:
-                        continue
-                    if o_comp.id == self._component.id:
-                        continue
-                    if o_comp.attach_to == self._component.id:
-                        continue
-                    try:
-                        locs = other.mount_locations_by_role(_role_str)
-                    except Exception:
-                        locs = []
-                    for mp_id, ix, iy, sx, sy in locs:
-                        dx = sx - mx
-                        dy = sy - my
-                        dist = (dx * dx + dy * dy) ** 0.5
-                        if dist <= threshold_m:
-                            if best_mount is None or dist < best_mount[0]:
-                                best_mount = (
-                                    dist, "bottom", other,
-                                    mp_id, ix, iy,
-                                    dx, dy,
-                                )
-
-        if best_mount is not None:
-            best = best_mount
-        else:
-            best = None
-
-        if best is None:
+        if result is None:
             self.clear_snap_highlight()
             self._pending_snap = None
             return
 
-        # V22: best может быть 6-tuple (anchor/slot) или 8-tuple (mount).
-        _mount_info = None
-        if len(best) == 8:
-            _, my_tag, other, _mp_id, _ix, _iy, dx, dy = best
-            # V22: формат mount-tag: mp_<hex>__<ix>__<iy>
-            # (двойное __ как разделитель — mp_id уже содержит mp_)
-            their_tag = f"{_mp_id}__{_ix}__{_iy}"
-            _mount_info = (_mp_id, _ix, _iy)
-        else:
-            _, my_tag, other, their_tag, dx, dy = best
-
         # Сначала очищаем старую пару
         self.clear_snap_highlight()
 
-        # V13: snap к ground line — сдвигаем только по Y,
-        # attachment не создаём (это не компонент).
         # Сдвигаем себя на (dx, dy), чтобы наш anchor совпал с их
-        self.setPos(self.pos().x() + dx, self.pos().y() + dy)
+        self.setPos(
+            self.pos().x() + result.dx,
+            self.pos().y() + result.dy,
+        )
 
         # Подсветка
-        self.set_highlighted_anchor(my_tag)
-        other.set_highlighted_anchor(their_tag)
+        self.set_highlighted_anchor(result.my_tag)
+        result.other_item.set_highlighted_anchor(result.their_tag)
 
         # V21: candidate сохраняем, attachment коммитим на mouseRelease.
-        # Во время drag модель не мутируется — иначе башня
-        # перепривязывается 3-4 раза за одно движение.
-        other_comp = getattr(other, "_component", None)
+        other_comp = getattr(result.other_item, "_component", None)
         if other_comp is not None:
             self._pending_snap = (
-                other_comp.id, my_tag, their_tag,
+                other_comp.id, result.my_tag, result.their_tag,
             )
-        self._snap_partner = other
+        self._snap_partner = result.other_item
 
     def mouseDoubleClickEvent(self, event) -> None:
         """Двойной клик — войти в composite (если это composite)."""
