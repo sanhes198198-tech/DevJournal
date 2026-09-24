@@ -42,7 +42,6 @@ from .view.scene import VectorScene
 from .view.canvas import VectorCanvas
 from .view.asset_browser import AssetBrowser
 from .view.scale_dialog import ScaleDialog
-from .model.auto_rule import recalculate_auto_points
 from .view.semantic_groups_panel import SemanticGroupsPanel
 from .view.mount_points_panel import MountPointsPanel
 from .view.layers_panel import LayersPanel
@@ -890,25 +889,12 @@ class VectorEditor(QMainWindow):
                 item._rebuild_path()
 
             # V9b: пересчёт авто-точек после сдвига
-            self._recalc_auto_points()
 
             # V22: пересоздать маркеры MountPoint (bbox изменился)
             self._rebuild_mount_point_items()
 
         param.value = new_value
         self._mark_modified()
-
-    def _recalc_auto_points(self) -> None:
-        """V9b: пересчитать авто-точки после изменения модели."""
-        if self._current_asset is None or self._contour_item is None:
-            return
-        added = recalculate_auto_points(
-            self._contour_item.contour,
-            self._current_asset.semantic_groups,
-        )
-        if added > 0:
-            self._contour_item._rebuild_extra_nodes()
-            self._contour_item._rebuild_path()
 
     def _on_point_mode_toggled(self, checked: bool) -> None:
         """Переключить режим "📍 Точка"."""
@@ -1090,7 +1076,6 @@ class VectorEditor(QMainWindow):
 
     def _on_groups_changed(self) -> None:
         """Пользователь изменил группы — отметить Asset как изменённый."""
-        self._recalc_auto_points()
         self._mark_modified()
 
     @staticmethod
