@@ -28,15 +28,10 @@ ORPHAN_SIZE_M = 1.0
 
 # Snap
 SNAP_THRESHOLD_PX = 40.0
-SNAP_ANCHOR_COLOR = QColor("#FF3333")
 
 # V9d: маркеры слотов (auto_rule группы)
 
 # Совместимые пары (наш_tag, их_tag)
-SNAP_PAIRS = frozenset({
-    ("bottom", "top"),
-    ("top", "bottom"),
-})
 
 
 LEGACY_SNAP_ENABLED = False  # A2: Pure Mount — legacy anchor/slot/ground отключены
@@ -76,7 +71,6 @@ class ComponentItem(QGraphicsObject):
         self._highlighted_anchor: str | None = None
         self._snap_partner = None
         # V13: флаг что snap был к ground line (не компоненту)
-        self._snap_to_ground = False
         # Undo: позиция до drag
         self._drag_old_pos = None
         # On-canvas handles
@@ -567,29 +561,6 @@ class ComponentItem(QGraphicsObject):
         if not self._extra_path.isEmpty():
             painter.drawPath(self._extra_path)
 
-        # Anchor'ы — только у выделенного компонента
-        if self.isSelected():
-            anchors = self.anchors_local()
-            if anchors:
-                from PySide6.QtGui import QBrush as _QB, QColor as _QC
-                ppm = abs(painter.transform().m11()) or 50.0
-                r_m = 6.0 / ppm   # радиус ~6 пикселей в метрах
-
-                for tag, (lx, ly) in anchors.items():
-                    if tag == self._highlighted_anchor:
-                        color = SNAP_ANCHOR_COLOR
-                        pen_w = 2.4
-                    else:
-                        color = QColor("#FF6B00")
-                        pen_w = 1.6
-
-                    pen = QPen(color, pen_w)
-                    pen.setCosmetic(True)
-                    painter.setPen(pen)
-                    painter.setBrush(QBrush(QColor("#FFFFFF")))
-                    painter.drawEllipse(QPointF(lx, ly), r_m, r_m)
-
-
         # Габариты (B) — только у выделенного
         if self.isSelected():
             self._paint_dimensions(painter)
@@ -918,29 +889,6 @@ class ComponentItem(QGraphicsObject):
 
         best = None  # (dist, my_tag, their_item, their_tag, dx, dy)
 
-        # V15: anchor-поиск идёт ВСЕГДА, но для не-attachable
-        # допускаем только пару (bottom → top) — крыша/купол/башня
-        # ставятся сверху. Остальные пары им запрещены.
-        if True:
-          for other in scene.items():
-            if other is self:
-                continue
-            if not isinstance(other, ComponentItem):
-                continue
-            their_world = other.anchors_world()
-            if not their_world:
-                continue
-
-            # Пропустить, если этот other уже привязан к НАМ (иначе цикл)
-            other_comp_check = getattr(other, "_component", None)
-            if (other_comp_check is not None
-                    and other_comp_check.attach_to
-                    == self._component.id):
-                continue
-
-            # V22 (Mounting): поиск mount locations с ролью компонента.
-        # Только для attachable и только если у компонента задана роль.
-        # Формат best для mount: (dist, "bottom", other, mp_id, ix, iy, dx, dy).
         best_mount = None
         if can_attach:
             _role = getattr(self._component, "role", None)
@@ -977,38 +925,9 @@ class ComponentItem(QGraphicsObject):
                                 )
 
         if best_mount is not None:
-            # V23: mountpoint приоритетнее legacy slot/anchor.
-            # Если Component.role задан и mount найден — заменяем best
-            # принудительно, не сравнивая расстояние.
             best = best_mount
-            best_slot = None
-        elif not LEGACY_SNAP_ENABLED:
-            # A2: Pure Mount — legacy запрещён. Если mount не найден —
-            # не привязываемся ни к чему.
+        else:
             best = None
-            best_slot = None
-
-        # V13: snap к опорной линии (ground line).
-        # Если мой bottom anchor близко к Y линии — snap по Y.
-        scene = self.scene()
-        if LEGACY_SNAP_ENABLED and scene is not None and hasattr(scene, "ground_line_y"):
-            gy = scene.ground_line_y()
-            if gy is not None and scene.ground_line_visible():
-                my_bottom = my_world.get("bottom")
-                if my_bottom is not None:
-                    my_y = my_bottom[1]
-                    dy = gy - my_y
-                    if abs(dy) <= threshold_m:
-                        # Если линия ближе, чем текущий best
-                        if best is None or abs(dy) < best[0]:
-                            best = (
-                                abs(dy), "__ground__",
-                                None, "__ground__",
-                                0.0, dy,
-                            )
-
-        # V13: сброс флага — установится только если реально snap к ground
-        self._snap_to_ground = False
 
         if best is None:
             self.clear_snap_highlight()
@@ -1031,13 +950,6 @@ class ComponentItem(QGraphicsObject):
 
         # V13: snap к ground line — сдвигаем только по Y,
         # attachment не создаём (это не компонент).
-        if other is None:
-            self.setPos(self.pos().x(), self.pos().y() + dy)
-            self._component.x = self.pos().x()
-            self._component.y = self.pos().y()
-            self._snap_to_ground = True
-            return
-
         # Сдвигаем себя на (dx, dy), чтобы наш anchor совпал с их
         self.setPos(self.pos().x() + dx, self.pos().y() + dy)
 
@@ -1137,7 +1049,6 @@ class ComponentItem(QGraphicsObject):
             self._drag_old_pos = None
 
         # Убираем подсветку snap
-        self._snap_to_ground = False
         self.clear_snap_highlight()
 
     def itemChange(self, change, value):

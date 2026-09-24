@@ -46,7 +46,7 @@
     "c_ff862183": {
       "id": "c_ff862183",
       "asset_id": "4d77b734d939",
-      "x": 2.214053779620856,
+      "x": -0.09169622037914349,
       "y": -5.95,
       "rotation": 0.0,
       "scale": 1.0,
@@ -58,7 +58,7 @@
       },
       "attach_to": "c_9e3cbe5a",
       "attach_anchor": "bottom",
-      "parent_anchor": "mp_f7e3fca9__3__1",
+      "parent_anchor": "mp_f7e3fca9__2__1",
       "slot_policy": null,
       "fill_pattern": "diamonds",
       "locked": false,
@@ -286,27 +286,6 @@
       "locked": false,
       "role": "window"
     },
-    "c_a2c2fe83": {
-      "id": "c_a2c2fe83",
-      "asset_id": "e0f860a55c7e",
-      "x": -0.1069944607483663,
-      "y": -3.1500000000000066,
-      "rotation": 0.0,
-      "scale": 1.0,
-      "name": "okno",
-      "layer": 0,
-      "filled": false,
-      "param_overrides": {
-        "height": 1.4657814031779122
-      },
-      "attach_to": "c_9e3cbe5a",
-      "attach_anchor": "bottom",
-      "parent_anchor": "mp_f7e3fca9__2__2",
-      "slot_policy": null,
-      "fill_pattern": "diamonds",
-      "locked": false,
-      "role": "window"
-    },
     "c_48977c25": {
       "id": "c_48977c25",
       "asset_id": "4d77b734d939",
@@ -325,6 +304,48 @@
       "parent_anchor": "mp_f7e3fca9__1__2",
       "slot_policy": null,
       "fill_pattern": "diamonds",
+      "locked": false,
+      "role": "window"
+    },
+    "c_aaae43f5": {
+      "id": "c_aaae43f5",
+      "asset_id": "4d77b734d939",
+      "x": -0.09169622037914354,
+      "y": -0.9000000000000066,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "Okno2",
+      "layer": 0,
+      "filled": false,
+      "param_overrides": {
+        "height": -0.7682169720430423
+      },
+      "attach_to": "c_9e3cbe5a",
+      "attach_anchor": "bottom",
+      "parent_anchor": "mp_f7e3fca9__2__2",
+      "slot_policy": null,
+      "fill_pattern": "",
+      "locked": false,
+      "role": "window"
+    },
+    "c_7d015226": {
+      "id": "c_7d015226",
+      "asset_id": "4d77b734d939",
+      "x": 2.214053779620856,
+      "y": -5.95,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "Okno2",
+      "layer": 0,
+      "filled": false,
+      "param_overrides": {
+        "height": 0.0460944718728129
+      },
+      "attach_to": "c_9e3cbe5a",
+      "attach_anchor": "bottom",
+      "parent_anchor": "mp_f7e3fca9__3__1",
+      "slot_policy": null,
+      "fill_pattern": "",
       "locked": false,
       "role": "window"
     }
