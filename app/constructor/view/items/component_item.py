@@ -1303,8 +1303,11 @@ class ComponentItem(QGraphicsObject):
                                 )
 
         if best_mount is not None:
-            if best is None or best_mount[0] < best[0]:
-                best = best_mount
+            # V23: mountpoint приоритетнее legacy slot/anchor.
+            # Если Component.role задан и mount найден — заменяем best
+            # принудительно, не сравнивая расстояние.
+            best = best_mount
+            best_slot = None
 
         # V13: snap к опорной линии (ground line).
         # Если мой bottom anchor близко к Y линии — snap по Y.

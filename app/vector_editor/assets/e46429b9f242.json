@@ -30,13 +30,14 @@
       "parent_anchor": "",
       "slot_policy": null,
       "fill_pattern": "",
-      "locked": false
+      "locked": false,
+      "role": null
     },
     "c_68972644": {
       "id": "c_68972644",
       "asset_id": "4d77b734d939",
-      "x": -5.31974042771847,
-      "y": -0.24553622670732478,
+      "x": -3.136532955006185,
+      "y": -3.3504243075451168,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Okno2",
@@ -45,28 +46,11 @@
       "param_overrides": {},
       "attach_to": "c_c5c94009",
       "attach_anchor": "bottom",
-      "parent_anchor": "slot_g_335f08fa_0_1",
-      "slot_policy": null,
-      "fill_pattern": "",
-      "locked": false
-    },
-    "c_17472355": {
-      "id": "c_17472355",
-      "asset_id": "d5d9aadc6a4c",
-      "x": 4.880666,
-      "y": 3.3320500000000006,
-      "rotation": 0.0,
-      "scale": 1.0,
-      "name": "Центральная башня 1 уровень",
-      "layer": 0,
-      "filled": false,
-      "param_overrides": {},
-      "attach_to": "c_c5c94009",
-      "attach_anchor": "bottom",
       "parent_anchor": "top",
       "slot_policy": null,
       "fill_pattern": "",
-      "locked": false
+      "locked": false,
+      "role": "window"
     }
   },
   "visibility_rules": {},
@@ -81,5 +65,26 @@
   },
   "ground_line_y": null,
   "ground_line_visible": true,
-  "layers": []
+  "layers": [
+    {
+      "id": "L_cee91042",
+      "name": "Основной",
+      "visible": true,
+      "locked": false,
+      "color": "#1A1A1A",
+      "fillable": true,
+      "geometry": {
+        "contour": [],
+        "closed": true,
+        "units": "m",
+        "node_ids": [],
+        "groups": {},
+        "extra_edges": [],
+        "arcs": [],
+        "extra_points": [],
+        "extra_node_ids": []
+      }
+    }
+  ],
+  "mountpoints": []
 }

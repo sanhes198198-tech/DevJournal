@@ -222,11 +222,41 @@ class MountPointDialog(QDialog):
         role_str = self._role_combo.currentData() or ""
         role = parse_role(role_str) if role_str else None
 
+        cx = self._count_x_spin.value()
+        cy = self._count_y_spin.value()
+        sx = self._spacing_x_spin.value()
+        sy = self._spacing_y_spin.value()
+
+        # V23: валидация — при count > 1 нужен spacing > 0
+        if cx > 1 and sx <= 0.0:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self,
+                "Неверный шаг",
+                f"Количество по X = {cx}, но шаг = 0.\n\n"
+                f"Все копии будут в одной точке.\n"
+                f"Укажите шаг по X > 0 или уменьшите количество до 1.",
+            )
+            self._spacing_x_spin.setFocus()
+            return
+
+        if cy > 1 and sy <= 0.0:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self,
+                "Неверный шаг",
+                f"Количество по Y = {cy}, но шаг = 0.\n\n"
+                f"Все копии будут в одной точке.\n"
+                f"Укажите шаг по Y > 0 или уменьшите количество до 1.",
+            )
+            self._spacing_y_spin.setFocus()
+            return
+
         dist = Distribution(
-            count_x=self._count_x_spin.value(),
-            count_y=self._count_y_spin.value(),
-            spacing_x=self._spacing_x_spin.value(),
-            spacing_y=self._spacing_y_spin.value(),
+            count_x=cx,
+            count_y=cy,
+            spacing_x=sx,
+            spacing_y=sy,
         )
 
         anchor_mode = self._anchor_combo.currentData() or "absolute"
