@@ -39,7 +39,8 @@
         "clearance": 1.5
       },
       "fill_pattern": "",
-      "locked": false
+      "locked": false,
+      "role": null
     },
     "c_48977c25": {
       "id": "c_48977c25",
@@ -59,7 +60,8 @@
       "parent_anchor": "slot_g_ac1967c5_0_0",
       "slot_policy": null,
       "fill_pattern": "diamonds",
-      "locked": false
+      "locked": false,
+      "role": null
     },
     "c_ff862183": {
       "id": "c_ff862183",
@@ -79,7 +81,8 @@
       "parent_anchor": "slot_g_ac1967c5_0_1",
       "slot_policy": null,
       "fill_pattern": "diamonds",
-      "locked": false
+      "locked": false,
+      "role": "window"
     },
     "c_31f30abd": {
       "id": "c_31f30abd",
@@ -99,7 +102,8 @@
       "parent_anchor": "slot_g_335f08fa_0_0",
       "slot_policy": null,
       "fill_pattern": "diamonds",
-      "locked": false
+      "locked": false,
+      "role": null
     },
     "c_a2c2fe83": {
       "id": "c_a2c2fe83",
@@ -119,7 +123,8 @@
       "parent_anchor": "slot_g_816d54fc_0_0",
       "slot_policy": null,
       "fill_pattern": "diamonds",
-      "locked": false
+      "locked": false,
+      "role": null
     },
     "c_e65d4c68": {
       "id": "c_e65d4c68",
@@ -140,7 +145,8 @@
       "parent_anchor": "",
       "slot_policy": null,
       "fill_pattern": "",
-      "locked": false
+      "locked": false,
+      "role": null
     },
     "c_0c66d7aa": {
       "id": "c_0c66d7aa",
@@ -160,7 +166,8 @@
       "parent_anchor": "",
       "slot_policy": null,
       "fill_pattern": "diamonds",
-      "locked": false
+      "locked": false,
+      "role": null
     },
     "c_dd580022": {
       "id": "c_dd580022",
@@ -180,7 +187,8 @@
       "parent_anchor": "",
       "slot_policy": null,
       "fill_pattern": "diamonds",
-      "locked": false
+      "locked": false,
+      "role": null
     },
     "c_b18af25d": {
       "id": "c_b18af25d",
@@ -200,7 +208,8 @@
       "parent_anchor": "top",
       "slot_policy": null,
       "fill_pattern": "",
-      "locked": false
+      "locked": false,
+      "role": null
     },
     "c_87250d1e": {
       "id": "c_87250d1e",
@@ -218,7 +227,8 @@
       "parent_anchor": "top",
       "slot_policy": null,
       "fill_pattern": "",
-      "locked": false
+      "locked": false,
+      "role": null
     },
     "c_21a93e2b": {
       "id": "c_21a93e2b",
@@ -236,7 +246,8 @@
       "parent_anchor": "top",
       "slot_policy": null,
       "fill_pattern": "",
-      "locked": false
+      "locked": false,
+      "role": null
     },
     "c_5c7aaf57": {
       "id": "c_5c7aaf57",
@@ -254,7 +265,8 @@
       "parent_anchor": "top",
       "slot_policy": null,
       "fill_pattern": "",
-      "locked": false
+      "locked": false,
+      "role": null
     },
     "c_7983eeda": {
       "id": "c_7983eeda",
@@ -274,7 +286,8 @@
       "parent_anchor": "slot_g_335f08fa_0_1",
       "slot_policy": null,
       "fill_pattern": "diamonds",
-      "locked": false
+      "locked": false,
+      "role": null
     },
     "c_3220d432": {
       "id": "c_3220d432",
@@ -294,7 +307,8 @@
       "parent_anchor": "",
       "slot_policy": null,
       "fill_pattern": "",
-      "locked": false
+      "locked": false,
+      "role": null
     },
     "c_e604099c": {
       "id": "c_e604099c",
@@ -312,7 +326,8 @@
       "parent_anchor": "top",
       "slot_policy": null,
       "fill_pattern": "diamonds",
-      "locked": false
+      "locked": false,
+      "role": null
     },
     "c_b463b5c3": {
       "id": "c_b463b5c3",
@@ -332,7 +347,8 @@
       "parent_anchor": "slot_g_4cb42e0a_0_0",
       "slot_policy": null,
       "fill_pattern": "diamonds",
-      "locked": false
+      "locked": false,
+      "role": null
     },
     "c_02859ea7": {
       "id": "c_02859ea7",
@@ -350,7 +366,8 @@
       "parent_anchor": "top",
       "slot_policy": null,
       "fill_pattern": "",
-      "locked": false
+      "locked": false,
+      "role": null
     },
     "c_8ac99ad4": {
       "id": "c_8ac99ad4",
@@ -370,7 +387,8 @@
       "parent_anchor": "slot_g_ac1967c5_0_0_x1",
       "slot_policy": null,
       "fill_pattern": "",
-      "locked": false
+      "locked": false,
+      "role": null
     },
     "c_f24dc041": {
       "id": "c_f24dc041",
@@ -390,7 +408,8 @@
       "parent_anchor": "slot_g_ac1967c5_0_1_x1",
       "slot_policy": null,
       "fill_pattern": "",
-      "locked": false
+      "locked": false,
+      "role": null
     }
   },
   "visibility_rules": {},
@@ -425,5 +444,6 @@
         "extra_node_ids": []
       }
     }
-  ]
+  ],
+  "mountpoints": []
 }
