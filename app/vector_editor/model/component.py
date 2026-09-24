@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import uuid
 
+from .mounting import MountRole, parse_role, role_to_str
+
 
 class Component:
     """Один компонент составного Asset'а."""
@@ -33,6 +35,7 @@ class Component:
         slot_policy: dict | None = None,
         fill_pattern: str = "",
         locked: bool = False,
+        role: MountRole | str | None = None,
     ):
         self.id = id or self._generate_id()
         self.asset_id = asset_id
@@ -69,6 +72,10 @@ class Component:
         # Заблокированный можно выделить и удалить, но нельзя
         # двигать (drag) и менять height/width через панель.
         self.locked: bool = bool(locked)
+
+        # V22 (Mounting): роль компонента в композите.
+        # Отдельно от asset.type. None = не привязан к роли.
+        self.role: MountRole | None = parse_role(role)
 
     @staticmethod
     def _generate_id() -> str:
@@ -139,6 +146,7 @@ class Component:
             "slot_policy": self.slot_policy,
             "fill_pattern": self.fill_pattern,
             "locked": self.locked,
+            "role": role_to_str(self.role),
         }
 
     @classmethod
@@ -164,4 +172,5 @@ class Component:
             slot_policy=d.get("slot_policy"),
             fill_pattern=str(d.get("fill_pattern", "")),
             locked=bool(d.get("locked", False)),
+            role=parse_role(d.get("role")),
         )
