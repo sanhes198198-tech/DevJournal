@@ -175,3 +175,49 @@ class SetPropertyCommand(QUndoCommand):
 
     # mergeWith НЕ реализуем — каждая команда отдельная,
     # чтобы Ctrl+Z откатывал по одному шагу.
+
+
+class MoveWithReflowCommand(QUndoCommand):
+    """Перемещение компонента + reflow детей одной командой.
+
+    Откатывает ВСЕ затронутые компоненты за один Ctrl+Z.
+    positions = {comp_id: (x, y)}
+    """
+
+    def __init__(
+        self,
+        before: dict,
+        after: dict,
+        items_by_comp_id: dict,
+        composite,
+    ):
+        super().__init__("Переместить компонент")
+        self._before = dict(before)
+        self._after = dict(after)
+        self._items = items_by_comp_id
+        self._composite = composite
+
+    def id(self) -> int:
+        return 1003
+
+    def _apply(self, positions: dict) -> None:
+        for cid, (x, y) in positions.items():
+            comp = self._composite.get_component(cid)
+            if comp is None:
+                continue
+            comp.x = float(x)
+            comp.y = float(y)
+            item = self._items.get(cid)
+            if item is not None:
+                item.setPos(float(x), float(y))
+                item.update()
+
+    def redo(self) -> None:
+        self._apply(self._after)
+
+    def undo(self) -> None:
+        self._apply(self._before)
+
+    def mergeWith(self, other) -> bool:
+        return False
+

@@ -23,6 +23,7 @@ from .view.asset_open_dialog import AssetOpenDialog
 from .view.rules_manager_dialog import RulesManagerDialog
 from .view.items.component_item import ComponentItem
 from .commands import (
+    MoveWithReflowCommand,
     SetParamOverrideCommand,
     MoveComponentCommand,
     AddComponentCommand,
@@ -58,6 +59,7 @@ class ConstructorWindow(QMainWindow):
         self._current_asset_id: str | None = None
         self._current_asset_name: str = "Новый замок"
         self._items_by_comp_id: dict = {}
+        self._drag_before_positions: dict | None = None
         # Стек навигации: [(asset_id, asset_name), ...]
         # Верх стека — откуда пришли. Пусто = верхний уровень.
         self._nav_stack: list = []
@@ -689,6 +691,8 @@ class ConstructorWindow(QMainWindow):
                 comp, asset=ref_asset, registry=self._registry,
             )
             item.moved.connect(self._on_item_moved)
+
+            item.drag_started.connect(self._on_item_drag_started)
             item.enter_requested.connect(self._on_enter_composite)
             item.drag_finished.connect(self._on_item_drag_finished)
             item.param_changed.connect(self._on_prop_param_override)
@@ -985,6 +989,8 @@ class ConstructorWindow(QMainWindow):
             comp, asset=ref_asset, registry=self._registry,
         )
         item.moved.connect(self._on_item_moved)
+
+        item.drag_started.connect(self._on_item_drag_started)
         item.enter_requested.connect(self._on_enter_composite)
         item.drag_finished.connect(self._on_item_drag_finished)
         item.param_changed.connect(self._on_prop_param_override)
@@ -1126,30 +1132,58 @@ class ConstructorWindow(QMainWindow):
             f"{self._current_composite.component_count()}", 3000,
         )
 
+    def _on_item_drag_started(self, comp_id: str) -> None:
+        """MousePress — снять before со ВСЕХ компонентов для undo reflow."""
+        before = {}
+        for cid, _it in self._items_by_comp_id.items():
+            c = self._current_composite.get_component(cid)
+            if c is not None:
+                before[cid] = (float(c.x), float(c.y))
+        self._drag_before_positions = before
+
     def _on_item_drag_finished(
         self, comp_id: str,
         old_x: float, old_y: float,
         new_x: float, new_y: float,
     ) -> None:
-        """Item перетащили — запушить команду в undo stack."""
+        """MouseRelease — push одной undo-команды для стены + детей.
+
+        Reflow уже выполнен в _on_item_moved во время drag.
+        Здесь только фиксируем результат в undo stack.
+        """
         comp = self._current_composite.get_component(comp_id)
         if comp is None:
+            self._drag_before_positions = None
             return
 
-        # Позиция уже применена в mouseRelease — просто фиксируем в истории
-        comp.x = old_x
-        comp.y = old_y
+        before = self._drag_before_positions
+        self._drag_before_positions = None
 
-        item = self._items_by_comp_id.get(comp_id)
+        if not before:
+            before = {comp_id: (float(old_x), float(old_y))}
 
-        def _apply():
-            if item is not None:
-                item.setPos(comp.x, comp.y)
-                item.update()
+        # Текущее состояние всех компонентов
+        after = {}
+        for cid, _it in self._items_by_comp_id.items():
+            c = self._current_composite.get_component(cid)
+            if c is not None:
+                after[cid] = (float(c.x), float(c.y))
 
-        cmd = MoveComponentCommand(
-            comp, old_x, old_y, new_x, new_y,
-            on_apply=_apply,
+        changed = {
+            cid: after[cid]
+            for cid in after
+            if before.get(cid) != after[cid]
+        }
+        if not changed:
+            return
+
+        before_changed = {cid: before[cid] for cid in changed}
+
+        cmd = MoveWithReflowCommand(
+            before_changed,
+            changed,
+            self._items_by_comp_id,
+            self._current_composite,
         )
         self._undo_stack.push(cmd)
 
@@ -1170,8 +1204,11 @@ class ConstructorWindow(QMainWindow):
                 )
                 break
 
-        # Phase 12: ReflowEngine — дети едут за mount-точками
-        # родителя. Только для mount-attachment (mp_*), рекурсивно.
+        # Phase 13: reflow перенесён в _on_item_drag_finished,
+        # чтобы undo откатывал стену+детей одной командой.
+
+        # Phase 13+: reflow вживую — дети едут синхронно во время drag.
+        # Undo-команда формируется в _on_item_drag_finished.
         if moved_comp_id is not None:
             from .reflow_engine import reflow_from
             reflow_from(

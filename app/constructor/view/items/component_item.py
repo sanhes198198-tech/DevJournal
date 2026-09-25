@@ -42,6 +42,7 @@ class ComponentItem(QGraphicsObject):
 
     # Эмитится после завершения drag или после apply_from_component
     moved = Signal()
+    drag_started = Signal(str)  # comp_id, эмитится в mousePress
     # Двойной клик по composite — сигнал «войти» с asset_id
     enter_requested = Signal(str)
     # (comp_id, old_x, old_y, new_x, new_y) — после drag
@@ -943,6 +944,8 @@ class ComponentItem(QGraphicsObject):
             self._drag_old_pos = (self.pos().x(), self.pos().y())
             # V21: сброс pending — новый drag начинается с нуля
             self._pending_snap = None
+            # Phase 13+: уведомить окно — снять снапшот для undo reflow
+            self.drag_started.emit(self._component.id)
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event) -> None:
