@@ -96,11 +96,16 @@ def _reflow_recursive(
             continue
 
         # новая позиция = mount_world - child_anchor_local
+        # Use the child's actual Qt transform, just as Snap does. Subtracting
+        # an item-local endpoint directly ignores child rotation and scale.
         parent_scene = parent_item.mapToScene(
             QPointF(p_local[0], p_local[1])
         )
-        new_x = parent_scene.x() - c_local[0]
-        new_y = parent_scene.y() - c_local[1]
+        new_position = child_item.position_for_endpoint_at_scene(
+            c_local, parent_scene,
+        )
+        new_x = new_position.x()
+        new_y = new_position.y()
 
         if (abs(child_comp.x - new_x) > 1e-9
                 or abs(child_comp.y - new_y) > 1e-9):

@@ -750,6 +750,44 @@ class ComponentItem(QGraphicsObject):
             "diagnostic": None,
         }
 
+    def position_for_endpoint_at_scene(
+        self,
+        local_position: tuple[float, float],
+        scene_position: QPointF,
+    ) -> QPointF:
+        """Return the item position that maps a local endpoint to a scene point.
+
+        Resolve the endpoint through the same Qt transform used by Snap. The
+        translation is then converted from scene coordinates into this
+        item's parent coordinates, if it has a graphics parent.
+        """
+        endpoint_scene = self.mapToScene(
+            QPointF(float(local_position[0]), float(local_position[1]))
+        )
+        target_scene = (
+            scene_position
+            if isinstance(scene_position, QPointF)
+            else QPointF(float(scene_position[0]), float(scene_position[1]))
+        )
+        scene_delta = target_scene - endpoint_scene
+
+        parent_item = self.parentItem()
+        if parent_item is None:
+            item_delta = scene_delta
+        else:
+            origin_scene = self.mapToScene(QPointF(0.0, 0.0))
+            origin_parent = parent_item.mapFromScene(origin_scene)
+            shifted_origin_parent = parent_item.mapFromScene(
+                origin_scene + scene_delta
+            )
+            item_delta = shifted_origin_parent - origin_parent
+
+        current_position = self.pos()
+        return QPointF(
+            current_position.x() + item_delta.x(),
+            current_position.y() + item_delta.y(),
+        )
+
     def set_highlighted_anchor(self, tag: str | None) -> None:
         if self._highlighted_anchor != tag:
             self._highlighted_anchor = tag
@@ -949,9 +987,14 @@ class ComponentItem(QGraphicsObject):
         self.clear_snap_highlight()
 
         # Сдвигаем себя на (dx, dy), чтобы наш anchor совпал с их
+        snap_target = QPointF(
+            my_bottom[0] + result.dx,
+            my_bottom[1] + result.dy,
+        )
         self.setPos(
-            self.pos().x() + result.dx,
-            self.pos().y() + result.dy,
+            self.position_for_endpoint_at_scene(
+                local_position, snap_target,
+            )
         )
 
         # Подсветка
