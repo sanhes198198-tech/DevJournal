@@ -722,6 +722,34 @@ class ComponentItem(QGraphicsObject):
 
         return result
 
+    def resolve_child_endpoint(self, alias: str) -> dict | None:
+        """Resolve a legacy child anchor in item-local coordinates.
+
+        The existing ``anchors_local`` implementation remains the source of
+        truth for aliases, including group priority and parameter overrides.
+        This helper only adapts its result to a temporary endpoint descriptor.
+        """
+        if not alias:
+            return None
+
+        local_position = self.anchors_local().get(alias)
+        if local_position is None:
+            return {
+                "local_position": None,
+                "source": "legacy_anchor",
+                "alias": alias,
+                "resolved": False,
+                "diagnostic": f"Unknown legacy anchor alias: {alias!r}",
+            }
+
+        return {
+            "local_position": local_position,
+            "source": "legacy_anchor",
+            "alias": alias,
+            "resolved": True,
+            "diagnostic": None,
+        }
+
     def set_highlighted_anchor(self, tag: str | None) -> None:
         if self._highlighted_anchor != tag:
             self._highlighted_anchor = tag
@@ -884,12 +912,21 @@ class ComponentItem(QGraphicsObject):
             self._pending_snap = None
             return
 
-        my_world = self.anchors_world()
-        my_bottom = my_world.get("bottom")
-        if my_bottom is None:
+        endpoint = self.resolve_child_endpoint("bottom")
+        if endpoint is None or not endpoint.get("resolved"):
             self.clear_snap_highlight()
             self._pending_snap = None
             return
+
+        local_position = endpoint.get("local_position")
+        if local_position is None:
+            self.clear_snap_highlight()
+            self._pending_snap = None
+            return
+        world_position = self.mapToScene(
+            QPointF(local_position[0], local_position[1])
+        )
+        my_bottom = (world_position.x(), world_position.y())
 
         views = scene.views()
         ppm = 50.0

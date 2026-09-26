@@ -86,8 +86,12 @@ def _reflow_recursive(
             continue
 
         # anchor ребёнка в его локальных координатах
-        child_anchors = child_item.anchors_local()
-        c_local = child_anchors.get(child_comp.attach_anchor)
+        endpoint = child_item.resolve_child_endpoint(
+            child_comp.attach_anchor
+        )
+        if endpoint is None or not endpoint.get("resolved"):
+            continue
+        c_local = endpoint.get("local_position")
         if c_local is None:
             continue
 
