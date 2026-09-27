@@ -40,6 +40,7 @@ class MountPointDialog(QDialog):
         self,
         mountpoint: MountPoint | None = None,
         default_position: tuple[float, float] = (0.0, 0.0),
+        asset=None,
         parent=None,
     ):
         super().__init__(parent)
@@ -48,6 +49,7 @@ class MountPointDialog(QDialog):
 
         self._original = mountpoint
         self._is_edit = mountpoint is not None
+        self._asset = asset
 
         self.setWindowTitle(
             "Редактировать точку" if self._is_edit
@@ -79,6 +81,7 @@ class MountPointDialog(QDialog):
 
         form = QFormLayout()
         form.setSpacing(8)
+        self._form = form  # Step 5: для скрытия полей в group_bound
 
         self._role_combo = QComboBox()
         for role, label in ROLE_LABELS:
@@ -118,6 +121,26 @@ class MountPointDialog(QDialog):
         self._anchor_y_spin.setSingleStep(0.05)
         form.addRow("Anchor Y (0-1):", self._anchor_y_spin)
 
+        # Step 4: привязка к семантической группе (границы распределения)
+        self._group_combo = QComboBox()
+        self._group_combo.addItem("— не привязано —", "")
+        _asset = getattr(self, "_asset", None)
+        if _asset is not None:
+            groups = getattr(_asset, "semantic_groups", None) or {}
+            for gid, g in sorted(
+                groups.items(),
+                key=lambda kv: (getattr(kv[1], "name", "") or "").lower(),
+            ):
+                gname = getattr(g, "name", "") or gid
+                glabel = getattr(g, "label", "") or gname
+                self._group_combo.addItem(
+                    f"{glabel}  ({gname})", gid,
+                )
+        self._group_combo.currentIndexChanged.connect(
+            self._on_group_changed
+        )
+        form.addRow("Группа:", self._group_combo)
+
         layout.addLayout(form)
 
         dist_title = QLabel("Размножение")
@@ -128,6 +151,7 @@ class MountPointDialog(QDialog):
 
         dist_form = QFormLayout()
         dist_form.setSpacing(8)
+        self._dist_form = dist_form  # Step 5
 
         self._count_x_spin = QSpinBox()
         self._count_x_spin.setRange(1, 500)
@@ -173,6 +197,26 @@ class MountPointDialog(QDialog):
         )
         dist_form.addRow("", self._adaptive_y_check)
 
+        # Step 5: понятные имена
+        _lbl_x = dist_form.labelForField(self._spacing_x_spin)
+        if _lbl_x is not None:
+            _lbl_x.setText("Расстояние между точками по X:")
+        _lbl_y = dist_form.labelForField(self._spacing_y_spin)
+        if _lbl_y is not None:
+            _lbl_y.setText("Расстояние между точками по Y:")
+        _lbl_mx = dist_form.labelForField(self._margin_x_spin)
+        if _lbl_mx is not None:
+            _lbl_mx.setText("Отступ от края группы по X:")
+        _lbl_my = dist_form.labelForField(self._margin_y_spin)
+        if _lbl_my is not None:
+            _lbl_my.setText("Отступ от края группы по Y:")
+
+        self._symmetric_x_check = QCheckBox("Симметрично по X (в обе стороны)")
+        dist_form.addRow("", self._symmetric_x_check)
+
+        self._symmetric_y_check = QCheckBox("Симметрично по Y (в обе стороны)")
+        dist_form.addRow("", self._symmetric_y_check)
+
         layout.addLayout(dist_form)
 
         hint = QLabel(
@@ -210,6 +254,37 @@ class MountPointDialog(QDialog):
         # В absolute — X/Y спинбоксы активны
         self._x_spin.setEnabled(not enabled)
         self._y_spin.setEnabled(not enabled)
+
+    def _on_group_changed(self, idx: int) -> None:
+        """Step 5: в group_bound режиме скрываем ненужные поля.
+
+        Остаются: Роль, X/Y, Группа, Шаг X/Y, Отступ X/Y, Симметрично X/Y.
+        """
+        group_id = self._group_combo.currentData() or ""
+        is_group = bool(group_id)
+
+        # Скрываем в верхней форме
+        for w in (
+            self._anchor_combo,
+            self._anchor_x_spin,
+            self._anchor_y_spin,
+        ):
+            try:
+                self._form.setRowVisible(w, not is_group)
+            except Exception:
+                w.setVisible(not is_group)
+
+        # Скрываем в форме размножения
+        for w in (
+            self._count_x_spin,
+            self._count_y_spin,
+            self._adaptive_x_check,
+            self._adaptive_y_check,
+        ):
+            try:
+                self._dist_form.setRowVisible(w, not is_group)
+            except Exception:
+                w.setVisible(not is_group)
 
     def _on_adaptive_x_toggled(self, checked: bool) -> None:
         """B3: при adaptive_x — count_x вычисляется, поле серое."""
@@ -256,6 +331,22 @@ class MountPointDialog(QDialog):
             self._adaptive_y_check.isChecked()
         )
 
+        # Step 4: group_bound
+        gid = getattr(mp, "semantic_group_id", None) or ""
+        gi = self._group_combo.findData(gid)
+        if gi >= 0:
+            self._group_combo.setCurrentIndex(gi)
+        else:
+            self._group_combo.setCurrentIndex(0)
+
+        # Step 4: symmetric
+        self._symmetric_x_check.setChecked(
+            bool(getattr(d, "symmetric_x", False))
+        )
+        self._symmetric_y_check.setChecked(
+            bool(getattr(d, "symmetric_y", False))
+        )
+
         # V22: anchor
         mode = getattr(mp, "anchor_mode", "absolute") or "absolute"
         mi = self._anchor_combo.findData(mode)
@@ -268,6 +359,7 @@ class MountPointDialog(QDialog):
             float(getattr(mp, "anchor_y", 0.5))
         )
         self._on_anchor_mode_changed(0)
+        self._on_group_changed(0)
 
     def _on_accept(self) -> None:
         role_str = self._role_combo.currentData() or ""
@@ -290,7 +382,10 @@ class MountPointDialog(QDialog):
             margin_y=self._margin_y_spin.value(),
             adaptive_x=self._adaptive_x_check.isChecked(),
             adaptive_y=self._adaptive_y_check.isChecked(),
+            symmetric_x=self._symmetric_x_check.isChecked(),
+            symmetric_y=self._symmetric_y_check.isChecked(),
         )
+        group_id = self._group_combo.currentData() or None
 
         anchor_mode = self._anchor_combo.currentData() or "absolute"
         anchor_x = self._anchor_x_spin.value()
@@ -306,6 +401,7 @@ class MountPointDialog(QDialog):
             self._original.anchor_mode = anchor_mode
             self._original.anchor_x = anchor_x
             self._original.anchor_y = anchor_y
+            self._original.semantic_group_id = group_id
             self.result_mountpoint = self._original
         else:
             self.result_mountpoint = MountPoint(
@@ -318,6 +414,7 @@ class MountPointDialog(QDialog):
                 anchor_mode=anchor_mode,
                 anchor_x=anchor_x,
                 anchor_y=anchor_y,
+                semantic_group_id=group_id,
             )
 
         self.accept()

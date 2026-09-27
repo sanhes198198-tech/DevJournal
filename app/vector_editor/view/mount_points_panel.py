@@ -228,6 +228,7 @@ class MountPointsPanel(QWidget):
 
         dlg = MountPointDialog(
             default_position=default_pos,
+            asset=self._asset,
             parent=self,
         )
         if dlg.exec() != MountPointDialog.DialogCode.Accepted:
@@ -253,7 +254,9 @@ class MountPointsPanel(QWidget):
 
         # V23: snapshot ДО редактирования (dlg мутирует mp)
         self.mount_points_will_change.emit()
-        dlg = MountPointDialog(mountpoint=mp, parent=self)
+        dlg = MountPointDialog(
+            mountpoint=mp, asset=self._asset, parent=self,
+        )
         if dlg.exec() != MountPointDialog.DialogCode.Accepted:
             return
 
