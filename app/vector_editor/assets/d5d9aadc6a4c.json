@@ -158,13 +158,33 @@
       [
         14.57087527136117,
         18.28949641527843
+      ],
+      [
+        13.911108438964419,
+        16.454513337601856
+      ],
+      [
+        13.080456332444529,
+        16.35980392935874
+      ],
+      [
+        14.74176054548431,
+        16.35980392935874
+      ],
+      [
+        13.904208192772133,
+        14.79358413059306
       ]
     ],
     "extra_node_ids": [
       "e_000",
       "e_001",
       "e_002",
-      "e_003"
+      "e_003",
+      "e_004",
+      "e_005",
+      "e_006",
+      "e_007"
     ]
   },
   "components": {},
@@ -210,6 +230,16 @@
       ],
       "auto_rule": null
     },
+    "g_09a313f8": {
+      "id": "g_09a313f8",
+      "name": "anchor_bottom",
+      "label": "Якорь низ",
+      "node_ids": [
+        "n_019",
+        "n_018"
+      ],
+      "auto_rule": null
+    },
     "g_f29cca74": {
       "id": "g_f29cca74",
       "name": "left",
@@ -251,85 +281,77 @@
       ],
       "auto_rule": null
     },
-    "g_99cb906d": {
-      "id": "g_99cb906d",
-      "name": "stena",
-      "label": "Стена",
+    "g_42a35f35": {
+      "id": "g_42a35f35",
+      "name": "anchor_top",
+      "label": "Якорь верх",
       "node_ids": [
-        "n_000",
-        "n_001",
-        "n_002",
-        "n_003",
-        "n_004",
-        "n_005",
-        "n_006",
-        "n_007",
         "n_008",
-        "n_020",
-        "n_009",
-        "n_010",
-        "n_011",
-        "n_012",
-        "n_013",
-        "n_014",
-        "n_015",
-        "n_016",
-        "n_017",
-        "n_019",
-        "n_018"
-      ]
+        "n_020"
+      ],
+      "auto_rule": null
     },
-    "g_e73f1125": {
-      "id": "g_e73f1125",
-      "name": "mount_top",
-      "label": "Крепление верх",
+    "g_c45c85a0": {
+      "id": "g_c45c85a0",
+      "name": "window_slot",
+      "label": "Слот окна",
       "node_ids": [
-        "n_007",
-        "n_008",
-        "n_020",
-        "n_009",
-        "n_010",
-        "n_011"
-      ]
+        "e_006"
+      ],
+      "auto_rule": {
+        "axis": "y",
+        "step": -3.0,
+        "until_group": "window_slot",
+        "skip_groups": [],
+        "axis_x": "x",
+        "step_x": -2.0,
+        "until_group_x": ""
+      }
     },
-    "g_ee7a4429": {
-      "id": "g_ee7a4429",
-      "name": "mount_bottom",
-      "label": "Крепление низ",
+    "g_42fd058c": {
+      "id": "g_42fd058c",
+      "name": "window_slot",
+      "label": "Слот окна",
       "node_ids": [
-        "n_000",
-        "n_017",
-        "n_019",
-        "n_018"
-      ]
+        "e_005"
+      ],
+      "auto_rule": {
+        "axis": "y",
+        "step": -3.0,
+        "until_group": "window_slot",
+        "skip_groups": [],
+        "axis_x": "x",
+        "step_x": -2.0,
+        "until_group_x": ""
+      }
     },
-    "g_9321501b": {
-      "id": "g_9321501b",
-      "name": "mount_left",
-      "label": "Крепление лево",
+    "g_4cb42e0a": {
+      "id": "g_4cb42e0a",
+      "name": "window_slot",
+      "label": "Слот окна",
       "node_ids": [
-        "n_007"
-      ]
+        "e_004"
+      ],
+      "auto_rule": {
+        "axis": "y",
+        "step": -3.0,
+        "until_group": "window_slot",
+        "skip_groups": []
+      }
     },
-    "g_721d62cf": {
-      "id": "g_721d62cf",
-      "name": "mount_right",
-      "label": "Крепление право",
+    "g_94ea3df6": {
+      "id": "g_94ea3df6",
+      "name": "top",
+      "label": "Корниз",
       "node_ids": [
-        "n_010",
-        "n_011"
-      ]
-    },
-    "g_5b604cbc": {
-      "id": "g_5b604cbc",
-      "name": "mount_bottom",
-      "label": "Крепление низ",
-      "node_ids": [
-        "n_018",
-        "n_017",
-        "n_000",
-        "n_019"
-      ]
+        "e_007"
+      ],
+      "auto_rule": {
+        "axis": "y",
+        "step": -3.0,
+        "until_group": "top",
+        "skip_groups": []
+      }
     }
   },
   "parameters": {
@@ -540,34 +562,35 @@
           [
             14.57087527136117,
             18.28949641527843
+          ],
+          [
+            13.911108438964419,
+            16.454513337601856
+          ],
+          [
+            13.080456332444529,
+            16.35980392935874
+          ],
+          [
+            14.74176054548431,
+            16.35980392935874
+          ],
+          [
+            13.904208192772133,
+            14.79358413059306
           ]
         ],
         "extra_node_ids": [
           "e_000",
           "e_001",
           "e_002",
-          "e_003"
+          "e_003",
+          "e_004",
+          "e_005",
+          "e_006",
+          "e_007"
         ]
       }
-    }
-  ],
-  "mountpoints": [
-    {
-      "id": "mp_558633b5",
-      "role": "window",
-      "position": [
-        13.919,
-        17.109
-      ],
-      "distribution": {
-        "count_x": 1,
-        "count_y": 1,
-        "spacing_x": 0.3,
-        "spacing_y": 1.0,
-        "symmetric_x": true,
-        "symmetric_y": true
-      },
-      "semantic_group_id": "g_99cb906d"
     }
   ]
 }

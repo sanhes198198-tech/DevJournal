@@ -64,6 +64,47 @@ def _reflow_recursive(
         if attached_parent_id != parent_id:
             continue
 
+        # Wall-attachment: parent_anchor = "wall_top__c_xxx"
+        # (соединение стен через mount_bottom ↔ mount_top)
+        their_tag = getattr(child_comp, "parent_anchor", "") or ""
+        if their_tag.startswith("wall_"):
+            my_group = getattr(child_comp, "attach_anchor", "") or ""
+            if not my_group.startswith("mount_"):
+                continue
+            parts = their_tag.split("__")
+            if len(parts) < 2:
+                continue
+            their_group = parts[0].replace("wall_", "mount_")
+
+            my_bbox = child_item.group_bbox_world(my_group)
+            their_bbox = parent_item.group_bbox_world(their_group)
+            if my_bbox is None or their_bbox is None:
+                continue
+
+            mx = (my_bbox[0] + my_bbox[2]) / 2.0
+            my = (my_bbox[1] + my_bbox[3]) / 2.0
+            tx = (their_bbox[0] + their_bbox[2]) / 2.0
+            ty = (their_bbox[1] + their_bbox[3]) / 2.0
+
+            dx = tx - mx
+            dy = ty - my
+            new_x = child_comp.x + dx
+            new_y = child_comp.y + dy
+
+            if (abs(child_comp.x - new_x) > 1e-9
+                    or abs(child_comp.y - new_y) > 1e-9):
+                child_comp.x = new_x
+                child_comp.y = new_y
+                child_item.setPos(new_x, new_y)
+                child_item.update()
+                count += 1
+
+            # рекурсия — дети ребёнка тоже едут
+            count += _reflow_recursive(
+                child_id, items_by_comp_id, composite, visited,
+            )
+            continue
+
         native_parent_location = getattr(
             attachment, "parent_location", None,
         )
