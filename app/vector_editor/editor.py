@@ -2210,11 +2210,108 @@ class VectorEditor(QMainWindow):
     # SAVE
     # ============================================================
 
+    def _ensure_default_groups(self, asset) -> None:
+        """Автосоздать стандартные группы если их нет.
+
+        Создаёт:
+          - stena — все узлы контура (для окон)
+          - mount_top / mount_bottom / mount_left / mount_right
+            — узлы на соответствующей грани bbox
+        """
+        if asset is None:
+            return
+
+        from .model.semantic_group import SemanticGroup
+
+        xs, ys = [], []
+        node_pts: dict = {}
+        layers = getattr(asset, "layers", None) or []
+        geometries = []
+        if layers:
+            for layer in layers:
+                if not getattr(layer, "visible", True):
+                    continue
+                g = layer.geometry or {}
+                if g:
+                    geometries.append(g)
+        if not geometries:
+            g = getattr(asset, "geometry", None)
+            if g:
+                geometries.append(g)
+
+        for geom in geometries:
+            contour = geom.get("contour", [])
+            node_ids = geom.get("node_ids", [])
+            for i, nid in enumerate(node_ids):
+                if i < len(contour):
+                    x, y = contour[i]
+                    xs.append(float(x))
+                    ys.append(float(y))
+                    node_pts[nid] = (float(x), float(y))
+
+        if not node_pts:
+            return
+
+        xmin, xmax = min(xs), max(xs)
+        ymin, ymax = min(ys), max(ys)
+        TOL = 0.1
+
+        existing = {
+            getattr(g, "name", "")
+            for g in (asset.semantic_groups or {}).values()
+        }
+
+        def _make(name: str, label: str, ids: list) -> None:
+            g = SemanticGroup(
+                name=name, label=label, node_ids=list(ids),
+            )
+            asset.add_semantic_group(g)
+
+        if "stena" not in existing:
+            _make("stena", "Стена", list(node_pts.keys()))
+
+        if "mount_top" not in existing:
+            ids = [
+                nid for nid, (x, y) in node_pts.items()
+                if abs(y - ymin) <= TOL
+            ]
+            if ids:
+                _make("mount_top", "Крепление верх", ids)
+
+        if "mount_bottom" not in existing:
+            ids = [
+                nid for nid, (x, y) in node_pts.items()
+                if abs(y - ymax) <= TOL
+            ]
+            if ids:
+                _make("mount_bottom", "Крепление низ", ids)
+
+        if "mount_left" not in existing:
+            ids = [
+                nid for nid, (x, y) in node_pts.items()
+                if abs(x - xmin) <= TOL
+            ]
+            if ids:
+                _make("mount_left", "Крепление лево", ids)
+
+        if "mount_right" not in existing:
+            ids = [
+                nid for nid, (x, y) in node_pts.items()
+                if abs(x - xmax) <= TOL
+            ]
+            if ids:
+                _make("mount_right", "Крепление право", ids)
+
     def _on_save(self) -> None:
         if self._current_asset_id is None:
             # Нет id → это Save As (в т.ч. без контура)
             self._on_save_as()
             return
+
+        # Автосоздание стандартных групп
+        if self._current_asset is not None:
+            self._sync_layers_from_live()
+            self._ensure_default_groups(self._current_asset)
 
         if self._contour_item is not None:
             contour = self._contour_item.contour
