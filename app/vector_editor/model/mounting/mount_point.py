@@ -26,6 +26,8 @@ class Distribution:
         margin_y: float = 0.0,
         adaptive_x: bool = False,
         adaptive_y: bool = False,
+        symmetric_x: bool = False,
+        symmetric_y: bool = False,
     ):
         self.count_x = max(1, int(count_x))
         self.count_y = max(1, int(count_y))
@@ -38,6 +40,9 @@ class Distribution:
         # с фиксированным spacing (окна добавляются при росте стены).
         self.adaptive_x = bool(adaptive_x)
         self.adaptive_y = bool(adaptive_y)
+        # B4: symmetric — размножение в обе стороны от base-точки
+        self.symmetric_x = bool(symmetric_x)
+        self.symmetric_y = bool(symmetric_y)
 
     def total_count(self) -> int:
         return self.count_x * self.count_y
@@ -68,6 +73,10 @@ class Distribution:
             d["adaptive_x"] = True
         if self.adaptive_y:
             d["adaptive_y"] = True
+        if self.symmetric_x:
+            d["symmetric_x"] = True
+        if self.symmetric_y:
+            d["symmetric_y"] = True
         return d
 
     @classmethod
@@ -83,6 +92,8 @@ class Distribution:
             margin_y=d.get("margin_y", 0.0),
             adaptive_x=d.get("adaptive_x", False),
             adaptive_y=d.get("adaptive_y", False),
+            symmetric_x=d.get("symmetric_x", False),
+            symmetric_y=d.get("symmetric_y", False),
         )
 
 
