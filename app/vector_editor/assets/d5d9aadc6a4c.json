@@ -251,16 +251,6 @@
       ],
       "auto_rule": null
     },
-    "g_42a35f35": {
-      "id": "g_42a35f35",
-      "name": "anchor_top",
-      "label": "Якорь верх",
-      "node_ids": [
-        "n_008",
-        "n_020"
-      ],
-      "auto_rule": null
-    },
     "g_99cb906d": {
       "id": "g_99cb906d",
       "name": "stena",
@@ -328,6 +318,17 @@
       "node_ids": [
         "n_010",
         "n_011"
+      ]
+    },
+    "g_5b604cbc": {
+      "id": "g_5b604cbc",
+      "name": "mount_bottom",
+      "label": "Крепление низ",
+      "node_ids": [
+        "n_018",
+        "n_017",
+        "n_000",
+        "n_019"
       ]
     }
   },
@@ -550,5 +551,23 @@
       }
     }
   ],
-  "mountpoints": []
+  "mountpoints": [
+    {
+      "id": "mp_558633b5",
+      "role": "window",
+      "position": [
+        13.919,
+        17.109
+      ],
+      "distribution": {
+        "count_x": 1,
+        "count_y": 1,
+        "spacing_x": 0.3,
+        "spacing_y": 1.0,
+        "symmetric_x": true,
+        "symmetric_y": true
+      },
+      "semantic_group_id": "g_99cb906d"
+    }
+  ]
 }
