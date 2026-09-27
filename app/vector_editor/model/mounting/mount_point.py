@@ -240,50 +240,151 @@ class MountPoint:
         bbox=None,
         param_overrides: dict | None = None,
     ) -> list["MountLocation"]:
-        """Resolve against an Asset when this point is group-bound.
+        """Resolve против Asset.
 
-        Static MountPoints keep the existing ``resolve(bbox)`` behavior.
-        Group-bound points use the current SemanticGroup geometry, plus the
-        supplied component parameter overrides, and produce one location.
-        The returned position is Asset-local; the caller applies item
-        centering and scene transforms separately.
+        Если точка НЕ group_bound — старое resolve(bbox).
+        Если group_bound:
+          - spacing_x == 0 и spacing_y == 0 → 1 точка в центроиде группы
+          - spacing > 0 → сетка от self.position с обрезкой по bbox группы
         """
         if not self.is_group_bound():
             return self.resolve(bbox=bbox)
 
         if asset is None:
             raise ValueError("Group-bound MountPoint requires an Asset")
-        if not self.distribution.is_simple():
-            raise ValueError(
-                "Group-bound MountPoint requires a single location"
-            )
 
-        centroid_resolver = getattr(
-            asset, "semantic_group_centroid", None,
-        )
-        if not callable(centroid_resolver):
-            raise ValueError(
-                "Asset cannot resolve SemanticGroup positions"
+        bbox_resolver = getattr(asset, "semantic_group_bbox", None)
+        centroid_resolver = getattr(asset, "semantic_group_centroid", None)
+        if not callable(bbox_resolver) or not callable(centroid_resolver):
+            raise ValueError("Asset cannot resolve SemanticGroup geometry")
+
+        d = self.distribution
+
+        # Старое поведение: одна точка в центроиде группы
+        if d.spacing_x == 0.0 and d.spacing_y == 0.0:
+            position = centroid_resolver(
+                self.semantic_group_id,
+                param_overrides=param_overrides,
             )
-        position = centroid_resolver(
+            if position is None:
+                raise ValueError(
+                    f"Unknown or empty SemanticGroup: "
+                    f"{self.semantic_group_id!r}"
+                )
+            return [
+                MountLocation(
+                    mountpoint_id=self.id,
+                    index_x=0,
+                    index_y=0,
+                    role=self.role,
+                    position=position,
+                ),
+            ]
+
+        # Новый режим: сетка от self.position внутри bbox группы
+        group_bbox = bbox_resolver(
             self.semantic_group_id,
             param_overrides=param_overrides,
         )
-        if position is None:
+        if group_bbox is None:
             raise ValueError(
                 f"Unknown or empty SemanticGroup: "
                 f"{self.semantic_group_id!r}"
             )
 
-        return [
-            MountLocation(
-                mountpoint_id=self.id,
-                index_x=0,
-                index_y=0,
-                role=self.role,
-                position=position,
-            ),
-        ]
+        return self._resolve_grid_in_bbox(group_bbox)
+
+    def _resolve_grid_in_bbox(
+        self, bbox: tuple[float, float, float, float],
+    ) -> list["MountLocation"]:
+        """Разложить точки сеткой от self.position с обрезкой по bbox.
+
+        spacing_x/y — фиксированный шаг.
+        symmetric_x/y — True: в обе стороны; False: только +.
+        margin_x/y — отступ от краёв bbox.
+        """
+        xmin, ymin, xmax, ymax = bbox
+        d = self.distribution
+        sx = d.spacing_x
+        sy = d.spacing_y
+        mx = d.margin_x
+        my = d.margin_y
+        base_x, base_y = self.position
+
+        # === X индексы ===
+        x_pairs: list[tuple[int, float]] = []
+        if sx > 0.0:
+            left_bound = xmin + mx
+            right_bound = xmax - mx
+            # base
+            if left_bound <= base_x <= right_bound:
+                x_pairs.append((0, base_x))
+            # вправо
+            i = 1
+            while True:
+                x = base_x + i * sx
+                if x > right_bound:
+                    break
+                x_pairs.append((i, x))
+                i += 1
+                if i > 500:
+                    break
+            # влево
+            if d.symmetric_x:
+                i = -1
+                while True:
+                    x = base_x + i * sx
+                    if x < left_bound:
+                        break
+                    x_pairs.append((i, x))
+                    i -= 1
+                    if i < -500:
+                        break
+        else:
+            x_pairs.append((0, base_x))
+
+        # === Y индексы ===
+        y_pairs: list[tuple[int, float]] = []
+        if sy > 0.0:
+            top_bound = ymin + my
+            bottom_bound = ymax - my
+            if top_bound <= base_y <= bottom_bound:
+                y_pairs.append((0, base_y))
+            i = 1
+            while True:
+                y = base_y + i * sy
+                if y > bottom_bound:
+                    break
+                y_pairs.append((i, y))
+                i += 1
+                if i > 500:
+                    break
+            if d.symmetric_y:
+                i = -1
+                while True:
+                    y = base_y + i * sy
+                    if y < top_bound:
+                        break
+                    y_pairs.append((i, y))
+                    i -= 1
+                    if i < -500:
+                        break
+        else:
+            y_pairs.append((0, base_y))
+
+        result: list[MountLocation] = []
+        for ix, px in x_pairs:
+            for iy, py in y_pairs:
+                result.append(
+                    MountLocation(
+                        mountpoint_id=self.id,
+                        index_x=ix,
+                        index_y=iy,
+                        role=self.role,
+                        position=(px, py),
+                    )
+                )
+        return result
 
     def is_valid(self) -> bool:
         return bool(self.id)

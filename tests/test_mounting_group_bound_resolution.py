@@ -114,12 +114,14 @@ class GroupBoundMountPointResolutionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unknown or empty SemanticGroup"):
             self.attachment().resolve(asset)
 
-    def test_group_bound_distribution_must_be_single_location(self):
+    def test_group_bound_spacing_zero_returns_single_centroid(self):
+        """spacing=0 у group_bound → 1 точка в центроиде (count игнор)."""
         asset = self.make_asset()
         asset.mountpoints[0].distribution = Distribution(count_x=2)
 
-        with self.assertRaisesRegex(ValueError, "single location"):
-            self.attachment().resolve(asset)
+        position, source = self.attachment().resolve(asset)
+        self.assertEqual(position, (1.0, 0.0))
+        self.assertEqual(source, "native_mountpoint")
 
     def test_group_bound_location_rejects_nonzero_index(self):
         asset = self.make_asset()
