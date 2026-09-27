@@ -33,6 +33,10 @@ KNOWN_GROUP_TYPES: list[tuple[str, str]] = [
     ("top", "Корниз"),
     ("left", "Левая грань"),
     ("right", "Правая грань"),
+    ("mount_top", "Крепление верх"),
+    ("mount_bottom", "Крепление низ"),
+    ("mount_left", "Крепление лево"),
+    ("mount_right", "Крепление право"),
 ]
 
 CUSTOM_SLUG = "__custom__"
