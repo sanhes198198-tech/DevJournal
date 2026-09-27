@@ -550,6 +550,16 @@
         "n_001",
         "n_002"
       ]
+    },
+    "g_9700664e": {
+      "id": "g_9700664e",
+      "name": "anchor_bottom",
+      "label": "Якорь низ",
+      "node_ids": [
+        "n_042",
+        "n_043"
+      ],
+      "auto_rule": null
     }
   },
   "parameters": {
@@ -973,5 +983,21 @@
       }
     }
   ],
-  "mountpoints": []
+  "mountpoints": [
+    {
+      "id": "mp_65843a5f",
+      "role": null,
+      "position": [
+        14.073197488697666,
+        16.08530103315885
+      ],
+      "distribution": {
+        "count_x": 1,
+        "count_y": 1,
+        "spacing_x": 0.0,
+        "spacing_y": 0.0
+      },
+      "semantic_group_id": "g_9700664e"
+    }
+  ]
 }
