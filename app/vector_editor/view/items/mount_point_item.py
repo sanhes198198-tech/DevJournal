@@ -66,6 +66,11 @@ class MountPointItem(QGraphicsObject):
         self._spacing_x = max(0.0, float(spacing_x))
         self._spacing_y = max(0.0, float(spacing_y))
 
+        # B1: если задан список MountLocation от resolve_for_asset,
+        # _draw_ghosts рисует по нему вместо самодельного расчёта.
+        # Структура: [(index_x, index_y, lx, ly), ...].
+        self._locations: list = []
+
         self.setFlag(
             QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True,
         )
@@ -101,6 +106,26 @@ class MountPointItem(QGraphicsObject):
 
     def set_role(self, role: str | None) -> None:
         self._role = role or ""
+        self.update()
+
+    def set_locations(self, locations) -> None:
+        """Принять список MountLocation от resolve_for_asset.
+
+        locations — итерируемое с атрибутами index_x, index_y, position.
+        Сохраняем [(ix, iy, lx, ly)] в asset-local координатах.
+        """
+        normalized = []
+        for loc in locations or []:
+            try:
+                normalized.append((
+                    int(loc.index_x),
+                    int(loc.index_y),
+                    float(loc.position[0]),
+                    float(loc.position[1]),
+                ))
+            except (AttributeError, TypeError, ValueError, IndexError):
+                continue
+        self._locations = normalized
         self.update()
 
     def boundingRect(self) -> QRectF:
