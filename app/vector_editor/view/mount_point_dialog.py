@@ -5,6 +5,7 @@ MountPointDialog - создание / редактирование одной Mo
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -148,6 +149,30 @@ class MountPointDialog(QDialog):
         self._spacing_y_spin.setSuffix(" м")
         dist_form.addRow("Шаг по Y:", self._spacing_y_spin)
 
+        self._margin_x_spin = QDoubleSpinBox()
+        self._margin_x_spin.setRange(0.0, 100000.0)
+        self._margin_x_spin.setDecimals(3)
+        self._margin_x_spin.setSuffix(" м")
+        dist_form.addRow("Отступ по X:", self._margin_x_spin)
+
+        self._margin_y_spin = QDoubleSpinBox()
+        self._margin_y_spin.setRange(0.0, 100000.0)
+        self._margin_y_spin.setDecimals(3)
+        self._margin_y_spin.setSuffix(" м")
+        dist_form.addRow("Отступ по Y:", self._margin_y_spin)
+
+        self._adaptive_x_check = QCheckBox("Адаптивно по X (count от размера)")
+        self._adaptive_x_check.toggled.connect(
+            self._on_adaptive_x_toggled
+        )
+        dist_form.addRow("", self._adaptive_x_check)
+
+        self._adaptive_y_check = QCheckBox("Адаптивно по Y (count от размера)")
+        self._adaptive_y_check.toggled.connect(
+            self._on_adaptive_y_toggled
+        )
+        dist_form.addRow("", self._adaptive_y_check)
+
         layout.addLayout(dist_form)
 
         hint = QLabel(
@@ -186,6 +211,13 @@ class MountPointDialog(QDialog):
         self._x_spin.setEnabled(not enabled)
         self._y_spin.setEnabled(not enabled)
 
+    def _on_adaptive_x_toggled(self, checked: bool) -> None:
+        """B3: при adaptive_x — count_x вычисляется, поле серое."""
+        self._count_x_spin.setEnabled(not checked)
+
+    def _on_adaptive_y_toggled(self, checked: bool) -> None:
+        self._count_y_spin.setEnabled(not checked)
+
     def _load_from(self, mp: MountPoint) -> None:
         # Приводим role к строке (может быть enum или str)
         role_str = ""
@@ -205,6 +237,24 @@ class MountPointDialog(QDialog):
         self._count_y_spin.setValue(d.count_y)
         self._spacing_x_spin.setValue(d.spacing_x)
         self._spacing_y_spin.setValue(d.spacing_y)
+        self._margin_x_spin.setValue(
+            float(getattr(d, "margin_x", 0.0))
+        )
+        self._margin_y_spin.setValue(
+            float(getattr(d, "margin_y", 0.0))
+        )
+        self._adaptive_x_check.setChecked(
+            bool(getattr(d, "adaptive_x", False))
+        )
+        self._adaptive_y_check.setChecked(
+            bool(getattr(d, "adaptive_y", False))
+        )
+        self._on_adaptive_x_toggled(
+            self._adaptive_x_check.isChecked()
+        )
+        self._on_adaptive_y_toggled(
+            self._adaptive_y_check.isChecked()
+        )
 
         # V22: anchor
         mode = getattr(mp, "anchor_mode", "absolute") or "absolute"
@@ -236,6 +286,10 @@ class MountPointDialog(QDialog):
             count_y=cy,
             spacing_x=sx,
             spacing_y=sy,
+            margin_x=self._margin_x_spin.value(),
+            margin_y=self._margin_y_spin.value(),
+            adaptive_x=self._adaptive_x_check.isChecked(),
+            adaptive_y=self._adaptive_y_check.isChecked(),
         )
 
         anchor_mode = self._anchor_combo.currentData() or "absolute"
