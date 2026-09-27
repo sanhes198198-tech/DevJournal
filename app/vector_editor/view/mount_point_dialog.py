@@ -151,8 +151,9 @@ class MountPointDialog(QDialog):
         layout.addLayout(dist_form)
 
         hint = QLabel(
-            "position — первая точка. count_x=3 создаёт 3 точки: "
-            "исходная + 2 копии с шагом spacing."
+            "Шаг = 0 при count > 1 → auto-fill: точки "
+            "разложатся равномерно от края до края стены. "
+            "Шаг > 0 → фиксированный шаг в метрах."
         )
         hint.setStyleSheet(
             "color: #858B93; font-size: 10px; padding-top: 4px;"
@@ -227,30 +228,8 @@ class MountPointDialog(QDialog):
         sx = self._spacing_x_spin.value()
         sy = self._spacing_y_spin.value()
 
-        # V23: валидация — при count > 1 нужен spacing > 0
-        if cx > 1 and sx <= 0.0:
-            from PySide6.QtWidgets import QMessageBox
-            QMessageBox.warning(
-                self,
-                "Неверный шаг",
-                f"Количество по X = {cx}, но шаг = 0.\n\n"
-                f"Все копии будут в одной точке.\n"
-                f"Укажите шаг по X > 0 или уменьшите количество до 1.",
-            )
-            self._spacing_x_spin.setFocus()
-            return
-
-        if cy > 1 and sy <= 0.0:
-            from PySide6.QtWidgets import QMessageBox
-            QMessageBox.warning(
-                self,
-                "Неверный шаг",
-                f"Количество по Y = {cy}, но шаг = 0.\n\n"
-                f"Все копии будут в одной точке.\n"
-                f"Укажите шаг по Y > 0 или уменьшите количество до 1.",
-            )
-            self._spacing_y_spin.setFocus()
-            return
+        # B2: spacing=0 при count>1 — это auto-fill (равномерно от края
+        # до края bbox). Валидация не нужна.
 
         dist = Distribution(
             count_x=cx,
