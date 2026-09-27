@@ -370,6 +370,39 @@
         "n_027",
         "n_000"
       ]
+    },
+    "g_30e05c06": {
+      "id": "g_30e05c06",
+      "name": "mount_left",
+      "label": "Крепление лево",
+      "node_ids": [
+        "n_000",
+        "n_001",
+        "n_002",
+        "n_003",
+        "n_004",
+        "n_005",
+        "n_006",
+        "n_007",
+        "n_009",
+        "n_010",
+        "n_011",
+        "n_012",
+        "n_013",
+        "n_014"
+      ]
+    },
+    "g_fb40ae2b": {
+      "id": "g_fb40ae2b",
+      "name": "mount_right",
+      "label": "Крепление право",
+      "node_ids": [
+        "n_018",
+        "n_022",
+        "n_024",
+        "n_023",
+        "n_020"
+      ]
     }
   },
   "parameters": {
@@ -721,13 +754,13 @@
       "id": "mp_db2bf703",
       "role": "window",
       "position": [
-        4.00834568030816,
-        12.031647566297337
+        4.025,
+        12.1
       ],
       "distribution": {
         "count_x": 1,
         "count_y": 1,
-        "spacing_x": 3.0,
+        "spacing_x": 3.5,
         "spacing_y": 1.0,
         "symmetric_x": true,
         "symmetric_y": true
