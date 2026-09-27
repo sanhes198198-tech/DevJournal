@@ -148,12 +148,66 @@ class MountPointItem(QGraphicsObject):
             ).lighter(120)
         return ROLE_COLORS.get(self._role, DEFAULT_COLOR)
 
+    def _draw_ghosts_from_locations(self, painter) -> None:
+        """B1: ghost-точки по реальным MountLocation из resolve_for_asset.
+
+        _locations хранит [(ix, iy, lx, ly)] в asset-local координатах.
+        Item игнорирует трансформации — рисуем в пикселях,
+        дельта от self.pos() * ppm, Y инвертирован.
+        """
+        ppm = 50.0
+        if self.scene() and self.scene().views():
+            try:
+                ppm = abs(
+                    self.scene().views()[0].transform().m11()
+                ) or 50.0
+            except Exception:
+                ppm = 50.0
+
+        ghost_pen = QPen(QColor("#1A1A1A"), 1.0)
+        ghost_pen.setCosmetic(True)
+        painter.setPen(ghost_pen)
+        painter.setBrush(QBrush(GHOST_COLOR))
+
+        painter.save()
+        painter.setOpacity(GHOST_OPACITY)
+
+        pos = self.pos()
+        px = pos.x()
+        py = pos.y()
+
+        drawn = 0
+        for ix, iy, lx, ly in self._locations:
+            if ix == 0 and iy == 0:
+                continue
+            if drawn >= GHOST_MAX_DRAW:
+                break
+
+            dx_scene = lx - px
+            dy_scene = ly - py
+            dx_px = dx_scene * ppm
+            dy_px = -dy_scene * ppm
+
+            painter.drawEllipse(
+                QPointF(dx_px, dy_px),
+                GHOST_RADIUS, GHOST_RADIUS,
+            )
+            drawn += 1
+
+        painter.restore()
+
     def _draw_ghosts(self, painter) -> None:
         """Ghost-точки при выделении: показывают распределение.
 
         ItemIgnoresTransformations=True — рисуем прямо в пикселях,
         transform уже учтён. spacing в метрах * ppm = пиксели.
         """
+        # B1: если задан список реальных MountLocation — рисуем по нему.
+        if self._locations:
+            self._draw_ghosts_from_locations(painter)
+            return
+
+        # Fallback: старая логика по count × spacing.
         if self._count_x == 1 and self._count_y == 1:
             return
 
