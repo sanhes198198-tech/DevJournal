@@ -1000,6 +1000,7 @@ class VectorEditor(QMainWindow):
                     mp.anchor_y = max(0.0, min(1.0, (y - ymin) / h))
 
         # Step 7: пересчитать ghost'ы в реальном времени
+        self._sync_layers_from_live()
         item = self._mount_point_items.get(mp_id)
         if item is not None:
             try:
@@ -1057,6 +1058,8 @@ class VectorEditor(QMainWindow):
 
     def _rebuild_mount_point_items(self) -> None:
         """Пересоздать маркеры MountPoint в сцене."""
+        # Step 8c: live contour → layer.geometry, чтобы bbox был свежим
+        self._sync_layers_from_live()
         # удалить старые
         for item in list(self._mount_point_items.values()):
             if item.scene() is not None:
@@ -1751,10 +1754,85 @@ class VectorEditor(QMainWindow):
             f"Не забудьте сохранить (Ctrl+S).", 4000
         )
 
+    def _sync_layers_from_live(self) -> None:
+        """Step 8b: перенести live contour points в layer.geometry.
+
+        Drag узла меняет contour_item.contour, но layer.geometry
+        (JSON) остаётся старым пока не сохранишь. Это ломает
+        semantic_group_bbox → resolve_for_asset.
+        Синхронизируем перед resolve.
+        """
+        if self._current_asset is None:
+            return
+        layer_items = getattr(self, "_layer_items", None) or {}
+        asset_layers = getattr(self._current_asset, "layers", None) or []
+
+        if asset_layers:
+            for layer in asset_layers:
+                item = layer_items.get(layer.id)
+                if item is None:
+                    continue
+                c = getattr(item, "contour", None)
+                if c is None:
+                    continue
+                geom = layer.geometry or {}
+                geom["contour"] = [[p[0], p[1]] for p in c.points]
+                geom["node_ids"] = list(c.node_ids)
+                geom["extra_points"] = [
+                    [p[0], p[1]] for p in c.extra_points
+                ]
+                geom["extra_node_ids"] = list(c.extra_node_ids)
+                layer.geometry = geom
+        else:
+            # Один контур в asset.geometry
+            item = None
+            for it in layer_items.values():
+                if it is not None and getattr(it, "contour", None):
+                    item = it
+                    break
+            if item is not None:
+                c = item.contour
+                g = self._current_asset.geometry or {}
+                g["contour"] = [[p[0], p[1]] for p in c.points]
+                g["node_ids"] = list(c.node_ids)
+                g["extra_points"] = [
+                    [p[0], p[1]] for p in c.extra_points
+                ]
+                g["extra_node_ids"] = list(c.extra_node_ids)
+                self._current_asset.geometry = g
+
+    def _refresh_mount_ghosts(self) -> None:
+        """Step 8: обновить ghost locations всех mount points.
+
+        Не пересоздаёт items — только set_locations + update.
+        Вызывается при изменении контура (resize стены и т.п.).
+        """
+        if self._current_asset is None:
+            return
+        # Step 8b: live contour → layer.geometry, чтобы bbox был свежим
+        self._sync_layers_from_live()
+        bbox = self._asset_bbox()
+        for mp in getattr(self._current_asset, "mountpoints", []) or []:
+            item = self._mount_point_items.get(mp.id)
+            if item is None:
+                continue
+            try:
+                locs = mp.resolve_for_asset(
+                    self._current_asset,
+                    bbox=bbox,
+                    param_overrides={},
+                )
+            except Exception:
+                locs = []
+            item.set_locations(locs)
+            item.update()
+
     def _on_contour_changed(self) -> None:
         # Ручное изменение геометрии (drag узла, extrude, insert и т.п.)
         # завершает текущую сессию изменения параметра.
         self._reset_param_undo_session()
+        # Step 8: пересчитать ghost'ы (без пересоздания items)
+        self._refresh_mount_ghosts()
         self._mark_modified()
         self._check_contour_invariants("после изменения")
 
