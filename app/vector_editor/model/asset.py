@@ -559,6 +559,65 @@ class Asset:
 
         return pts_by_id
 
+    def semantic_group_bbox(
+        self,
+        group_id: str,
+        *,
+        param_overrides: dict | None = None,
+    ) -> tuple[float, float, float, float] | None:
+        """Return a group's current Asset-local bbox.
+
+        (xmin, ymin, xmax, ymax) или None если группа пуста.
+        param_overrides применяет ту же поправку узлов что centroid.
+        """
+        semantic_groups = getattr(self, "semantic_groups", None) or {}
+        group = semantic_groups.get(group_id)
+        if group is None:
+            return None
+
+        points_by_id = self._visible_node_points()
+        group_points = [
+            points_by_id[node_id]
+            for node_id in group.node_ids
+            if node_id in points_by_id
+        ]
+        if not group_points:
+            return None
+
+        # param_overrides — та же логика что в centroid
+        overrides = param_overrides or {}
+        if overrides:
+            deltas_per_node: dict = {}
+            parameters = getattr(self, "parameters", None) or {}
+            for parameter in parameters.values():
+                override = overrides.get(parameter.name)
+                if override is None:
+                    continue
+                shift = float(override) - float(parameter.value)
+                if abs(shift) < 1e-12:
+                    continue
+                node_deltas = compute_delta_for_parameter(
+                    parameter, shift,
+                    semantic_groups,
+                )
+                for nid, (dx, dy) in node_deltas.items():
+                    px, py = deltas_per_node.get(nid, (0.0, 0.0))
+                    deltas_per_node[nid] = (px + dx, py + dy)
+
+            shifted = []
+            for node_id in group.node_ids:
+                pt = points_by_id.get(node_id)
+                if pt is None:
+                    continue
+                dx, dy = deltas_per_node.get(node_id, (0.0, 0.0))
+                shifted.append((pt[0] + dx, pt[1] + dy))
+            if shifted:
+                group_points = shifted
+
+        xs = [p[0] for p in group_points]
+        ys = [p[1] for p in group_points]
+        return (min(xs), min(ys), max(xs), max(ys))
+
     def semantic_group_centroid(
         self,
         group_id: str,
