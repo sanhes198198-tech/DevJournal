@@ -18,7 +18,7 @@
       "id": "c_c5c94009",
       "asset_id": "60d7042003d0",
       "x": -2.4000000000000004,
-      "y": 0.2,
+      "y": 2.8000000000000003,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "levayahastzamka",
@@ -27,7 +27,7 @@
       "param_overrides": {
         "extend_top": -3.1,
         "extend_bottom": -0.6,
-        "height": 2.6
+        "height": -0.1935253524642917
       },
       "attach_to": "",
       "attach_anchor": "",
@@ -39,8 +39,8 @@
     "c_68972644": {
       "id": "c_68972644",
       "asset_id": "4d77b734d939",
-      "x": -4.697446220379144,
-      "y": 4.299999999999998,
+      "x": -5.409468301656306,
+      "y": 4.473174702772605,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Okno2",
@@ -53,13 +53,22 @@
       "fill_pattern": "",
       "locked": false,
       "role": "window",
-      "attach_location": {"mountpoint_id": "mp_a4355b25", "index_x": 0, "index_y": 0}
+      "attach_location": {
+        "mountpoint_id": "mp_a4355b25",
+        "index_x": 0,
+        "index_y": 0
+      },
+      "parent_location": {
+        "mountpoint_id": "mp_db2bf703",
+        "index_x": -1,
+        "index_y": 3
+      }
     },
     "c_393e33d6": {
       "id": "c_393e33d6",
       "asset_id": "4d77b734d939",
-      "x": -0.08594622037914412,
-      "y": 4.299999999999998,
+      "x": 0.5905316983436943,
+      "y": 4.473174702772605,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Okno2",
@@ -72,13 +81,22 @@
       "fill_pattern": "",
       "locked": false,
       "role": "window",
-      "attach_location": {"mountpoint_id": "mp_a4355b25", "index_x": 0, "index_y": 0}
+      "attach_location": {
+        "mountpoint_id": "mp_a4355b25",
+        "index_x": 0,
+        "index_y": 0
+      },
+      "parent_location": {
+        "mountpoint_id": "mp_db2bf703",
+        "index_x": 1,
+        "index_y": 3
+      }
     },
     "c_3fea7e93": {
       "id": "c_3fea7e93",
       "asset_id": "4d77b734d939",
-      "x": -4.697446220379144,
-      "y": -0.55,
+      "x": -5.409468301656306,
+      "y": 1.4731747027726043,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Okno2",
@@ -91,13 +109,22 @@
       "fill_pattern": "",
       "locked": false,
       "role": "window",
-      "attach_location": {"mountpoint_id": "mp_a4355b25", "index_x": 0, "index_y": 0}
+      "attach_location": {
+        "mountpoint_id": "mp_a4355b25",
+        "index_x": 0,
+        "index_y": 0
+      },
+      "parent_location": {
+        "mountpoint_id": "mp_db2bf703",
+        "index_x": -1,
+        "index_y": 0
+      }
     },
     "c_73513a8e": {
       "id": "c_73513a8e",
       "asset_id": "4d77b734d939",
-      "x": -0.08594622037914412,
-      "y": -0.55,
+      "x": 0.5905316983436943,
+      "y": 1.4731747027726043,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Okno2",
@@ -110,13 +137,22 @@
       "fill_pattern": "",
       "locked": false,
       "role": "window",
-      "attach_location": {"mountpoint_id": "mp_a4355b25", "index_x": 0, "index_y": 0}
+      "attach_location": {
+        "mountpoint_id": "mp_a4355b25",
+        "index_x": 0,
+        "index_y": 0
+      },
+      "parent_location": {
+        "mountpoint_id": "mp_db2bf703",
+        "index_x": 1,
+        "index_y": 0
+      }
     },
     "c_8db56f5a": {
       "id": "c_8db56f5a",
       "asset_id": "4d77b734d939",
-      "x": -2.391696220379144,
-      "y": -0.55,
+      "x": -2.4094683016563057,
+      "y": 1.4731747027726043,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Okno2",
@@ -129,13 +165,22 @@
       "fill_pattern": "",
       "locked": false,
       "role": "window",
-      "attach_location": {"mountpoint_id": "mp_a4355b25", "index_x": 0, "index_y": 0}
+      "attach_location": {
+        "mountpoint_id": "mp_a4355b25",
+        "index_x": 0,
+        "index_y": 0
+      },
+      "parent_location": {
+        "mountpoint_id": "mp_db2bf703",
+        "index_x": 0,
+        "index_y": 0
+      }
     },
     "c_1163d9ee": {
       "id": "c_1163d9ee",
       "asset_id": "4d77b734d939",
-      "x": -2.391696220379144,
-      "y": 4.299999999999998,
+      "x": -2.4094683016563057,
+      "y": 4.473174702772605,
       "rotation": 0.0,
       "scale": 1.0,
       "name": "Okno2",
@@ -148,7 +193,38 @@
       "fill_pattern": "",
       "locked": false,
       "role": "window",
-      "attach_location": {"mountpoint_id": "mp_a4355b25", "index_x": 0, "index_y": 0}
+      "attach_location": {
+        "mountpoint_id": "mp_a4355b25",
+        "index_x": 0,
+        "index_y": 0
+      },
+      "parent_location": {
+        "mountpoint_id": "mp_db2bf703",
+        "index_x": 0,
+        "index_y": 3
+      }
+    },
+    "c_dccd864d": {
+      "id": "c_dccd864d",
+      "asset_id": "60d7042003d0",
+      "x": -2.4524139308491524,
+      "y": -5.032155320691329,
+      "rotation": 0.0,
+      "scale": 1.0,
+      "name": "levayahastzamka",
+      "layer": 0,
+      "filled": false,
+      "param_overrides": {
+        "extend_top": -3.1,
+        "extend_bottom": -0.6,
+        "height": -0.1935253524642917
+      },
+      "attach_to": "c_c5c94009",
+      "attach_anchor": "mount_bottom",
+      "parent_anchor": "wall_top__c_c5c94009",
+      "fill_pattern": "",
+      "locked": false,
+      "role": null
     }
   },
   "visibility_rules": {},
