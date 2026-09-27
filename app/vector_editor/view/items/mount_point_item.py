@@ -186,7 +186,7 @@ class MountPointItem(QGraphicsObject):
             dx_scene = lx - px
             dy_scene = ly - py
             dx_px = dx_scene * ppm
-            dy_px = -dy_scene * ppm
+            dy_px = dy_scene * ppm
 
             painter.drawEllipse(
                 QPointF(dx_px, dy_px),

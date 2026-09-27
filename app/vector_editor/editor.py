@@ -1047,13 +1047,36 @@ class VectorEditor(QMainWindow):
         bbox = self._asset_bbox()
         for mp in getattr(self._current_asset, "mountpoints", []) or []:
             # V22: позиция зависит от anchor_mode
-            anchor_mode = getattr(mp, "anchor_mode", "absolute")
-            if anchor_mode == "relative_xy" and bbox is not None:
-                xmin, ymin, xmax, ymax = bbox
-                x = xmin + mp.anchor_x * (xmax - xmin)
-                y = ymin + mp.anchor_y * (ymax - ymin)
+            # B1: resolve_for_asset — единый источник истины.
+            locations = []
+            try:
+                locations = mp.resolve_for_asset(
+                    self._current_asset,
+                    bbox=bbox,
+                    param_overrides={},
+                )
+            except Exception as exc:
+                print(
+                    f"[MountPointEditor] resolve_for_asset failed "
+                    f"for {mp.id}: {exc}"
+                )
+                locations = []
+
+            if locations:
+                base = next(
+                    (loc for loc in locations
+                     if loc.index_x == 0 and loc.index_y == 0),
+                    locations[0],
+                )
+                x, y = base.position
             else:
-                x, y = mp.position
+                anchor_mode = getattr(mp, "anchor_mode", "absolute")
+                if anchor_mode == "relative_xy" and bbox is not None:
+                    xmin, ymin, xmax, ymax = bbox
+                    x = xmin + mp.anchor_x * (xmax - xmin)
+                    y = ymin + mp.anchor_y * (ymax - ymin)
+                else:
+                    x, y = mp.position
 
             role_str = None
             if mp.role:
@@ -1066,6 +1089,7 @@ class VectorEditor(QMainWindow):
                 spacing_x=d.spacing_x,
                 spacing_y=d.spacing_y,
             )
+            item.set_locations(locations)
             item.selected.connect(self._on_mount_point_item_selected)
             item.moved.connect(self._on_mount_point_item_moved)
             item.drag_started.connect(
