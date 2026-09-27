@@ -22,11 +22,22 @@ class Distribution:
         count_y: int = 1,
         spacing_x: float = 0.0,
         spacing_y: float = 0.0,
+        margin_x: float = 0.0,
+        margin_y: float = 0.0,
+        adaptive_x: bool = False,
+        adaptive_y: bool = False,
     ):
         self.count_x = max(1, int(count_x))
         self.count_y = max(1, int(count_y))
         self.spacing_x = max(0.0, float(spacing_x))
         self.spacing_y = max(0.0, float(spacing_y))
+        # B3: margin — отступ от краёв bbox, метры.
+        self.margin_x = max(0.0, float(margin_x))
+        self.margin_y = max(0.0, float(margin_y))
+        # B3: adaptive — если True, count вычисляется от размера bbox
+        # с фиксированным spacing (окна добавляются при росте стены).
+        self.adaptive_x = bool(adaptive_x)
+        self.adaptive_y = bool(adaptive_y)
 
     def total_count(self) -> int:
         return self.count_x * self.count_y
@@ -41,12 +52,23 @@ class Distribution:
         )
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "count_x": self.count_x,
             "count_y": self.count_y,
             "spacing_x": self.spacing_x,
             "spacing_y": self.spacing_y,
         }
+        # B3: новые поля пишем только если они не дефолтные.
+        # Так старые JSON не распухают и backward compatible.
+        if self.margin_x != 0.0:
+            d["margin_x"] = self.margin_x
+        if self.margin_y != 0.0:
+            d["margin_y"] = self.margin_y
+        if self.adaptive_x:
+            d["adaptive_x"] = True
+        if self.adaptive_y:
+            d["adaptive_y"] = True
+        return d
 
     @classmethod
     def from_dict(cls, d: dict) -> "Distribution":
@@ -57,6 +79,10 @@ class Distribution:
             count_y=d.get("count_y", 1),
             spacing_x=d.get("spacing_x", 0.0),
             spacing_y=d.get("spacing_y", 0.0),
+            margin_x=d.get("margin_x", 0.0),
+            margin_y=d.get("margin_y", 0.0),
+            adaptive_x=d.get("adaptive_x", False),
+            adaptive_y=d.get("adaptive_y", False),
         )
 
 
