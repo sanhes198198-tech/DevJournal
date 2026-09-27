@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFormLayout,
     QLabel,
+    QPushButton,
     QSpinBox,
     QVBoxLayout,
 )
@@ -141,6 +142,17 @@ class MountPointDialog(QDialog):
         )
         form.addRow("Группа:", self._group_combo)
 
+        # Step 6: кнопка «Центр группы»
+        self._center_group_btn = QPushButton("→ Центр группы")
+        self._center_group_btn.setEnabled(False)
+        self._center_group_btn.setToolTip(
+            "Подставить координаты центроида выбранной группы"
+        )
+        self._center_group_btn.clicked.connect(
+            self._on_center_group_clicked
+        )
+        form.addRow("", self._center_group_btn)
+
         layout.addLayout(form)
 
         dist_title = QLabel("Размножение")
@@ -255,6 +267,30 @@ class MountPointDialog(QDialog):
         self._x_spin.setEnabled(not enabled)
         self._y_spin.setEnabled(not enabled)
 
+    def _on_center_group_clicked(self) -> None:
+        """Step 6: подставить центроид выбранной группы в X/Y."""
+        gid = self._group_combo.currentData() or ""
+        if not gid:
+            return
+        asset = getattr(self, "_asset", None)
+        if asset is None:
+            return
+        bbox_resolver = getattr(asset, "semantic_group_bbox", None)
+        if not callable(bbox_resolver):
+            return
+        try:
+            bb = bbox_resolver(gid, param_overrides={})
+        except Exception:
+            bb = None
+        if bb is None:
+            return
+        # центр bbox — не центроид узлов
+        xmin, ymin, xmax, ymax = bb
+        cx = (xmin + xmax) / 2.0
+        cy = (ymin + ymax) / 2.0
+        self._x_spin.setValue(float(cx))
+        self._y_spin.setValue(float(cy))
+
     def _on_group_changed(self, idx: int) -> None:
         """Step 5: в group_bound режиме скрываем ненужные поля.
 
@@ -262,6 +298,10 @@ class MountPointDialog(QDialog):
         """
         group_id = self._group_combo.currentData() or ""
         is_group = bool(group_id)
+
+        # Step 6: кнопка «Центр группы» активна только при выборе группы
+        if hasattr(self, "_center_group_btn"):
+            self._center_group_btn.setEnabled(is_group)
 
         # Скрываем в верхней форме
         for w in (
