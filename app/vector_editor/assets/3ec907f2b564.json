@@ -685,5 +685,37 @@
     "allow_height_variation": false,
     "irregularity": 0.0,
     "repeatable": false
-  }
+  },
+  "mountpoints": [
+    {
+      "id": "mp_2a981ae4",
+      "role": null,
+      "position": [
+        10.278126397085998,
+        9.131721303927435
+      ],
+      "distribution": {
+        "count_x": 1,
+        "count_y": 1,
+        "spacing_x": 0.0,
+        "spacing_y": 0.0
+      },
+      "semantic_group_id": "g_a2273079"
+    },
+    {
+      "id": "mp_dd1d0d44",
+      "role": null,
+      "position": [
+        10.27615381926319,
+        11.340377448190326
+      ],
+      "distribution": {
+        "count_x": 1,
+        "count_y": 1,
+        "spacing_x": 0.0,
+        "spacing_y": 0.0
+      },
+      "semantic_group_id": "g_b1f02121"
+    }
+  ]
 }

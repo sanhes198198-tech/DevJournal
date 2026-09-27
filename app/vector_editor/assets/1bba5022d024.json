@@ -44,8 +44,9 @@
         "height": -0.5215441438989217
       },
       "attach_to": "c_e6fae5c2",
-      "attach_anchor": "bottom",
-      "parent_anchor": "top"
+      "attach_anchor": null,
+      "parent_anchor": "top",
+      "attach_location": {"mountpoint_id": "mp_6735b464", "index_x": 0, "index_y": 0}
     },
     "c_5de75fbd": {
       "id": "c_5de75fbd",
@@ -59,8 +60,9 @@
       "filled": true,
       "param_overrides": {},
       "attach_to": "c_516b68e3",
-      "attach_anchor": "bottom",
-      "parent_anchor": "top"
+      "attach_anchor": null,
+      "parent_anchor": "top",
+      "attach_location": {"mountpoint_id": "mp_d02c89e5", "index_x": 0, "index_y": 0}
     },
     "c_e6fae5c2": {
       "id": "c_e6fae5c2",
@@ -74,8 +76,9 @@
       "filled": true,
       "param_overrides": {},
       "attach_to": "c_b258ce26",
-      "attach_anchor": "bottom",
-      "parent_anchor": "top"
+      "attach_anchor": null,
+      "parent_anchor": "top",
+      "attach_location": {"mountpoint_id": "mp_c620b58c", "index_x": 0, "index_y": 0}
     }
   },
   "visibility_rules": {},

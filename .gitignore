@@ -34,3 +34,6 @@ Thumbs.db
 _debug.log
 dump_*.txt
 *.patch
+backup_*
+diff_*.txt
+compare_*.txt

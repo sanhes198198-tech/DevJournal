@@ -1,10 +1,14 @@
-"""
-Attachment - временный контейнер для описания одного endpoint.
+"""Attachment links a parent component to two MountLocation endpoints.
 
-target_type: "anchor" | "mountpoint"
-target_id:   legacy alias или id MountPoint
-location:    {"x": int, "y": int} | None (только для mountpoint)
-child_anchor: legacy поле связи, сохранено для совместимости
+The older single-endpoint resolver API is retained for compatibility while
+callers migrate to the relationship fields:
+
+    parent_component_id
+    parent_location
+    child_location
+
+The Component model still owns legacy alias fields and projects the native
+relationship to its existing flat persistence schema.
 """
 
 from __future__ import annotations
@@ -76,7 +80,7 @@ def endpoint_from_component_value(
 
 
 class Attachment:
-    """Связь компонента с родителем."""
+    """A component relationship, or a compatibility single-endpoint adapter."""
 
     def __init__(
         self,
@@ -84,6 +88,10 @@ class Attachment:
         target_id: str = "",
         location: dict | None = None,
         child_anchor: str = "",
+        *,
+        parent_component_id: str | None = None,
+        parent_location: dict | None = None,
+        child_location: dict | None = None,
     ):
         self.target_type: str = str(target_type or "")
         self.target_id: str = str(target_id or "")
@@ -91,10 +99,28 @@ class Attachment:
             dict(location) if location else None
         )
         self.child_anchor: str = str(child_anchor or "")
+        self._relationship_mode = (
+            parent_component_id is not None
+            or parent_location is not None
+            or child_location is not None
+        )
+        self.parent_component_id: str = str(parent_component_id or "")
+        self.parent_location: dict | None = (
+            dict(parent_location) if isinstance(parent_location, dict) else None
+        )
+        self.child_location: dict | None = (
+            dict(child_location) if isinstance(child_location, dict) else None
+        )
 
     # ------------------------------------------------------------
 
     def is_valid(self) -> bool:
+        if self._relationship_mode:
+            return (
+                bool(self.parent_component_id)
+                and self._is_mount_location(self.parent_location)
+                and self._is_mount_location(self.child_location)
+            )
         if self.target_type not in VALID_TARGET_TYPES:
             return False
         if not self.target_id:
@@ -106,13 +132,38 @@ class Attachment:
                 return False
         return True
 
+    @staticmethod
+    def _is_mount_location(value: dict | None) -> bool:
+        if not isinstance(value, dict):
+            return False
+        mountpoint_id = value.get("mountpoint_id")
+        index_x = value.get("index_x")
+        index_y = value.get("index_y")
+        return (
+            isinstance(mountpoint_id, str)
+            and bool(mountpoint_id)
+            and isinstance(index_x, int)
+            and not isinstance(index_x, bool)
+            and isinstance(index_y, int)
+            and not isinstance(index_y, bool)
+        )
+
+    def is_relationship(self) -> bool:
+        return self._relationship_mode
+
     def is_anchor(self) -> bool:
         return self.target_type == "anchor"
 
     def is_mountpoint(self) -> bool:
         return self.target_type == "mountpoint"
 
-    def resolve(self, asset, bbox=None) -> tuple[tuple[float, float], str]:
+    def resolve(
+        self,
+        asset,
+        bbox=None,
+        *,
+        param_overrides: dict | None = None,
+    ) -> tuple[tuple[float, float], str]:
         """Разрешить endpoint в локальную координату Asset.
 
         Возвращает ``(position, source)``, где source равен
@@ -126,6 +177,10 @@ class Attachment:
             ValueError: если endpoint неизвестен, некорректен или не может
                 быть разрешён в переданном Asset.
         """
+        if self._relationship_mode:
+            raise ValueError(
+                "A relationship Attachment cannot resolve as one endpoint"
+            )
         if not self.target_id:
             raise ValueError("Endpoint target_id is required")
 
@@ -173,13 +228,20 @@ class Attachment:
         if mountpoint is None:
             raise ValueError(f"Unknown MountPoint: {self.target_id!r}")
 
-        if mountpoint.anchor_mode == "relative_xy":
+        if (
+            mountpoint.anchor_mode == "relative_xy"
+            and not mountpoint.is_group_bound()
+        ):
             if bbox is None or len(bbox) != 4:
                 raise ValueError(
                     "A four-value bbox is required for relative_xy MountPoint"
                 )
         try:
-            locations = mountpoint.resolve(bbox=bbox)
+            locations = mountpoint.resolve_for_asset(
+                asset,
+                bbox=bbox,
+                param_overrides=param_overrides,
+            )
         except Exception as exc:
             raise ValueError(
                 f"Could not resolve MountPoint {self.target_id!r}: {exc}"
@@ -203,6 +265,20 @@ class Attachment:
     # ------------------------------------------------------------
 
     def to_dict(self) -> dict:
+        if self._relationship_mode:
+            return {
+                "parent_component_id": self.parent_component_id,
+                "parent_location": (
+                    dict(self.parent_location)
+                    if self.parent_location is not None
+                    else None
+                ),
+                "child_location": (
+                    dict(self.child_location)
+                    if self.child_location is not None
+                    else None
+                ),
+            }
         return {
             "target_type": self.target_type,
             "target_id": self.target_id,
@@ -217,6 +293,18 @@ class Attachment:
         if not isinstance(d, dict):
             raise ValueError("Attachment.from_dict: dict expected")
 
+        if any(
+            key in d
+            for key in (
+                "parent_component_id", "parent_location", "child_location",
+            )
+        ):
+            return cls(
+                parent_component_id=d.get("parent_component_id", ""),
+                parent_location=d.get("parent_location"),
+                child_location=d.get("child_location"),
+            )
+
         loc = d.get("location")
         if loc is not None and not isinstance(loc, dict):
             loc = None
@@ -229,6 +317,12 @@ class Attachment:
         )
 
     def __repr__(self) -> str:
+        if self._relationship_mode:
+            return (
+                f"Attachment(parent={self.parent_component_id!r} "
+                f"parent_location={self.parent_location!r} "
+                f"child_location={self.child_location!r})"
+            )
         return (
             f"Attachment(type={self.target_type!r} "
             f"id={self.target_id!r} "

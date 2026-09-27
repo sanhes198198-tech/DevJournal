@@ -722,13 +722,70 @@ class ComponentItem(QGraphicsObject):
 
         return result
 
-    def resolve_child_endpoint(self, alias: str) -> dict | None:
-        """Resolve a legacy child anchor in item-local coordinates.
+    def resolve_child_endpoint(self, alias: str | None) -> dict | None:
+        """Resolve a child endpoint in item-local coordinates.
 
-        The existing ``anchors_local`` implementation remains the source of
-        truth for aliases, including group priority and parameter overrides.
-        This helper only adapts its result to a temporary endpoint descriptor.
+        Migrated Components use their persisted native MountLocation address.
+        Legacy Components continue to use ``anchors_local`` as the source of
+        truth for aliases, group priority, and parameter overrides.
         """
+        attachment = getattr(self._component, "attachment", None)
+        native = getattr(attachment, "child_location", None)
+        if not isinstance(native, dict):
+            # Compatibility for non-Component test doubles and older callers.
+            native = getattr(self._component, "attach_location", None)
+        if isinstance(native, dict):
+            mountpoint_id = native.get("mountpoint_id")
+            index_x = native.get("index_x")
+            index_y = native.get("index_y")
+            if (
+                not isinstance(mountpoint_id, str)
+                or not mountpoint_id
+                or isinstance(index_x, bool)
+                or not isinstance(index_x, int)
+                or isinstance(index_y, bool)
+                or not isinstance(index_y, int)
+            ):
+                return {
+                    "local_position": None,
+                    "source": "native_mountpoint",
+                    "alias": alias,
+                    "mountpoint_id": mountpoint_id,
+                    "index_x": index_x,
+                    "index_y": index_y,
+                    "resolved": False,
+                    "diagnostic": "Invalid child MountLocation address",
+                }
+
+            for ix, iy, _role, lx, ly in self.mount_locations_local().get(
+                mountpoint_id, [],
+            ):
+                if ix == index_x and iy == index_y:
+                    return {
+                        "local_position": (lx, ly),
+                        "source": "native_mountpoint",
+                        "alias": alias,
+                        "mountpoint_id": mountpoint_id,
+                        "index_x": index_x,
+                        "index_y": index_y,
+                        "resolved": True,
+                        "diagnostic": None,
+                    }
+
+            return {
+                "local_position": None,
+                "source": "native_mountpoint",
+                "alias": alias,
+                "mountpoint_id": mountpoint_id,
+                "index_x": index_x,
+                "index_y": index_y,
+                "resolved": False,
+                "diagnostic": (
+                    f"Unknown or invalid child MountLocation: "
+                    f"{mountpoint_id!r}[{index_x},{index_y}]"
+                ),
+            }
+
         if not alias:
             return None
 
@@ -862,9 +919,16 @@ class ComponentItem(QGraphicsObject):
 
         result: dict = {}
         bbox = self._asset_bbox()
+        param_overrides = (
+            getattr(self._component, "param_overrides", None) or {}
+        )
         for mp in mps:
             try:
-                locs = mp.resolve(bbox=bbox)
+                locs = mp.resolve_for_asset(
+                    self._asset,
+                    bbox=bbox,
+                    param_overrides=param_overrides,
+                )
             except Exception:
                 continue
             arr = []
@@ -950,7 +1014,21 @@ class ComponentItem(QGraphicsObject):
             self._pending_snap = None
             return
 
-        endpoint = self.resolve_child_endpoint("bottom")
+        attachment = getattr(self._component, "attachment", None)
+        native_child_location = getattr(
+            attachment, "child_location", None,
+        )
+        if not isinstance(native_child_location, dict):
+            native_child_location = getattr(
+                self._component, "attach_location", None,
+            )
+        has_native_location = isinstance(native_child_location, dict)
+        child_tag = (
+            None
+            if has_native_location
+            else (self._component.attach_anchor or "bottom")
+        )
+        endpoint = self.resolve_child_endpoint(child_tag)
         if endpoint is None or not endpoint.get("resolved"):
             self.clear_snap_highlight()
             self._pending_snap = None
@@ -965,6 +1043,14 @@ class ComponentItem(QGraphicsObject):
             QPointF(local_position[0], local_position[1])
         )
         my_bottom = (world_position.x(), world_position.y())
+        my_location = None
+        if endpoint.get("source") == "native_mountpoint":
+            my_location = {
+                "mountpoint_id": endpoint["mountpoint_id"],
+                "index_x": endpoint["index_x"],
+                "index_y": endpoint["index_y"],
+            }
+            child_tag = None
 
         views = scene.views()
         ppm = 50.0
@@ -975,7 +1061,7 @@ class ComponentItem(QGraphicsObject):
         from ...snap_resolver import find_mount_snap
         result = find_mount_snap(
             scene, self, my_bottom, _role_str, threshold_m,
-            ComponentItem,
+            ComponentItem, my_tag=child_tag, my_location=my_location,
         )
 
         if result is None:
@@ -986,7 +1072,8 @@ class ComponentItem(QGraphicsObject):
         # Сначала очищаем старую пару
         self.clear_snap_highlight()
 
-        # Сдвигаем себя на (dx, dy), чтобы наш anchor совпал с их
+        # Keep the endpoint transform identical to the scene-space Snap
+        # search, including this item's rotation and scale.
         snap_target = QPointF(
             my_bottom[0] + result.dx,
             my_bottom[1] + result.dy,
@@ -1005,7 +1092,11 @@ class ComponentItem(QGraphicsObject):
         other_comp = getattr(result.other_item, "_component", None)
         if other_comp is not None:
             self._pending_snap = (
-                other_comp.id, result.my_tag, result.their_tag,
+                other_comp.id,
+                result.my_tag,
+                result.their_tag,
+                result.my_location,
+                result.their_location,
             )
         self._snap_partner = result.other_item
 
@@ -1038,14 +1129,62 @@ class ComponentItem(QGraphicsObject):
         # V21: commit pending attachment — snap во время drag был preview.
         pending = getattr(self, "_pending_snap", None)
         if pending is not None:
-            pid, my_t, their_t = pending
-            already = (
-                self._component.attach_to == pid
-                and self._component.attach_anchor == my_t
-                and self._component.parent_anchor == their_t
+            if len(pending) >= 5:
+                pid, my_t, their_t, my_location, parent_location = pending[:5]
+            elif len(pending) == 4:
+                pid, my_t, their_t, my_location = pending
+                parent_location = None
+            else:
+                pid, my_t, their_t = pending
+                my_location = None
+                parent_location = None
+            attachment = getattr(self._component, "attachment", None)
+            parent_component_id = getattr(
+                attachment,
+                "parent_component_id",
+                self._component.attach_to,
             )
+            child_location = getattr(
+                attachment,
+                "child_location",
+                getattr(self._component, "attach_location", None),
+            )
+            native_parent_location = getattr(
+                attachment,
+                "parent_location",
+                getattr(self._component, "parent_location", None),
+            )
+            if parent_location is not None:
+                child_endpoint_matches = (
+                    child_location == my_location
+                    if my_location is not None
+                    else self._component.attach_anchor == my_t
+                )
+                already = (
+                    parent_component_id == pid
+                    and child_endpoint_matches
+                    and native_parent_location == parent_location
+                )
+            elif my_location is not None:
+                already = (
+                    parent_component_id == pid
+                    and child_location == my_location
+                    and self._component.parent_anchor == their_t
+                )
+            else:
+                already = (
+                    parent_component_id == pid
+                    and self._component.attach_anchor == my_t
+                    and self._component.parent_anchor == their_t
+                )
             if not already:
-                self._component.set_attachment(pid, my_t, their_t)
+                self._component.set_attachment(
+                    pid,
+                    my_t,
+                    their_t if parent_location is None else None,
+                    attach_location=my_location,
+                    parent_location=parent_location,
+                )
                 _kind = (
                     "mount" if their_t.startswith("mp_")
                     else "anchor"

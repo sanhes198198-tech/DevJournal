@@ -74,6 +74,7 @@ class MountPoint:
         anchor_mode: str = "absolute",
         anchor_x: float = 0.5,
         anchor_y: float = 0.5,
+        semantic_group_id: str | None = None,
     ):
         self.id = id or self._generate_id()
         self.role: MountRole | None = parse_role(role)
@@ -93,6 +94,12 @@ class MountPoint:
         )
         self.legacy_auto_rule: dict | None = (
             dict(legacy_auto_rule) if legacy_auto_rule else None
+        )
+
+        # Explicit live binding used by group-bound endpoints. Keep this
+        # separate from legacy_group_id, which is provenance from migration.
+        self.semantic_group_id: str | None = (
+            str(semantic_group_id) if semantic_group_id else None
         )
 
         # V22: Anchor mode — привязка к bbox контура.
@@ -117,6 +124,11 @@ class MountPoint:
         V23: AUTO-FILL — если spacing=0 и count>1, шаг считается от bbox
              (равномерно от края до края стены).
         """
+        if self.is_group_bound():
+            raise ValueError(
+                "Group-bound MountPoint requires Asset-aware resolution"
+            )
+
         has_bbox = (
             self.anchor_mode == "relative_xy"
             and bbox is not None
@@ -164,8 +176,64 @@ class MountPoint:
                 )
         return result
 
+    def resolve_for_asset(
+        self,
+        asset,
+        *,
+        bbox=None,
+        param_overrides: dict | None = None,
+    ) -> list["MountLocation"]:
+        """Resolve against an Asset when this point is group-bound.
+
+        Static MountPoints keep the existing ``resolve(bbox)`` behavior.
+        Group-bound points use the current SemanticGroup geometry, plus the
+        supplied component parameter overrides, and produce one location.
+        The returned position is Asset-local; the caller applies item
+        centering and scene transforms separately.
+        """
+        if not self.is_group_bound():
+            return self.resolve(bbox=bbox)
+
+        if asset is None:
+            raise ValueError("Group-bound MountPoint requires an Asset")
+        if not self.distribution.is_simple():
+            raise ValueError(
+                "Group-bound MountPoint requires a single location"
+            )
+
+        centroid_resolver = getattr(
+            asset, "semantic_group_centroid", None,
+        )
+        if not callable(centroid_resolver):
+            raise ValueError(
+                "Asset cannot resolve SemanticGroup positions"
+            )
+        position = centroid_resolver(
+            self.semantic_group_id,
+            param_overrides=param_overrides,
+        )
+        if position is None:
+            raise ValueError(
+                f"Unknown or empty SemanticGroup: "
+                f"{self.semantic_group_id!r}"
+            )
+
+        return [
+            MountLocation(
+                mountpoint_id=self.id,
+                index_x=0,
+                index_y=0,
+                role=self.role,
+                position=position,
+            ),
+        ]
+
     def is_valid(self) -> bool:
         return bool(self.id)
+
+    def is_group_bound(self) -> bool:
+        """Whether this point is bound to a live SemanticGroup."""
+        return self.semantic_group_id is not None
 
     # ------------------------------------------------------------
 
@@ -185,6 +253,8 @@ class MountPoint:
             d["legacy_group_id"] = self.legacy_group_id
         if self.legacy_auto_rule is not None:
             d["legacy_auto_rule"] = dict(self.legacy_auto_rule)
+        if self.semantic_group_id is not None:
+            d["semantic_group_id"] = self.semantic_group_id
         return d
 
     @classmethod
@@ -212,6 +282,7 @@ class MountPoint:
             anchor_mode=str(d.get("anchor_mode", "absolute")),
             anchor_x=float(d.get("anchor_x", 0.5)),
             anchor_y=float(d.get("anchor_y", 0.5)),
+            semantic_group_id=d.get("semantic_group_id"),
         )
 
 

@@ -57,12 +57,13 @@
         "height": 0.0460944718728129
       },
       "attach_to": "c_9e3cbe5a",
-      "attach_anchor": "bottom",
+      "attach_anchor": null,
       "parent_anchor": "mp_f7e3fca9__2__1",
       "slot_policy": null,
       "fill_pattern": "diamonds",
       "locked": false,
-      "role": "window"
+      "role": "window",
+      "attach_location": {"mountpoint_id": "mp_a4355b25", "index_x": 0, "index_y": 0}
     },
     "c_e65d4c68": {
       "id": "c_e65d4c68",
@@ -100,12 +101,13 @@
         "width": 0.0
       },
       "attach_to": "c_e65d4c68",
-      "attach_anchor": "bottom",
+      "attach_anchor": null,
       "parent_anchor": "top",
       "slot_policy": null,
       "fill_pattern": "",
       "locked": false,
-      "role": "foundation"
+      "role": "foundation",
+      "attach_location": {"mountpoint_id": "mp_c620b58c", "index_x": 0, "index_y": 0}
     },
     "c_87250d1e": {
       "id": "c_87250d1e",
@@ -119,12 +121,13 @@
       "filled": true,
       "param_overrides": {},
       "attach_to": "c_b18af25d",
-      "attach_anchor": "bottom",
+      "attach_anchor": null,
       "parent_anchor": "top",
       "slot_policy": null,
       "fill_pattern": "",
       "locked": false,
-      "role": null
+      "role": null,
+      "attach_location": {"mountpoint_id": "mp_dd1d0d44", "index_x": 0, "index_y": 0}
     },
     "c_21a93e2b": {
       "id": "c_21a93e2b",
@@ -138,12 +141,14 @@
       "filled": true,
       "param_overrides": {},
       "attach_to": "c_87250d1e",
-      "attach_anchor": "bottom",
-      "parent_anchor": "top",
+      "attach_anchor": null,
+      "parent_anchor": "",
+      "parent_location": {"mountpoint_id": "mp_2a981ae4", "index_x": 0, "index_y": 0},
       "slot_policy": null,
       "fill_pattern": "",
       "locked": false,
-      "role": null
+      "role": null,
+      "attach_location": {"mountpoint_id": "mp_6735b464", "index_x": 0, "index_y": 0}
     },
     "c_5c7aaf57": {
       "id": "c_5c7aaf57",
@@ -157,12 +162,13 @@
       "filled": true,
       "param_overrides": {},
       "attach_to": "c_21a93e2b",
-      "attach_anchor": "bottom",
+      "attach_anchor": null,
       "parent_anchor": "top",
       "slot_policy": null,
       "fill_pattern": "",
       "locked": false,
-      "role": null
+      "role": null,
+      "attach_location": {"mountpoint_id": "mp_d02c89e5", "index_x": 0, "index_y": 0}
     },
     "c_3220d432": {
       "id": "c_3220d432",
@@ -197,12 +203,13 @@
       "filled": true,
       "param_overrides": {},
       "attach_to": "c_3220d432",
-      "attach_anchor": "bottom",
+      "attach_anchor": null,
       "parent_anchor": "top",
       "slot_policy": null,
       "fill_pattern": "diamonds",
       "locked": false,
-      "role": null
+      "role": null,
+      "attach_location": {"mountpoint_id": "mp_b8810f69", "index_x": 0, "index_y": 0}
     },
     "c_b463b5c3": {
       "id": "c_b463b5c3",
@@ -218,12 +225,13 @@
         "height": -0.1
       },
       "attach_to": "c_3220d432",
-      "attach_anchor": "bottom",
+      "attach_anchor": null,
       "parent_anchor": "slot_g_4cb42e0a_0_0",
       "slot_policy": null,
       "fill_pattern": "diamonds",
       "locked": false,
-      "role": null
+      "role": null,
+      "attach_location": {"mountpoint_id": "mp_356f6683", "index_x": 0, "index_y": 0}
     },
     "c_02859ea7": {
       "id": "c_02859ea7",
@@ -237,12 +245,13 @@
       "filled": false,
       "param_overrides": {},
       "attach_to": "c_3220d432",
-      "attach_anchor": "bottom",
+      "attach_anchor": null,
       "parent_anchor": "top",
       "slot_policy": null,
       "fill_pattern": "",
       "locked": false,
-      "role": null
+      "role": null,
+      "attach_location": {"mountpoint_id": "mp_65843a5f", "index_x": 0, "index_y": 0}
     },
     "c_7983eeda": {
       "id": "c_7983eeda",
@@ -258,12 +267,13 @@
         "height": 0.0460944718728129
       },
       "attach_to": "c_9e3cbe5a",
-      "attach_anchor": "bottom",
+      "attach_anchor": null,
       "parent_anchor": "mp_f7e3fca9__1__1",
       "slot_policy": null,
       "fill_pattern": "diamonds",
       "locked": false,
-      "role": "window"
+      "role": "window",
+      "attach_location": {"mountpoint_id": "mp_a4355b25", "index_x": 0, "index_y": 0}
     },
     "c_31f30abd": {
       "id": "c_31f30abd",
@@ -279,12 +289,13 @@
         "height": -0.7682169720430423
       },
       "attach_to": "c_9e3cbe5a",
-      "attach_anchor": "bottom",
+      "attach_anchor": null,
       "parent_anchor": "mp_f7e3fca9__3__2",
       "slot_policy": null,
       "fill_pattern": "diamonds",
       "locked": false,
-      "role": "window"
+      "role": "window",
+      "attach_location": {"mountpoint_id": "mp_a4355b25", "index_x": 0, "index_y": 0}
     },
     "c_48977c25": {
       "id": "c_48977c25",
@@ -300,12 +311,13 @@
         "height": -0.7682169720430423
       },
       "attach_to": "c_9e3cbe5a",
-      "attach_anchor": "bottom",
+      "attach_anchor": null,
       "parent_anchor": "mp_f7e3fca9__1__2",
       "slot_policy": null,
       "fill_pattern": "diamonds",
       "locked": false,
-      "role": "window"
+      "role": "window",
+      "attach_location": {"mountpoint_id": "mp_a4355b25", "index_x": 0, "index_y": 0}
     },
     "c_aaae43f5": {
       "id": "c_aaae43f5",
@@ -321,12 +333,13 @@
         "height": -0.7682169720430423
       },
       "attach_to": "c_9e3cbe5a",
-      "attach_anchor": "bottom",
+      "attach_anchor": null,
       "parent_anchor": "mp_f7e3fca9__2__2",
       "slot_policy": null,
       "fill_pattern": "",
       "locked": false,
-      "role": "window"
+      "role": "window",
+      "attach_location": {"mountpoint_id": "mp_a4355b25", "index_x": 0, "index_y": 0}
     },
     "c_7d015226": {
       "id": "c_7d015226",
@@ -342,12 +355,13 @@
         "height": 0.0460944718728129
       },
       "attach_to": "c_9e3cbe5a",
-      "attach_anchor": "bottom",
+      "attach_anchor": null,
       "parent_anchor": "mp_f7e3fca9__3__1",
       "slot_policy": null,
       "fill_pattern": "",
       "locked": false,
-      "role": "window"
+      "role": "window",
+      "attach_location": {"mountpoint_id": "mp_a4355b25", "index_x": 0, "index_y": 0}
     }
   },
   "visibility_rules": {},

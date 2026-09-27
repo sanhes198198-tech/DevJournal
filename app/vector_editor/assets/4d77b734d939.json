@@ -181,5 +181,22 @@
   },
   "ground_line_y": null,
   "ground_line_visible": true,
-  "layers": []
+  "layers": [],
+  "mountpoints": [
+    {
+      "id": "mp_a4355b25",
+      "role": null,
+      "position": [
+        15.669994362341463,
+        18.200528004949888
+      ],
+      "distribution": {
+        "count_x": 1,
+        "count_y": 1,
+        "spacing_x": 0.0,
+        "spacing_y": 0.0
+      },
+      "semantic_group_id": "g_cdceefc0"
+    }
+  ]
 }

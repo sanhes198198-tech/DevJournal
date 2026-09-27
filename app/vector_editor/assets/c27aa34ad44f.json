@@ -725,5 +725,22 @@
         ]
       }
     }
+  ],
+  "mountpoints": [
+    {
+      "id": "mp_b8810f69",
+      "role": null,
+      "position": [
+        13.918155098956552,
+        14.499172827430066
+      ],
+      "distribution": {
+        "count_x": 1,
+        "count_y": 1,
+        "spacing_x": 0.0,
+        "spacing_y": 0.0
+      },
+      "semantic_group_id": "g_6d15bfef"
+    }
   ]
 }

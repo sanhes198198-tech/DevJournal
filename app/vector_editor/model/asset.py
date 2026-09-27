@@ -9,12 +9,13 @@ V3: только создание, сериализация. Без UI пара�
 
 from __future__ import annotations
 
+import copy
 import uuid
 from typing import Any
 
 from .contour import VectorContour
 from .semantic_group import SemanticGroup
-from .parameter import Parameter
+from .parameter import Parameter, compute_delta_for_parameter
 from .reference_image import ReferenceImage
 from .component import Component
 from .visibility_rule import VisibilityRule
@@ -384,7 +385,7 @@ class Asset:
 
         return {
             "layers": [
-                layer.to_dict() for layer in self.layers
+                copy.deepcopy(layer.to_dict()) for layer in self.layers
             ],
             "mountpoints": [
                 mp.to_dict() for mp in self.mountpoints
@@ -527,6 +528,102 @@ class Asset:
     # ANCHORS (V8c)
     # ------------------------------------------------------------
 
+    def _visible_node_points(self) -> dict[str, tuple[float, float]]:
+        """Collect node positions using the same visible-layer rule as anchors()."""
+        pts_by_id: dict[str, tuple[float, float]] = {}
+
+        layers = getattr(self, "layers", None) or []
+        geometries = []
+        if layers:
+            for layer in layers:
+                if not getattr(layer, "visible", True):
+                    continue
+                geometries.append(layer.geometry or {})
+        if not geometries:
+            geometries = [getattr(self, "geometry", {}) or {}]
+
+        for geometry in geometries:
+            contour = geometry.get("contour", [])
+            node_ids = geometry.get("node_ids", [])
+            for index, node_id in enumerate(node_ids):
+                if index < len(contour):
+                    x, y = contour[index]
+                    pts_by_id[node_id] = (float(x), float(y))
+
+            extra_points = geometry.get("extra_points", [])
+            extra_ids = geometry.get("extra_node_ids", [])
+            for index, node_id in enumerate(extra_ids):
+                if index < len(extra_points):
+                    x, y = extra_points[index]
+                    pts_by_id[node_id] = (float(x), float(y))
+
+        return pts_by_id
+
+    def semantic_group_centroid(
+        self,
+        group_id: str,
+        *,
+        param_overrides: dict | None = None,
+    ) -> tuple[float, float] | None:
+        """Return a group's current Asset-local centroid.
+
+        ``param_overrides`` applies the same average node-delta rule used by
+        ``ComponentItem.anchors_local``. The result is not recentered into
+        item-local coordinates and this method does not mutate the Asset.
+        """
+        semantic_groups = getattr(self, "semantic_groups", None) or {}
+        group = semantic_groups.get(group_id)
+        if group is None:
+            return None
+
+        points_by_id = self._visible_node_points()
+        group_points = [
+            points_by_id[node_id]
+            for node_id in group.node_ids
+            if node_id in points_by_id
+        ]
+        if not group_points:
+            return None
+
+        x = sum(point[0] for point in group_points) / len(group_points)
+        y = sum(point[1] for point in group_points) / len(group_points)
+
+        overrides = param_overrides or {}
+        deltas_per_node: dict[str, tuple[float, float]] = {}
+        if overrides:
+            parameters = getattr(self, "parameters", None) or {}
+            for parameter in parameters.values():
+                override = overrides.get(parameter.name)
+                if override is None:
+                    continue
+                shift = float(override) - float(parameter.value)
+                if abs(shift) < 1e-12:
+                    continue
+                node_deltas = compute_delta_for_parameter(
+                    parameter, shift, semantic_groups,
+                )
+                for node_id, (dx, dy) in node_deltas.items():
+                    old_dx, old_dy = deltas_per_node.get(
+                        node_id, (0.0, 0.0),
+                    )
+                    deltas_per_node[node_id] = (
+                        old_dx + dx,
+                        old_dy + dy,
+                    )
+
+        dx_values = []
+        dy_values = []
+        for node_id in group.node_ids:
+            delta = deltas_per_node.get(node_id)
+            if delta is not None:
+                dx_values.append(delta[0])
+                dy_values.append(delta[1])
+        if dx_values:
+            x += sum(dx_values) / len(dx_values)
+            y += sum(dy_values) / len(dy_values)
+
+        return (x, y)
+
     def anchors(self) -> dict[str, tuple[float, float]]:
         """Точки крепления из групп с префиксом `anchor_`.
 
@@ -537,35 +634,9 @@ class Asset:
         """
         result: dict[str, tuple[float, float]] = {}
 
-        # V16: точки из ВСЕХ видимых слоёв (не только активного).
-        # Раньше anchors терялись, если anchor_bottom был
-        # в неактивном слое окна.
-        pts_by_id: dict[str, tuple[float, float]] = {}
-
-        layers = getattr(self, "layers", None) or []
-        layer_geometries = []
-        if layers:
-            for layer in layers:
-                if not getattr(layer, "visible", True):
-                    continue
-                layer_geometries.append(layer.geometry or {})
-        if not layer_geometries:
-            # Старый формат — один слой в geometry
-            layer_geometries = [self.geometry]
-
-        for g in layer_geometries:
-            contour = g.get("contour", [])
-            node_ids = g.get("node_ids", [])
-            for i, nid in enumerate(node_ids):
-                if i < len(contour):
-                    x, y = contour[i]
-                    pts_by_id[nid] = (float(x), float(y))
-            extra_pts = g.get("extra_points", [])
-            extra_ids = g.get("extra_node_ids", [])
-            for i, nid in enumerate(extra_ids):
-                if i < len(extra_pts):
-                    x, y = extra_pts[i]
-                    pts_by_id[nid] = (float(x), float(y))
+        # V16: точки из всех видимых слоёв; общий сбор также используется
+        # для разрешения group-bound MountPoint.
+        pts_by_id = self._visible_node_points()
 
         # Маппинг имён групп в теги anchor'ов.
         # Один и тот же смысл у стены и у крыши может называться

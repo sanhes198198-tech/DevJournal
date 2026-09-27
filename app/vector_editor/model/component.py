@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import uuid
 
-from .mounting import MountRole, parse_role, role_to_str
+from .mounting import Attachment, MountRole, parse_role, role_to_str
+from .mounting.attachment import endpoint_from_component_value
 
 
 class Component:
@@ -30,11 +31,13 @@ class Component:
         filled: bool = False,
         param_overrides: dict | None = None,
         attach_to: str = "",
-        attach_anchor: str = "",
+        attach_anchor: str | None = "",
         parent_anchor: str = "",
         fill_pattern: str = "",
         locked: bool = False,
         role: MountRole | str | None = None,
+        attach_location: dict | None = None,
+        parent_location: dict | None = None,
     ):
         self.id = id or self._generate_id()
         self.asset_id = asset_id
@@ -50,13 +53,40 @@ class Component:
         self.param_overrides: dict[str, float] = dict(
             param_overrides or {}
         )
-        # V11: привязка через anchors
-        # attach_to — id родителя в композите
-        # attach_anchor — наш якорь (anchor_bottom)
-        # parent_anchor — якорь родителя (anchor_top)
-        self.attach_to: str = str(attach_to or "")
-        self.attach_anchor: str = str(attach_anchor or "")
-        self.parent_anchor: str = str(parent_anchor or "")
+        # Legacy endpoint aliases remain as compatibility/persistence data.
+        self._attach_anchor: str | None = (
+            None if attach_anchor is None else str(attach_anchor)
+        )
+        self._parent_anchor: str = str(parent_anchor or "")
+
+        # Old composites may encode a native parent MountLocation in the
+        # parent_anchor string. Adapt it into the unified relationship while
+        # retaining the original string as compatibility data.
+        native_parent_location = (
+            dict(parent_location) if isinstance(parent_location, dict) else None
+        )
+        self._parent_location_from_legacy_tag = False
+        if native_parent_location is None:
+            descriptor = endpoint_from_component_value(
+                self._parent_anchor,
+                field="parent_anchor",
+            )
+            if descriptor and descriptor.get("kind") == "native_mountpoint":
+                native_parent_location = {
+                    "mountpoint_id": descriptor["mountpoint_id"],
+                    "index_x": descriptor["index_x"],
+                    "index_y": descriptor["index_y"],
+                }
+                self._parent_location_from_legacy_tag = True
+
+        # One model object owns the parent component reference and both native
+        # endpoint addresses. Existing flat Component fields below remain
+        # compatibility properties for runtime callers and JSON persistence.
+        self.attachment = Attachment(
+            parent_component_id=attach_to,
+            parent_location=native_parent_location,
+            child_location=attach_location,
+        )
         # V11: текстура заливки. "" = без текстуры.
         # "hatch" = серая диагональная штриховка.
         # "diamonds" = ромбы (косой крест).
@@ -81,6 +111,74 @@ class Component:
         return bool(self.asset_id)
 
     # ------------------------------------------------------------
+    # ATTACHMENT COMPATIBILITY PROPERTIES
+    # ------------------------------------------------------------
+
+    @property
+    def attach_to(self) -> str:
+        return self.attachment.parent_component_id
+
+    @attach_to.setter
+    def attach_to(self, value: str | None) -> None:
+        self.attachment.parent_component_id = str(value or "")
+
+    @property
+    def attach_location(self) -> dict | None:
+        return self.attachment.child_location
+
+    @attach_location.setter
+    def attach_location(self, value: dict | None) -> None:
+        self.attachment.child_location = (
+            dict(value) if isinstance(value, dict) else None
+        )
+
+    @property
+    def parent_location(self) -> dict | None:
+        return self.attachment.parent_location
+
+    @parent_location.setter
+    def parent_location(self, value: dict | None) -> None:
+        self.attachment.parent_location = (
+            dict(value) if isinstance(value, dict) else None
+        )
+        self._parent_location_from_legacy_tag = False
+
+    @property
+    def attach_anchor(self) -> str | None:
+        return self._attach_anchor
+
+    @attach_anchor.setter
+    def attach_anchor(self, value: str | None) -> None:
+        self._attach_anchor = None if value is None else str(value)
+
+    @property
+    def parent_anchor(self) -> str:
+        return self._parent_anchor
+
+    @parent_anchor.setter
+    def parent_anchor(self, value: str | None) -> None:
+        self._parent_anchor = str(value or "")
+        attachment = getattr(self, "attachment", None)
+        if attachment is None:
+            return
+        if self._parent_location_from_legacy_tag:
+            attachment.parent_location = None
+            self._parent_location_from_legacy_tag = False
+        if attachment.parent_location is not None:
+            return
+        descriptor = endpoint_from_component_value(
+            self._parent_anchor,
+            field="parent_anchor",
+        )
+        if descriptor and descriptor.get("kind") == "native_mountpoint":
+            attachment.parent_location = {
+                "mountpoint_id": descriptor["mountpoint_id"],
+                "index_x": descriptor["index_x"],
+                "index_y": descriptor["index_y"],
+            }
+            self._parent_location_from_legacy_tag = True
+
+    # ------------------------------------------------------------
     # PARAM OVERRIDES
     # ------------------------------------------------------------
 
@@ -102,20 +200,30 @@ class Component:
 
     def set_attachment(
         self, parent_id: str,
-        attach_anchor: str, parent_anchor: str,
+        attach_anchor: str | None, parent_anchor: str | None,
+        *, attach_location: dict | None = None,
+        parent_location: dict | None = None,
     ) -> None:
         """Прикрепить этот компонент к родителю."""
         self.attach_to = str(parent_id)
-        self.attach_anchor = str(attach_anchor)
-        self.parent_anchor = str(parent_anchor)
+        if isinstance(attach_location, dict):
+            self.attach_location = dict(attach_location)
+        elif attach_anchor is not None:
+            self.attach_anchor = str(attach_anchor)
+        if isinstance(parent_location, dict):
+            self.parent_location = dict(parent_location)
+        elif parent_anchor is not None:
+            self.parent_anchor = str(parent_anchor)
 
     def clear_attachment(self) -> None:
         self.attach_to = ""
         self.attach_anchor = ""
         self.parent_anchor = ""
+        self.attach_location = None
+        self.parent_location = None
 
     def to_dict(self) -> dict:
-        return {
+        data = {
             "id": self.id,
             "asset_id": self.asset_id,
             "x": self.x,
@@ -133,9 +241,15 @@ class Component:
             "locked": self.locked,
             "role": role_to_str(self.role),
         }
+        if self.attach_location is not None:
+            data["attach_location"] = dict(self.attach_location)
+        if self.parent_location is not None:
+            data["parent_location"] = dict(self.parent_location)
+        return data
 
     @classmethod
     def from_dict(cls, d: dict) -> "Component":
+        raw_attach_anchor = d.get("attach_anchor", "")
         return cls(
             id=d.get("id"),
             asset_id=str(d.get("asset_id", "")),
@@ -152,9 +266,15 @@ class Component:
                 if isinstance(v, (int, float))
             },
             attach_to=str(d.get("attach_to", "")),
-            attach_anchor=str(d.get("attach_anchor", "")),
+            attach_anchor=(
+                None
+                if raw_attach_anchor is None
+                else str(raw_attach_anchor)
+            ),
             parent_anchor=str(d.get("parent_anchor", "")),
             fill_pattern=str(d.get("fill_pattern", "")),
             locked=bool(d.get("locked", False)),
             role=parse_role(d.get("role")),
+            attach_location=d.get("attach_location"),
+            parent_location=d.get("parent_location"),
         )

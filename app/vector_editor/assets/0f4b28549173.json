@@ -42,8 +42,10 @@
       "filled": true,
       "param_overrides": {},
       "attach_to": "c_5f37f98d",
-      "attach_anchor": "top",
-      "parent_anchor": "bottom"
+      "attach_anchor": null,
+      "parent_anchor": "",
+      "parent_location": {"mountpoint_id": "mp_6735b464", "index_x": 0, "index_y": 0},
+      "attach_location": {"mountpoint_id": "mp_2a981ae4", "index_x": 0, "index_y": 0}
     }
   },
   "visibility_rules": {},

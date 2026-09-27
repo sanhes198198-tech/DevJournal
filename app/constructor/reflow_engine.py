@@ -15,18 +15,9 @@ from __future__ import annotations
 
 from PySide6.QtCore import QPointF
 
-
-def _parse_mount_tag(tag: str) -> tuple[str, int, int] | None:
-    """Парсит 'mp_xxx__ix__iy' → (mp_id, ix, iy). Или None."""
-    parts = tag.split("__")
-    if len(parts) != 3:
-        return None
-    if not parts[0].startswith("mp_"):
-        return None
-    try:
-        return parts[0], int(parts[1]), int(parts[2])
-    except ValueError:
-        return None
+from app.vector_editor.model.mounting.attachment import (
+    endpoint_from_component_value,
+)
 
 
 def reflow_from(
@@ -65,14 +56,49 @@ def _reflow_recursive(
         child_comp = composite.get_component(child_id)
         if child_comp is None:
             continue
-        if child_comp.attach_to != parent_id:
+        attachment = getattr(child_comp, "attachment", None)
+        legacy_parent_id = getattr(child_comp, "attach_to", "")
+        attached_parent_id = getattr(
+            attachment, "parent_component_id", legacy_parent_id,
+        )
+        if attached_parent_id != parent_id:
             continue
 
-        tag = getattr(child_comp, "parent_anchor", "") or ""
-        parsed = _parse_mount_tag(tag)
-        if parsed is None:
-            continue
-        mp_id, ix, iy = parsed
+        native_parent_location = getattr(
+            attachment, "parent_location", None,
+        )
+        if not isinstance(native_parent_location, dict):
+            native_parent_location = getattr(
+                child_comp, "parent_location", None,
+            )
+        if isinstance(native_parent_location, dict):
+            mp_id = native_parent_location.get("mountpoint_id")
+            ix = native_parent_location.get("index_x")
+            iy = native_parent_location.get("index_y")
+            if (
+                not isinstance(mp_id, str)
+                or not mp_id
+                or isinstance(ix, bool)
+                or not isinstance(ix, int)
+                or isinstance(iy, bool)
+                or not isinstance(iy, int)
+            ):
+                continue
+        else:
+            # Compatibility for older composites whose native parent
+            # address is still encoded in parent_anchor.
+            endpoint = endpoint_from_component_value(
+                child_comp.parent_anchor,
+                field="parent_anchor",
+            )
+            if (
+                endpoint is None
+                or endpoint.get("kind") != "native_mountpoint"
+            ):
+                continue
+            mp_id = endpoint["mountpoint_id"]
+            ix = endpoint["index_x"]
+            iy = endpoint["index_y"]
 
         # mount location в локальных координатах родителя
         mp_local = parent_item.mount_locations_local()
@@ -86,16 +112,20 @@ def _reflow_recursive(
             continue
 
         # anchor ребёнка в его локальных координатах
-        endpoint = child_item.resolve_child_endpoint(
-            child_comp.attach_anchor
+        child_location = getattr(attachment, "child_location", None)
+        if not isinstance(child_location, dict):
+            child_location = getattr(child_comp, "attach_location", None)
+        child_alias = (
+            None if isinstance(child_location, dict)
+            else child_comp.attach_anchor
         )
+        endpoint = child_item.resolve_child_endpoint(child_alias)
         if endpoint is None or not endpoint.get("resolved"):
             continue
         c_local = endpoint.get("local_position")
         if c_local is None:
             continue
 
-        # новая позиция = mount_world - child_anchor_local
         # Use the child's actual Qt transform, just as Snap does. Subtracting
         # an item-local endpoint directly ignores child rotation and scale.
         parent_scene = parent_item.mapToScene(
