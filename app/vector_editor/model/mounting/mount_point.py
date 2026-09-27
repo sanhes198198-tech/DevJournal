@@ -168,15 +168,33 @@ class MountPoint:
             cx = self.distribution.count_x
             cy = self.distribution.count_y
 
-            # V23: X — auto-fill или anchor
-            if sx == 0.0 and cx > 1:
+            # B3: adaptive_x — count от размера, spacing фиксирован
+            if self.distribution.adaptive_x and sx > 0.0:
+                margin = self.distribution.margin_x
+                avail = (xmax - xmin) - 2.0 * margin
+                if avail <= 0.0:
+                    cx = 1
+                    x0 = (xmin + xmax) / 2.0
+                else:
+                    cx = int(avail // sx) + 1
+                    x0 = xmin + margin
+            elif sx == 0.0 and cx > 1:
                 sx = (xmax - xmin) / (cx - 1)
                 x0 = xmin
             else:
                 x0 = xmin + self.anchor_x * (xmax - xmin)
 
-            # V23: Y — auto-fill или anchor (VE Y-down: ymin=верх, ymax=низ)
-            if sy == 0.0 and cy > 1:
+            # B3: adaptive_y
+            if self.distribution.adaptive_y and sy > 0.0:
+                margin = self.distribution.margin_y
+                avail = (ymax - ymin) - 2.0 * margin
+                if avail <= 0.0:
+                    cy = 1
+                    y0 = (ymin + ymax) / 2.0
+                else:
+                    cy = int(avail // sy) + 1
+                    y0 = ymin + margin
+            elif sy == 0.0 and cy > 1:
                 sy = (ymax - ymin) / (cy - 1)
                 y0 = ymin
             else:
@@ -185,10 +203,12 @@ class MountPoint:
             x0, y0 = self.position
             sx = self.distribution.spacing_x
             sy = self.distribution.spacing_y
+            cx = self.distribution.count_x
+            cy = self.distribution.count_y
 
         result: list[MountLocation] = []
-        for ix in range(self.distribution.count_x):
-            for iy in range(self.distribution.count_y):
+        for ix in range(cx):
+            for iy in range(cy):
                 px = x0 + ix * sx
                 py = y0 + iy * sy
                 result.append(
