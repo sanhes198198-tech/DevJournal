@@ -903,6 +903,57 @@ class ComponentItem(QGraphicsObject):
             return None
         return (min(xs), min(ys), max(xs), max(ys))
 
+    def group_bbox_world(self, group_name: str):
+        """Bbox группы по её имени (mount_top / mount_bottom) в scene-координатах.
+
+        Возвращает (xmin, ymin, xmax, ymax) или None если:
+          - asset не имеет групп
+          - группы с таким именем нет
+          - группа пуста
+        """
+        if self._asset is None:
+            return None
+        groups = getattr(self._asset, "semantic_groups", None) or {}
+        bbox_resolver = getattr(
+            self._asset, "semantic_group_bbox", None,
+        )
+        if not callable(bbox_resolver):
+            return None
+
+        target_gid = None
+        for gid, g in groups.items():
+            if getattr(g, "name", "") == group_name:
+                target_gid = gid
+                break
+        if target_gid is None:
+            return None
+
+        try:
+            local_bbox = bbox_resolver(target_gid, param_overrides={})
+        except Exception:
+            return None
+        if local_bbox is None:
+            return None
+
+        xmin, ymin, xmax, ymax = local_bbox
+        cx = self._center_x
+        cy = self._center_y
+
+        from PySide6.QtCore import QPointF
+        corners_local = [
+            (xmin - cx, ymin - cy),
+            (xmax - cx, ymin - cy),
+            (xmin - cx, ymax - cy),
+            (xmax - cx, ymax - cy),
+        ]
+        xs, ys = [], []
+        for lx, ly in corners_local:
+            sp = self.mapToScene(QPointF(lx, ly))
+            xs.append(sp.x())
+            ys.append(sp.y())
+
+        return (min(xs), min(ys), max(xs), max(ys))
+
     def mount_locations_local(self) -> dict:
         """Развернуть asset.mountpoints в локальные координаты item.
 
@@ -990,6 +1041,56 @@ class ComponentItem(QGraphicsObject):
         scene = self.scene()
         if scene is None:
             return
+
+        # Step C: соединение стен (mount_bottom ↔ mount_top)
+        try:
+            _wall_bbox = self.group_bbox_world("mount_bottom")
+        except Exception:
+            _wall_bbox = None
+        if _wall_bbox is not None:
+            views = scene.views()
+            ppm = 50.0
+            if views:
+                ppm = abs(views[0].transform().m11()) or 50.0
+            wall_threshold = SNAP_THRESHOLD_PX / ppm
+
+            from ...snap_resolver import find_wall_snap
+            wall_result = find_wall_snap(
+                scene, self, wall_threshold, ComponentItem,
+            )
+            if wall_result is not None:
+                other_comp = getattr(
+                    wall_result.other_item, "_component", None,
+                )
+                # ЗАЩИТА: не привязываться к себе
+                if (other_comp is None
+                        or other_comp.id == self._component.id):
+                    self._pending_snap = None
+                    self._pending_wall_move = None
+                    self._snap_partner = None
+                    return
+                self.clear_snap_highlight()
+                self._pending_wall_move = (
+                    wall_result.dx, wall_result.dy,
+                )
+                _other_parent = getattr(other_comp, "attach_to", "")
+                if _other_parent == self._component.id:
+                    try:
+                        other_comp.clear_attachment()
+                    except Exception:
+                        pass
+                self._pending_snap = (
+                    other_comp.id,
+                    wall_result.my_tag,
+                    wall_result.their_tag,
+                )
+                self._snap_partner = wall_result.other_item
+                return
+            else:
+                self.clear_snap_highlight()
+                self._pending_snap = None
+                self._pending_wall_move = None
+                return
 
         # Снапится только окно/дверь/декор. Тип asset — window/door/ornament,
         # либо имя содержит okno/окно/door/двер.
@@ -1115,6 +1216,7 @@ class ComponentItem(QGraphicsObject):
             self._drag_old_pos = (self.pos().x(), self.pos().y())
             # V21: сброс pending — новый drag начинается с нуля
             self._pending_snap = None
+            self._pending_wall_move = None
             # Phase 13+: уведомить окно — снять снапшот для undo reflow
             self.drag_started.emit(self._component.id)
         super().mousePressEvent(event)
@@ -1125,6 +1227,13 @@ class ComponentItem(QGraphicsObject):
 
     def mouseReleaseEvent(self, event) -> None:
         super().mouseReleaseEvent(event)
+
+        # Wall snap: применить финальный сдвиг ДО commit
+        _wall_move = getattr(self, "_pending_wall_move", None)
+        if _wall_move is not None:
+            dx, dy = _wall_move
+            self.setPos(self.pos().x() + dx, self.pos().y() + dy)
+            self._pending_wall_move = None
 
         # V21: commit pending attachment — snap во время drag был preview.
         pending = getattr(self, "_pending_snap", None)
