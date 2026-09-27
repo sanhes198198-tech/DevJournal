@@ -967,30 +967,52 @@ class VectorEditor(QMainWindow):
     def _on_mount_point_item_moved(
         self, mp_id: str, x: float, y: float,
     ) -> None:
-        """Маркер перетащили в сцене — обновить модель."""
+        """Маркер перетащили — обновить модель + пересчитать ghost'ы.
+
+        Step 7: в group_bound режиме обновляем position (не anchor_x/y),
+        затем пересчитываем ghost locations через resolve_for_asset.
+        """
         if self._current_asset is None:
             return
-        for mp in getattr(self._current_asset, "mountpoints", []):
-            if mp.id == mp_id:
-                # V22: для relative_xy — обновить anchor_x/y по новой позиции
-                anchor_mode = getattr(mp, "anchor_mode", "absolute")
-                if anchor_mode == "relative_xy":
-                    bbox = self._asset_bbox()
-                    if bbox is not None:
-                        xmin, ymin, xmax, ymax = bbox
-                        w = xmax - xmin
-                        h = ymax - ymin
-                        if w > 1e-9:
-                            mp.anchor_x = max(
-                                0.0, min(1.0, (x - xmin) / w)
-                            )
-                        if h > 1e-9:
-                            mp.anchor_y = max(
-                                0.0, min(1.0, (y - ymin) / h)
-                            )
-                else:
-                    mp.position = (float(x), float(y))
+        mp = None
+        for _mp in getattr(self._current_asset, "mountpoints", []):
+            if _mp.id == mp_id:
+                mp = _mp
                 break
+        if mp is None:
+            return
+
+        is_group_bound = getattr(mp, "semantic_group_id", None) is not None
+        anchor_mode = getattr(mp, "anchor_mode", "absolute")
+
+        if is_group_bound or anchor_mode == "absolute":
+            mp.position = (float(x), float(y))
+        else:
+            # relative_xy — конвертируем в anchor_x/y
+            bbox = self._asset_bbox()
+            if bbox is not None:
+                xmin, ymin, xmax, ymax = bbox
+                w = xmax - xmin
+                h = ymax - ymin
+                if w > 1e-9:
+                    mp.anchor_x = max(0.0, min(1.0, (x - xmin) / w))
+                if h > 1e-9:
+                    mp.anchor_y = max(0.0, min(1.0, (y - ymin) / h))
+
+        # Step 7: пересчитать ghost'ы в реальном времени
+        item = self._mount_point_items.get(mp_id)
+        if item is not None:
+            try:
+                locs = mp.resolve_for_asset(
+                    self._current_asset,
+                    bbox=self._asset_bbox(),
+                    param_overrides={},
+                )
+            except Exception:
+                locs = []
+            item.set_locations(locs)
+            item.update()
+
         self._mark_modified()
         self._mount_points_panel.refresh()
 
